@@ -1,0 +1,1477 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "U-net Public SDK API",
+    "version": "1.0.0",
+    "description": "Stable public API surface for U-net web login and verification SDK integrations."
+  },
+  "paths": {
+    "/v1/web-login/sessions": {
+      "post": {
+        "tags": [
+          "web-login"
+        ],
+        "summary": "Create a one-time QR web login session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "serviceId",
+                  "origin"
+                ],
+                "properties": {
+                  "serviceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "origin": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expiresInSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 600
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Login session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "sessionId",
+                    "requestRef",
+                    "serviceId",
+                    "origin",
+                    "status",
+                    "createdAt",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "requestRef": {
+                      "type": "string"
+                    },
+                    "serviceId": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "denied",
+                        "expired"
+                      ]
+                    },
+                    "scopedUserId": {
+                      "type": "string"
+                    },
+                    "assertionJws": {
+                      "type": "string"
+                    },
+                    "qrPayload": {
+                      "type": "string"
+                    },
+                    "qrDataUrl": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "decidedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "service": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "serviceId",
+                        "name",
+                        "origin",
+                        "status"
+                      ],
+                      "properties": {
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "origin": {
+                          "type": "string"
+                        },
+                        "redirectUrl": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web-login/sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "web-login"
+        ],
+        "summary": "Poll a web login session",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login session status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "sessionId",
+                    "requestRef",
+                    "serviceId",
+                    "origin",
+                    "status",
+                    "createdAt",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "requestRef": {
+                      "type": "string"
+                    },
+                    "serviceId": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "denied",
+                        "expired"
+                      ]
+                    },
+                    "scopedUserId": {
+                      "type": "string"
+                    },
+                    "assertionJws": {
+                      "type": "string"
+                    },
+                    "qrPayload": {
+                      "type": "string"
+                    },
+                    "qrDataUrl": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "decidedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "service": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "serviceId",
+                        "name",
+                        "origin",
+                        "status"
+                      ],
+                      "properties": {
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "origin": {
+                          "type": "string"
+                        },
+                        "redirectUrl": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verification-checks": {
+      "get": {
+        "tags": [
+          "verification"
+        ],
+        "summary": "List available verification checks",
+        "responses": {
+          "200": {
+            "description": "Verification check catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "checks"
+                  ],
+                  "properties": {
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "requestType"
+                        ],
+                        "properties": {
+                          "requestType": {
+                            "type": "string",
+                            "enum": [
+                              "age_over_18",
+                              "dutch_citizen"
+                            ]
+                          },
+                          "circuitId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "vkId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "proofFormat": {
+                            "type": "string",
+                            "enum": [
+                              "noir-barretenberg-v1"
+                            ]
+                          },
+                          "oracleHash": {
+                            "type": "string",
+                            "enum": [
+                              "poseidon2",
+                              "keccak"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verification-sessions": {
+      "post": {
+        "tags": [
+          "verification"
+        ],
+        "summary": "Create a QR verification session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "verifierId",
+                  "verifierDisplayName"
+                ],
+                "properties": {
+                  "verifierId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "verifierDisplayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "requestType": {
+                    "type": "string",
+                    "enum": [
+                      "age_over_18",
+                      "dutch_citizen"
+                    ]
+                  },
+                  "requestedChecks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestType"
+                      ],
+                      "properties": {
+                        "requestType": {
+                          "type": "string",
+                          "enum": [
+                            "age_over_18",
+                            "dutch_citizen"
+                          ]
+                        },
+                        "circuitId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "vkId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "proofFormat": {
+                          "type": "string",
+                          "enum": [
+                            "noir-barretenberg-v1"
+                          ]
+                        },
+                        "oracleHash": {
+                          "type": "string",
+                          "enum": [
+                            "poseidon2",
+                            "keccak"
+                          ]
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        }
+                      }
+                    }
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 1800
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "requestType"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "requestedChecks"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Verification session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "sessionRef",
+                    "createdAt",
+                    "expiresAt",
+                    "status",
+                    "qrPayload"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "sessionRef": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "pending_scan",
+                        "pending_user_action",
+                        "denied",
+                        "submitted",
+                        "verified",
+                        "rejected",
+                        "expired",
+                        "unavailable"
+                      ]
+                    },
+                    "qrPayload": {
+                      "type": "string"
+                    },
+                    "requestedChecks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "requestType"
+                        ],
+                        "properties": {
+                          "requestType": {
+                            "type": "string",
+                            "enum": [
+                              "age_over_18",
+                              "dutch_citizen"
+                            ]
+                          },
+                          "circuitId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "vkId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "proofFormat": {
+                            "type": "string",
+                            "enum": [
+                              "noir-barretenberg-v1"
+                            ]
+                          },
+                          "oracleHash": {
+                            "type": "string",
+                            "enum": [
+                              "poseidon2",
+                              "keccak"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verification-sessions/{sessionId}": {
+      "get": {
+        "tags": [
+          "verification"
+        ],
+        "summary": "Poll a verification session result",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification session status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "status",
+                    "checkedAt",
+                    "expiresAt",
+                    "attestationStatus",
+                    "revocationCheckedAt"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "pending_scan",
+                        "pending_user_action",
+                        "denied",
+                        "submitted",
+                        "verified",
+                        "rejected",
+                        "expired",
+                        "unavailable"
+                      ]
+                    },
+                    "checkedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "resultCode": {
+                      "type": "string",
+                      "enum": [
+                        "verified",
+                        "denied",
+                        "invalid",
+                        "expired",
+                        "unavailable"
+                      ]
+                    },
+                    "reasonCode": {
+                      "type": "string",
+                      "enum": [
+                        "verification_succeeded",
+                        "holder_denied",
+                        "session_expired",
+                        "nonce_mismatch",
+                        "predicate_mismatch",
+                        "attestation_not_found",
+                        "attestation_revoked",
+                        "attestation_lookup_unavailable",
+                        "invalid_proof_artifact",
+                        "dependency_unavailable"
+                      ]
+                    },
+                    "diagnosticRefType": {
+                      "type": "string",
+                      "enum": [
+                        "canonical_ref",
+                        "tx_hash",
+                        "event_hash",
+                        "subject_fallback",
+                        "none"
+                      ]
+                    },
+                    "resolvedBy": {
+                      "type": "string",
+                      "enum": [
+                        "attestationRef",
+                        "holderFallback",
+                        "none"
+                      ]
+                    },
+                    "attestationStatus": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "revoked",
+                        "unknown"
+                      ]
+                    },
+                    "revocationCheckedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "issuerId": {
+                      "type": "string"
+                    },
+                    "ledgerRef": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "txHash": {
+                          "type": "string"
+                        },
+                        "blockNumber": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "aggregateOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "passed",
+                        "warning",
+                        "failed"
+                      ]
+                    },
+                    "checkResults": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "requestType",
+                          "status"
+                        ],
+                        "properties": {
+                          "requestType": {
+                            "type": "string",
+                            "enum": [
+                              "age_over_18",
+                              "dutch_citizen"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "passed",
+                              "warning",
+                              "failed"
+                            ]
+                          },
+                          "reasonCode": {
+                            "type": "string",
+                            "enum": [
+                              "verification_succeeded",
+                              "holder_denied",
+                              "session_expired",
+                              "nonce_mismatch",
+                              "predicate_mismatch",
+                              "attestation_not_found",
+                              "attestation_revoked",
+                              "attestation_lookup_unavailable",
+                              "invalid_proof_artifact",
+                              "dependency_unavailable"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "attestationStatus": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "revoked",
+                              "unknown"
+                            ]
+                          },
+                          "issuerId": {
+                            "type": "string"
+                          },
+                          "ledgerRef": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "txHash": {
+                                "type": "string"
+                              },
+                              "blockNumber": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout-verifications": {
+      "post": {
+        "tags": [
+          "checkout-verification"
+        ],
+        "summary": "Create a checkout-bound verification request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "serviceId",
+                  "requiredChecks"
+                ],
+                "properties": {
+                  "serviceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "requiredChecks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "age_over_18",
+                        "dutch_citizen"
+                      ]
+                    }
+                  },
+                  "restrictedResourceIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 1800
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout verification created or completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "checkout"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "requiresVerification": {
+                      "type": "boolean"
+                    },
+                    "checkout": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "checkoutId",
+                        "serviceId",
+                        "scopedUserId",
+                        "status",
+                        "requiredChecks",
+                        "restrictedResourceIds",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "checkoutId": {
+                          "type": "string"
+                        },
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "scopedUserId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "completed",
+                            "pending_verification",
+                            "failed",
+                            "expired"
+                          ]
+                        },
+                        "requiredChecks": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "age_over_18",
+                              "dutch_citizen"
+                            ]
+                          }
+                        },
+                        "restrictedResourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "verificationSessionId": {
+                          "type": "string"
+                        },
+                        "verificationSessionRef": {
+                          "type": "string"
+                        },
+                        "failureReason": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "verification": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "sessionId",
+                        "sessionRef",
+                        "qrPayload",
+                        "requestedChecks",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "sessionId": {
+                          "type": "string"
+                        },
+                        "sessionRef": {
+                          "type": "string"
+                        },
+                        "qrPayload": {
+                          "type": "string"
+                        },
+                        "qrDataUrl": {
+                          "type": "string"
+                        },
+                        "requestedChecks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "requestType"
+                            ],
+                            "properties": {
+                              "requestType": {
+                                "type": "string",
+                                "enum": [
+                                  "age_over_18",
+                                  "dutch_citizen"
+                                ]
+                              },
+                              "circuitId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "vkId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "proofFormat": {
+                                "type": "string",
+                                "enum": [
+                                  "noir-barretenberg-v1"
+                                ]
+                              },
+                              "oracleHash": {
+                                "type": "string",
+                                "enum": [
+                                  "poseidon2",
+                                  "keccak"
+                                ]
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              }
+                            }
+                          }
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid login assertion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Holder binding missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout-verifications/{checkoutId}": {
+      "get": {
+        "tags": [
+          "checkout-verification"
+        ],
+        "summary": "Poll a checkout-bound verification",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "checkoutId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "serviceId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkout verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "checkout"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "requiresVerification": {
+                      "type": "boolean"
+                    },
+                    "checkout": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "checkoutId",
+                        "serviceId",
+                        "scopedUserId",
+                        "status",
+                        "requiredChecks",
+                        "restrictedResourceIds",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "properties": {
+                        "checkoutId": {
+                          "type": "string"
+                        },
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "scopedUserId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "completed",
+                            "pending_verification",
+                            "failed",
+                            "expired"
+                          ]
+                        },
+                        "requiredChecks": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "age_over_18",
+                              "dutch_citizen"
+                            ]
+                          }
+                        },
+                        "restrictedResourceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "verificationSessionId": {
+                          "type": "string"
+                        },
+                        "verificationSessionRef": {
+                          "type": "string"
+                        },
+                        "failureReason": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "verification": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "sessionId",
+                        "sessionRef",
+                        "qrPayload",
+                        "requestedChecks",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "sessionId": {
+                          "type": "string"
+                        },
+                        "sessionRef": {
+                          "type": "string"
+                        },
+                        "qrPayload": {
+                          "type": "string"
+                        },
+                        "qrDataUrl": {
+                          "type": "string"
+                        },
+                        "requestedChecks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "requestType"
+                            ],
+                            "properties": {
+                              "requestType": {
+                                "type": "string",
+                                "enum": [
+                                  "age_over_18",
+                                  "dutch_citizen"
+                                ]
+                              },
+                              "circuitId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "vkId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "proofFormat": {
+                                "type": "string",
+                                "enum": [
+                                  "noir-barretenberg-v1"
+                                ]
+                              },
+                              "oracleHash": {
+                                "type": "string",
+                                "enum": [
+                                  "poseidon2",
+                                  "keccak"
+                                ]
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              }
+                            }
+                          }
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid login assertion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Checkout verification not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

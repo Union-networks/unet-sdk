@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>U-net plain HTML login</title></head><body>
+<button id="login">Sign in with U-net</button><pre id="out"></pre>
+<script type="module">
+import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '../../packages/web-login/src/index.ts';
+const out = document.getElementById('out');
+document.getElementById('login').onclick = async () => {
+  const session = await createLoginSession({ serviceId: 'demo-supermarket', origin: window.location.origin });
+  out.textContent = renderLoginQrPayload(session);
+  const result = await pollLoginSession(session.sessionId);
+  out.textContent = JSON.stringify(result, null, 2);
+};
+</script></body></html>

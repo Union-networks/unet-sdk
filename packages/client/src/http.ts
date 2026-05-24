@@ -1,0 +1,80 @@
+import { UnetApiError, UnetContractError } from './errors.js';
+import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, CreateWebLoginSessionInput, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus, WebLoginSession } from './types.js';
+
+const DEFAULT_ISSUER = 'https://issuer.egress.live';
+const DEFAULT_VERIFIER = 'https://verifier.egress.live';
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const requireString = (payload: Record<string, unknown>, key: string): string => {
+  const value = payload[key];
+  if (typeof value !== 'string' || !value) throw new UnetContractError(`U-net response missing ${key}`, payload);
+  return value;
+};
+
+export class UnetClient {
+  private readonly issuerBaseUrl: string;
+  private readonly verifierBaseUrl: string;
+  private readonly fetchImpl: typeof fetch;
+  public constructor(options: UnetClientOptions = {}) {
+    this.issuerBaseUrl = (options.issuerBaseUrl ?? DEFAULT_ISSUER).replace(/\/+$/, '');
+    this.verifierBaseUrl = (options.verifierBaseUrl ?? options.issuerBaseUrl ?? DEFAULT_VERIFIER).replace(/\/+$/, '');
+    this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+  public async createLoginSession(input: CreateWebLoginSessionInput): Promise<WebLoginSession> {
+    const payload = await this.request(this.issuerBaseUrl, '/v1/web-login/sessions', { method: 'POST', body: input });
+    return this.assertWebLoginSession(payload);
+  }
+  public async getLoginSession(sessionId: string): Promise<WebLoginSession> {
+    const payload = await this.request(this.issuerBaseUrl, `/v1/web-login/sessions/${encodeURIComponent(sessionId)}`);
+    return this.assertWebLoginSession(payload);
+  }
+  public async listVerificationChecks(): Promise<VerificationCheckCatalogResponse> {
+    const payload = await this.request(this.verifierBaseUrl, '/v1/verification-checks');
+    if (!isObject(payload) || !Array.isArray(payload.checks)) throw new UnetContractError('Invalid verification check catalog response', payload);
+    return payload as unknown as VerificationCheckCatalogResponse;
+  }
+  public async createVerificationSession(input: CreateVerificationSessionInput): Promise<VerificationSession> {
+    const payload = await this.request(this.verifierBaseUrl, '/v1/verification-sessions', { method: 'POST', body: input });
+    if (!isObject(payload)) throw new UnetContractError('Invalid verification session response', payload);
+    requireString(payload, 'sessionId'); requireString(payload, 'sessionRef'); requireString(payload, 'status'); requireString(payload, 'qrPayload');
+    return payload as unknown as VerificationSession;
+  }
+  public async getVerificationSession(sessionId: string): Promise<VerificationSessionStatus> {
+    const payload = await this.request(this.verifierBaseUrl, `/v1/verification-sessions/${encodeURIComponent(sessionId)}`);
+    if (!isObject(payload)) throw new UnetContractError('Invalid verification status response', payload);
+    requireString(payload, 'sessionId'); requireString(payload, 'status');
+    return payload as unknown as VerificationSessionStatus;
+  }
+  public async createCheckoutVerification(input: CreateCheckoutVerificationInput): Promise<CheckoutVerificationResponse> {
+    const { assertionJws, ...body } = input;
+    const payload = await this.request(this.issuerBaseUrl, '/v1/checkout-verifications', { method: 'POST', body, token: assertionJws });
+    return this.assertCheckoutVerification(payload);
+  }
+  public async getCheckoutVerification(input: { checkoutId: string; serviceId?: string; assertionJws: string }): Promise<CheckoutVerificationResponse> {
+    const serviceQuery = input.serviceId ? `?serviceId=${encodeURIComponent(input.serviceId)}` : '';
+    const payload = await this.request(this.issuerBaseUrl, `/v1/checkout-verifications/${encodeURIComponent(input.checkoutId)}${serviceQuery}`, { token: input.assertionJws });
+    return this.assertCheckoutVerification(payload);
+  }
+  private async request(baseUrl: string, path: string, options: { method?: string; body?: unknown; token?: string } = {}): Promise<unknown> {
+    const response = await this.fetchImpl(`${baseUrl}${path}`, { method: options.method ?? 'GET', headers: { accept: 'application/json', ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.token ? { authorization: `Bearer ${options.token}` } : {}) }, body: options.body ? JSON.stringify(options.body) : undefined });
+    const text = await response.text();
+    const payload = text ? JSON.parse(text) as unknown : undefined;
+    if (!response.ok) {
+      const obj = isObject(payload) ? payload : {};
+      throw new UnetApiError(typeof obj.message === 'string' ? obj.message : `U-net API error ${response.status}`, response.status, typeof obj.errorCode === 'string' ? obj.errorCode : undefined, payload);
+    }
+    return payload;
+  }
+  private assertWebLoginSession(payload: unknown): WebLoginSession {
+    if (!isObject(payload)) throw new UnetContractError('Invalid web login session response', payload);
+    requireString(payload, 'sessionId'); requireString(payload, 'requestRef'); requireString(payload, 'serviceId'); requireString(payload, 'origin'); requireString(payload, 'status');
+    return payload as unknown as WebLoginSession;
+  }
+  private assertCheckoutVerification(payload: unknown): CheckoutVerificationResponse {
+    if (!isObject(payload) || !isObject(payload.checkout)) throw new UnetContractError('Invalid checkout verification response', payload);
+    requireString(payload.checkout, 'checkoutId'); requireString(payload.checkout, 'status');
+    return payload as unknown as CheckoutVerificationResponse;
+  }
+}
+
+export const createUnetClient = (options?: UnetClientOptions): UnetClient => new UnetClient(options);

@@ -1,0 +1,17 @@
+{
+  "name": "@unet/client",
+  "version": "0.1.0-alpha.0",
+  "description": "Framework-neutral U-net public API client.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": { "@unet/contracts": "workspace:*" }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "unet-sdk",
+  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "Developer-facing SDK packages for U-net web login and verification.",
+  "packageManager": "pnpm@10.33.0",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run contracts:generate && tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification",
+    "contracts:generate": "openapi-typescript contracts/openapi/unet-public-api.v1.json -o packages/contracts/src/generated/unet-public-api-v1.d.ts",
+    "typecheck": "tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification --pretty false",
+    "test": "vitest run",
+    "docs:api": "node scripts/generate-api-reference.mjs",
+    "docs:dev": "pnpm docs:api && vitepress dev docs",
+    "docs:build": "pnpm docs:api && vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "jsdom": "^27.0.1",
+    "openapi-typescript": "^7.10.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.12",
+    "vitepress": "^1.6.4",
+    "vitest": "^3.2.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

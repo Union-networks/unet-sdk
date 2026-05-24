@@ -1,0 +1,8 @@
+{
+  "name": "@unet/example-react-login",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": { "@unet/react": "workspace:*", "@unet/web-login": "workspace:*", "@unet/verification": "workspace:*", "react": "^19.2.0", "react-dom": "^19.2.0" },
+  "devDependencies": { "@types/react": "^19.2.2", "@types/react-dom": "^19.2.2" }
+}
