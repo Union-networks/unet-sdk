@@ -14,5 +14,9 @@
     {
       "path": "../client"
     }
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

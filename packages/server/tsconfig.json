@@ -10,5 +10,9 @@
     "src/**/*.ts",
     "src/**/*.tsx"
   ],
-  "references": []
+  "references": [],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
 }

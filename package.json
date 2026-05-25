@@ -6,14 +6,16 @@
   "packageManager": "pnpm@10.33.0",
   "type": "module",
   "scripts": {
-    "build": "pnpm run contracts:generate && tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification",
+    "build": "pnpm run clean && pnpm run contracts:generate && tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification && mkdir -p packages/contracts/dist/generated && cp packages/contracts/src/generated/*.d.ts packages/contracts/dist/generated/",
     "contracts:generate": "openapi-typescript contracts/openapi/unet-public-api.v1.json -o packages/contracts/src/generated/unet-public-api-v1.d.ts",
     "typecheck": "tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification --pretty false",
     "test": "vitest run",
     "docs:api": "node scripts/generate-api-reference.mjs",
     "docs:dev": "pnpm docs:api && vitepress dev docs",
     "docs:build": "pnpm docs:api && vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "clean": "node scripts/clean.mjs",
+    "pack:dry": "pnpm run build && pnpm -r --filter ./packages/* pack --pack-destination ./artifacts"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

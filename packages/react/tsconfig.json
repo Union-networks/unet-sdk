@@ -20,5 +20,9 @@
     {
       "path": "../verification"
     }
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
