@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/react",
-  "version": "0.2.0-alpha.1",
+  "version": "0.2.0-alpha.2",
   "description": "React hooks and components for U-net login and verification.",
   "type": "module",
   "main": "dist/index.js",
