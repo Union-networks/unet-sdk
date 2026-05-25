@@ -1,7 +1,7 @@
-import { createUnetClient, pollUntil } from '@unet/client';
-import type { CreateWebLoginSessionInput, PollOptions, UnetClientOptions, WebLoginSession } from '@unet/client';
+import { createUnetClient, pollUntil } from '@union-networks/client';
+import type { CreateWebLoginSessionInput, PollOptions, UnetClientOptions, WebLoginSession } from '@union-networks/client';
 
-export type { CreateWebLoginSessionInput, WebLoginSession } from '@unet/client';
+export type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/client';
 
 export const createLoginSession = (input: CreateWebLoginSessionInput, options?: UnetClientOptions): Promise<WebLoginSession> =>
   createUnetClient(options).createLoginSession(input);

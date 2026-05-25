@@ -1,5 +1,5 @@
 import React from 'react';
-import { UnetVerificationQr, UnetVerificationStatus, useUnetVerification } from '@unet/react';
+import { UnetVerificationQr, UnetVerificationStatus, useUnetVerification } from '@union-networks/react';
 
 export function App() {
   const verification = useUnetVerification({ verifierId: 'example-shop', verifierDisplayName: 'Example Shop', requestedChecks: [{ requestType: 'age_over_18' }] });

@@ -47,13 +47,13 @@ importers:
 
   examples/checkout-bound-verification:
     dependencies:
-      '@unet/react':
+      '@union-networks/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@unet/verification':
+      '@union-networks/verification':
         specifier: workspace:*
         version: link:../../packages/verification
-      '@unet/web-login':
+      '@union-networks/web-login':
         specifier: workspace:*
         version: link:../../packages/web-login
       react:
@@ -72,13 +72,13 @@ importers:
 
   examples/react-age-check:
     dependencies:
-      '@unet/react':
+      '@union-networks/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@unet/verification':
+      '@union-networks/verification':
         specifier: workspace:*
         version: link:../../packages/verification
-      '@unet/web-login':
+      '@union-networks/web-login':
         specifier: workspace:*
         version: link:../../packages/web-login
       react:
@@ -97,13 +97,13 @@ importers:
 
   examples/react-login:
     dependencies:
-      '@unet/react':
+      '@union-networks/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@unet/verification':
+      '@union-networks/verification':
         specifier: workspace:*
         version: link:../../packages/verification
-      '@unet/web-login':
+      '@union-networks/web-login':
         specifier: workspace:*
         version: link:../../packages/web-login
       react:
@@ -122,7 +122,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@unet/contracts':
+      '@union-networks/contracts':
         specifier: workspace:*
         version: link:../contracts
 
@@ -130,13 +130,13 @@ importers:
 
   packages/react:
     dependencies:
-      '@unet/client':
+      '@union-networks/client':
         specifier: workspace:*
         version: link:../client
-      '@unet/verification':
+      '@union-networks/verification':
         specifier: workspace:*
         version: link:../verification
-      '@unet/web-login':
+      '@union-networks/web-login':
         specifier: workspace:*
         version: link:../web-login
       react:
@@ -147,13 +147,13 @@ importers:
 
   packages/verification:
     dependencies:
-      '@unet/client':
+      '@union-networks/client':
         specifier: workspace:*
         version: link:../client
 
   packages/web-login:
     dependencies:
-      '@unet/client':
+      '@union-networks/client':
         specifier: workspace:*
         version: link:../client
 

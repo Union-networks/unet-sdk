@@ -3,11 +3,11 @@
 Install the SDK package you need:
 
 ```bash
-pnpm add @unet/web-login
+pnpm add @union-networks/web-login
 ```
 
 ```ts
-import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@unet/web-login';
+import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
 
 const session = await createLoginSession({
   serviceId: 'demo-supermarket',

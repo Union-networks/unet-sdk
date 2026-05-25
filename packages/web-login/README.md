@@ -1,4 +1,4 @@
-# @unet/web-login
+# @union-networks/web-login
 
 High-level Sign in with U-net browser helpers.
 

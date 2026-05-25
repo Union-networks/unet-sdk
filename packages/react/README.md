@@ -1,4 +1,4 @@
-# @unet/react
+# @union-networks/react
 
 React hooks and QR/status components for U-net.
 

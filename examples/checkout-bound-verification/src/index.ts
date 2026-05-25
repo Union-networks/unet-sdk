@@ -1,4 +1,4 @@
-import { createCheckoutVerification, pollCheckoutVerification } from '@unet/verification';
+import { createCheckoutVerification, pollCheckoutVerification } from '@union-networks/verification';
 
 export async function runCheckout(assertionJws: string) {
   const started = await createCheckoutVerification({ serviceId: 'demo-supermarket', assertionJws, requiredChecks: ['age_over_18'], restrictedResourceIds: ['beer-pale-ale'] });

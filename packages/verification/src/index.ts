@@ -1,7 +1,7 @@
-import { createUnetClient, pollUntil } from '@unet/client';
-import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@unet/client';
+import { createUnetClient, pollUntil } from '@union-networks/client';
+import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
 
-export type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@unet/client';
+export type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
 
 export const listVerificationChecks = (options?: UnetClientOptions): Promise<VerificationCheckCatalogResponse> =>
   createUnetClient(options).listVerificationChecks();

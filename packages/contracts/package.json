@@ -1,6 +1,6 @@
 {
-  "name": "@unet/contracts",
-  "version": "0.1.0-alpha.0",
+  "name": "@union-networks/contracts",
+  "version": "0.1.0-alpha.1",
   "description": "Generated U-net public API contract types.",
   "type": "module",
   "main": "dist/index.js",

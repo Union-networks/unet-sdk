@@ -2,18 +2,18 @@
 
 Generated from package entrypoints. Run `pnpm docs:api` after changing public exports.
 
-## @unet/client
+## @union-networks/client
 
 Type-only contract package.
 
-## @unet/web-login
+## @union-networks/web-login
 
 - `createLoginSession`
 - `isApprovedLoginResult`
 - `pollLoginSession`
 - `renderLoginQrPayload`
 
-## @unet/verification
+## @union-networks/verification
 
 - `createCheckoutVerification`
 - `createVerificationSession`
@@ -21,7 +21,7 @@ Type-only contract package.
 - `pollCheckoutVerification`
 - `pollVerificationResult`
 
-## @unet/react
+## @union-networks/react
 
 - `UnetLoginQr`
 - `UnetVerificationQr`
@@ -29,13 +29,13 @@ Type-only contract package.
 - `useUnetLogin`
 - `useUnetVerification`
 
-## @unet/server
+## @union-networks/server
 
 - `VerifyLoginAssertionOptions`
 - `WebLoginAssertionClaims`
 - `verifyLoginAssertion`
 
-## @unet/contracts
+## @union-networks/contracts
 
 Type-only contract package.
 

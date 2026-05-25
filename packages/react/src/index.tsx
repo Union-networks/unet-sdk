@@ -1,9 +1,9 @@
 import React from 'react';
-import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@unet/web-login';
-import { createVerificationSession, pollVerificationResult } from '@unet/verification';
-import type { CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@unet/verification';
-import type { CreateWebLoginSessionInput, WebLoginSession } from '@unet/web-login';
-import type { UnetClientOptions } from '@unet/client';
+import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
+import { createVerificationSession, pollVerificationResult } from '@union-networks/verification';
+import type { CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@union-networks/verification';
+import type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/web-login';
+import type { UnetClientOptions } from '@union-networks/client';
 
 export function useUnetLogin(input: CreateWebLoginSessionInput, options?: UnetClientOptions) {
   const [session, setSession] = React.useState<WebLoginSession | undefined>();

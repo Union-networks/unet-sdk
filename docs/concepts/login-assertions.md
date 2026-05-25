@@ -3,7 +3,7 @@
 Server integrations should verify the `assertionJws` before creating a web session.
 
 ```ts
-import { verifyLoginAssertion } from '@unet/server';
+import { verifyLoginAssertion } from '@union-networks/server';
 
 const claims = verifyLoginAssertion(assertionJws, {
   secret: process.env.WEB_LOGIN_ASSERTION_SECRET!,

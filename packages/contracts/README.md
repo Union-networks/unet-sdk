@@ -1,4 +1,4 @@
-# @unet/contracts
+# @union-networks/contracts
 
 Generated TypeScript types from the snapshotted U-net public OpenAPI contract.
 

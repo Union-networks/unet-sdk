@@ -1,4 +1,4 @@
-# @unet/client
+# @union-networks/client
 
 Framework-neutral U-net HTTP client, polling helpers, QR helpers, and shared errors.
 

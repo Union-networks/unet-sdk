@@ -1,5 +1,5 @@
 import React from 'react';
-import { UnetLoginQr, useUnetLogin } from '@unet/react';
+import { UnetLoginQr, useUnetLogin } from '@union-networks/react';
 
 export function App() {
   const login = useUnetLogin({ serviceId: 'demo-supermarket', origin: window.location.origin });

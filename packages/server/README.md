@@ -1,4 +1,4 @@
-# @unet/server
+# @union-networks/server
 
 Node helpers for verifying U-net login assertions.
 

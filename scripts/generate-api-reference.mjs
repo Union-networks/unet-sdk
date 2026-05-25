@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const packages = [
-  ['@unet/client', 'packages/client/src/index.ts'],
-  ['@unet/web-login', 'packages/web-login/src/index.ts'],
-  ['@unet/verification', 'packages/verification/src/index.ts'],
-  ['@unet/react', 'packages/react/src/index.tsx'],
-  ['@unet/server', 'packages/server/src/index.ts'],
-  ['@unet/contracts', 'packages/contracts/src/index.ts'],
+  ['@union-networks/client', 'packages/client/src/index.ts'],
+  ['@union-networks/web-login', 'packages/web-login/src/index.ts'],
+  ['@union-networks/verification', 'packages/verification/src/index.ts'],
+  ['@union-networks/react', 'packages/react/src/index.tsx'],
+  ['@union-networks/server', 'packages/server/src/index.ts'],
+  ['@union-networks/contracts', 'packages/contracts/src/index.ts'],
 ];
 
 const exportedNames = (source) => {

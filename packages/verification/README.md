@@ -1,4 +1,4 @@
-# @unet/verification
+# @union-networks/verification
 
 High-level U-net verification and checkout-bound verification helpers.
 
