@@ -5,6 +5,15 @@ const jsonResponse = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 describe('UnetClient', () => {
+  it('binds fetch safely for browser runtimes', async () => {
+    const fetchImpl = function (this: unknown) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation');
+      return jsonResponse({ sessionId: 's1', requestRef: 'r1', serviceId: 'svc', origin: 'https://svc.test', status: 'pending' });
+    } as typeof fetch;
+    const client = createUnetClient({ issuerBaseUrl: 'https://issuer.test', fetchImpl });
+    await expect(client.createLoginSession({ serviceId: 'svc', origin: 'https://svc.test' })).resolves.toMatchObject({ sessionId: 's1' });
+  });
+
   it('creates and polls a login session', async () => {
     const fetchImpl = async () =>
       jsonResponse({

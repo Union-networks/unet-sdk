@@ -28,7 +28,8 @@ export class UnetClient {
   public constructor(options: UnetClientOptions = {}) {
     this.issuerBaseUrl = (options.issuerBaseUrl ?? DEFAULT_ISSUER).replace(/\/+$/, '');
     this.verifierBaseUrl = (options.verifierBaseUrl ?? options.issuerBaseUrl ?? DEFAULT_VERIFIER).replace(/\/+$/, '');
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.fetchImpl = ((input, init) => fetchImpl.call(globalThis, input, init)) as typeof fetch;
   }
   public async createLoginSession(input: CreateWebLoginSessionInput): Promise<WebLoginSession> {
     const payload = await this.request(this.issuerBaseUrl, '/v1/web-login/sessions', { method: 'POST', body: input });
