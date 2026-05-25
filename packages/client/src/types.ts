@@ -5,12 +5,36 @@ export type VerificationStatus = 'created' | 'pending_scan' | 'pending_user_acti
 export interface UnetClientOptions { issuerBaseUrl?: string; verifierBaseUrl?: string; fetchImpl?: typeof fetch; defaultTimeoutMs?: number; }
 export interface PollOptions { intervalMs?: number; timeoutMs?: number; signal?: AbortSignal; }
 
+export interface PageInfo { limit: number; hasNextPage: boolean; nextCursor?: string; totalCount?: number; }
+export interface ListPageOptions { limit?: number; cursor?: string; query?: string; category?: string; }
+
+
 export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: { serviceId: string; name: string; origin: string; redirectUrl?: string; icon?: string; status: string }; }
 export interface CreateWebLoginSessionInput { serviceId: string; origin: string; expiresInSeconds?: number; }
 
 export interface VerificationRequestedCheck { requestType: VerificationRequestType; circuitId?: string; vkId?: string; proofFormat?: 'noir-barretenberg-v1'; oracleHash?: 'poseidon2' | 'keccak'; label?: string; }
 export interface VerificationCheckResult { requestType: VerificationRequestType; status: 'passed' | 'warning' | 'failed'; reasonCode?: string; reason?: string; attestationStatus?: 'active' | 'revoked' | 'unknown'; issuerId?: string; }
-export interface VerificationCheckCatalogResponse { checks: VerificationRequestedCheck[]; }
+export interface VerificationCheckCatalogResponse { checks: VerificationRequestedCheck[]; pageInfo?: PageInfo; }
+export type ListVerificationChecksOptions = ListPageOptions & { status?: 'active' | 'deprecated' | 'revoked'; };
+
+export interface MiniProgramDefinition {
+  id: string;
+  serviceId?: string;
+  name: string;
+  provider: string;
+  description: string;
+  category: string;
+  status: string;
+  icon: string;
+  origin: string;
+  launchUrl: string;
+  permissions: string[];
+  notificationCategories?: string[];
+  updatedAt?: string;
+}
+export interface MiniProgramCatalogResponse { success: true; programs: MiniProgramDefinition[]; pageInfo?: PageInfo; }
+export type ListMiniProgramsOptions = ListPageOptions;
+
 export interface CreateVerificationSessionInput { verifierId: string; verifierDisplayName: string; requestType?: VerificationRequestType; requestedChecks?: VerificationRequestedCheck[]; ttlSeconds?: number; }
 export interface VerificationSession { sessionId: string; sessionRef: string; createdAt: string; expiresAt: string; status: VerificationStatus; qrPayload: string; requestedChecks?: VerificationRequestedCheck[]; }
 export interface VerificationSessionStatus { sessionId: string; status: VerificationStatus; checkedAt: string; expiresAt: string; resultCode?: string; reasonCode?: string; aggregateOutcome?: VerificationAggregateOutcome; checkResults?: VerificationCheckResult[]; }

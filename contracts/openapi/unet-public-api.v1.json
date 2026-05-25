@@ -376,12 +376,218 @@
         }
       }
     },
+    "/v1/mini-programs": {
+      "get": {
+        "tags": [
+          "mini-programs"
+        ],
+        "summary": "List available mini programs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mini-program catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "programs"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "programs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "name",
+                          "provider",
+                          "description",
+                          "category",
+                          "status",
+                          "icon",
+                          "origin",
+                          "launchUrl",
+                          "permissions"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "serviceId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "icon": {
+                            "type": "string"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "launchUrl": {
+                            "type": "string"
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "notificationCategories": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "pageInfo": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "limit",
+                        "hasNextPage"
+                      ],
+                      "properties": {
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "hasNextPage": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "type": "string"
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/verification-checks": {
       "get": {
         "tags": [
           "verification"
         ],
         "summary": "List available verification checks",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Verification check catalog",
@@ -438,6 +644,30 @@
                             "minLength": 1,
                             "maxLength": 160
                           }
+                        }
+                      }
+                    },
+                    "pageInfo": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "limit",
+                        "hasNextPage"
+                      ],
+                      "properties": {
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "hasNextPage": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "type": "string"
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0
                         }
                       }
                     }

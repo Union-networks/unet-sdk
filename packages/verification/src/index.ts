@@ -1,10 +1,17 @@
 import { createUnetClient, pollUntil } from '@union-networks/client';
-import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
+import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
 
-export type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
+export type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
 
-export const listVerificationChecks = (options?: UnetClientOptions): Promise<VerificationCheckCatalogResponse> =>
-  createUnetClient(options).listVerificationChecks();
+export const listVerificationChecks = (input: ListVerificationChecksOptions = {}, options?: UnetClientOptions): Promise<VerificationCheckCatalogResponse> =>
+  createUnetClient(options).listVerificationChecks(input);
+
+export async function* iterateVerificationChecks(input: ListVerificationChecksOptions = {}, options?: UnetClientOptions): AsyncGenerator<VerificationRequestedCheck, void, void> {
+  yield* createUnetClient(options).iterateVerificationChecks(input);
+}
+
+export const listMiniPrograms = (input: ListMiniProgramsOptions = {}, options?: UnetClientOptions): Promise<MiniProgramCatalogResponse> =>
+  createUnetClient(options).listMiniPrograms(input);
 
 export const createVerificationSession = (input: CreateVerificationSessionInput, options?: UnetClientOptions): Promise<VerificationSession> =>
   createUnetClient(options).createVerificationSession(input);

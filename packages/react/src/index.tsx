@@ -1,7 +1,7 @@
 import React from 'react';
 import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
-import { createVerificationSession, pollVerificationResult } from '@union-networks/verification';
-import type { CreateVerificationSessionInput, VerificationSession, VerificationSessionStatus } from '@union-networks/verification';
+import { createVerificationSession, listMiniPrograms, listVerificationChecks, pollVerificationResult } from '@union-networks/verification';
+import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@union-networks/verification';
 import type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/web-login';
 import type { UnetClientOptions } from '@union-networks/client';
 
@@ -50,4 +50,51 @@ export function UnetVerificationQr(props: { session: VerificationSession; alt?: 
 export function UnetVerificationStatus(props: { result?: VerificationSessionStatus }) {
   const text = props.result ? props.result.aggregateOutcome ?? props.result.status : 'pending';
   return <span data-unet-verification-status={text}>{text}</span>;
+}
+
+
+export function useVerificationChecks(input: ListVerificationChecksOptions = {}, options?: UnetClientOptions) {
+  const [catalog, setCatalog] = React.useState<VerificationCheckCatalogResponse | undefined>();
+  const [error, setError] = React.useState<Error | undefined>();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const load = React.useCallback(async (cursor?: string) => {
+    setIsLoading(true);
+    setError(undefined);
+    try {
+      const page = await listVerificationChecks({ ...input, cursor: cursor ?? input.cursor }, options);
+      setCatalog((current: VerificationCheckCatalogResponse | undefined) => cursor && current ? { ...page, checks: [...current.checks, ...page.checks] } : page);
+      return page;
+    } catch (err) {
+      const errorValue = err instanceof Error ? err : new Error(String(err));
+      setError(errorValue);
+      throw errorValue;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, options]);
+  const loadMore = React.useCallback(() => catalog?.pageInfo?.nextCursor ? load(catalog.pageInfo.nextCursor) : Promise.resolve(undefined), [catalog, load]);
+  return { catalog, error, isLoading, load, loadMore, hasNextPage: Boolean(catalog?.pageInfo?.hasNextPage) };
+}
+
+export function useMiniPrograms(input: ListMiniProgramsOptions = {}, options?: UnetClientOptions) {
+  const [catalog, setCatalog] = React.useState<MiniProgramCatalogResponse | undefined>();
+  const [error, setError] = React.useState<Error | undefined>();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const load = React.useCallback(async (cursor?: string) => {
+    setIsLoading(true);
+    setError(undefined);
+    try {
+      const page = await listMiniPrograms({ ...input, cursor: cursor ?? input.cursor }, options);
+      setCatalog((current: MiniProgramCatalogResponse | undefined) => cursor && current ? { ...page, programs: [...current.programs, ...page.programs] } : page);
+      return page;
+    } catch (err) {
+      const errorValue = err instanceof Error ? err : new Error(String(err));
+      setError(errorValue);
+      throw errorValue;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, options]);
+  const loadMore = React.useCallback(() => catalog?.pageInfo?.nextCursor ? load(catalog.pageInfo.nextCursor) : Promise.resolve(undefined), [catalog, load]);
+  return { catalog, error, isLoading, load, loadMore, hasNextPage: Boolean(catalog?.pageInfo?.hasNextPage) };
 }

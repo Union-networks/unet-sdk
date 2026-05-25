@@ -208,6 +208,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/mini-programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List available mini programs */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                    query?: string;
+                    category?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Mini-program catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: true;
+                            programs: {
+                                id: string;
+                                serviceId?: string;
+                                name: string;
+                                provider: string;
+                                description: string;
+                                category: string;
+                                status: string;
+                                icon: string;
+                                origin: string;
+                                launchUrl: string;
+                                permissions: string[];
+                                notificationCategories?: string[];
+                                /** Format: date-time */
+                                updatedAt?: string;
+                            }[];
+                            pageInfo?: {
+                                limit: number;
+                                hasNextPage: boolean;
+                                nextCursor?: string;
+                                totalCount?: number;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/verification-checks": {
         parameters: {
             query?: never;
@@ -218,7 +284,13 @@ export interface paths {
         /** List available verification checks */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                    query?: string;
+                    category?: string;
+                    status?: "active" | "deprecated" | "revoked";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -243,6 +315,12 @@ export interface paths {
                                 oracleHash?: "poseidon2" | "keccak";
                                 label?: string;
                             }[];
+                            pageInfo?: {
+                                limit: number;
+                                hasNextPage: boolean;
+                                nextCursor?: string;
+                                totalCount?: number;
+                            };
                         };
                     };
                 };

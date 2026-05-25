@@ -1,5 +1,5 @@
 import { UnetApiError, UnetContractError } from './errors.js';
-import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, CreateWebLoginSessionInput, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus, WebLoginSession } from './types.js';
+import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, CreateWebLoginSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus, WebLoginSession } from './types.js';
 
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 const DEFAULT_VERIFIER = 'https://verifier.egress.live';
@@ -10,6 +10,16 @@ const requireString = (payload: Record<string, unknown>, key: string): string =>
   if (typeof value !== 'string' || !value) throw new UnetContractError(`U-net response missing ${key}`, payload);
   return value;
 };
+
+const withQuery = (path: string, params: object): string => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params as Record<string, string | number | undefined>)) {
+    if (value !== undefined && value !== '') search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
+};
+
 
 export class UnetClient {
   private readonly issuerBaseUrl: string;
@@ -28,10 +38,23 @@ export class UnetClient {
     const payload = await this.request(this.issuerBaseUrl, `/v1/web-login/sessions/${encodeURIComponent(sessionId)}`);
     return this.assertWebLoginSession(payload);
   }
-  public async listVerificationChecks(): Promise<VerificationCheckCatalogResponse> {
-    const payload = await this.request(this.verifierBaseUrl, '/v1/verification-checks');
+  public async listVerificationChecks(options: ListVerificationChecksOptions = {}): Promise<VerificationCheckCatalogResponse> {
+    const payload = await this.request(this.verifierBaseUrl, withQuery('/v1/verification-checks', options));
     if (!isObject(payload) || !Array.isArray(payload.checks)) throw new UnetContractError('Invalid verification check catalog response', payload);
     return payload as unknown as VerificationCheckCatalogResponse;
+  }
+  public async *iterateVerificationChecks(options: ListVerificationChecksOptions = {}): AsyncGenerator<VerificationCheckCatalogResponse['checks'][number], void, void> {
+    let cursor = options.cursor;
+    do {
+      const page = await this.listVerificationChecks({ ...options, cursor });
+      for (const check of page.checks) yield check;
+      cursor = page.pageInfo?.hasNextPage ? page.pageInfo.nextCursor : undefined;
+    } while (cursor);
+  }
+  public async listMiniPrograms(options: ListMiniProgramsOptions = {}): Promise<MiniProgramCatalogResponse> {
+    const payload = await this.request(this.issuerBaseUrl, withQuery('/v1/mini-programs', options));
+    if (!isObject(payload) || !Array.isArray(payload.programs)) throw new UnetContractError('Invalid mini-program catalog response', payload);
+    return payload as unknown as MiniProgramCatalogResponse;
   }
   public async createVerificationSession(input: CreateVerificationSessionInput): Promise<VerificationSession> {
     const payload = await this.request(this.verifierBaseUrl, '/v1/verification-sessions', { method: 'POST', body: input });

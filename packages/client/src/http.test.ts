@@ -1,18 +1,72 @@
 import { describe, expect, it } from 'vitest';
 import { UnetApiError, UnetContractError, createUnetClient } from './index.js';
 
-const jsonResponse = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+const jsonResponse = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 describe('UnetClient', () => {
   it('creates and polls a login session', async () => {
-    const fetchImpl = async () => jsonResponse({ success: true, sessionId: 's1', requestRef: 'r1', serviceId: 'svc', origin: 'https://example.test', status: 'approved', scopedUserId: 'm_svc_1', assertionJws: 'jwt', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+1000).toISOString() });
+    const fetchImpl = async () =>
+      jsonResponse({
+        success: true,
+        sessionId: 's1',
+        requestRef: 'r1',
+        serviceId: 'svc',
+        origin: 'https://example.test',
+        status: 'approved',
+        scopedUserId: 'm_svc_1',
+        assertionJws: 'jwt',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 1000).toISOString(),
+      });
     const client = createUnetClient({ issuerBaseUrl: 'https://issuer.test', fetchImpl });
     await expect(client.getLoginSession('s1')).resolves.toMatchObject({ status: 'approved', scopedUserId: 'm_svc_1' });
   });
+
+  it('lists paginated verification checks and mini programs', async () => {
+    const seen: string[] = [];
+    const client = createUnetClient({
+      issuerBaseUrl: 'https://issuer.test',
+      verifierBaseUrl: 'https://verifier.test',
+      fetchImpl: async (url) => {
+        seen.push(String(url));
+        if (String(url).includes('/v1/verification-checks')) {
+          return jsonResponse({ checks: [{ requestType: 'age_over_18', label: 'Over 18' }], pageInfo: { limit: 1, hasNextPage: false, totalCount: 1 } });
+        }
+        return jsonResponse({
+          success: true,
+          programs: [{ id: 'demo', name: 'Demo', provider: 'Provider', description: '', category: 'Test', status: 'MVP', icon: 'apps', origin: 'https://issuer.test', launchUrl: 'https://issuer.test/demo', permissions: ['identity.scoped'] }],
+          pageInfo: { limit: 1, hasNextPage: false, totalCount: 1 },
+        });
+      },
+    });
+    await expect(client.listVerificationChecks({ limit: 1, query: 'age' })).resolves.toMatchObject({ checks: [{ requestType: 'age_over_18' }] });
+    await expect(client.listMiniPrograms({ limit: 1, query: 'demo' })).resolves.toMatchObject({ programs: [{ id: 'demo' }] });
+    expect(seen.some((url) => url === 'https://verifier.test/v1/verification-checks?limit=1&query=age')).toBe(true);
+    expect(seen.some((url) => url === 'https://issuer.test/v1/mini-programs?limit=1&query=demo')).toBe(true);
+  });
+
+  it('iterates verification check pages', async () => {
+    const client = createUnetClient({
+      verifierBaseUrl: 'https://verifier.test',
+      fetchImpl: async (url) => {
+        const isSecond = String(url).includes('cursor=1');
+        return jsonResponse({
+          checks: [{ requestType: isSecond ? 'dutch_citizen' : 'age_over_18' }],
+          pageInfo: { limit: 1, hasNextPage: !isSecond, ...(isSecond ? {} : { nextCursor: '1' }), totalCount: 2 },
+        });
+      },
+    });
+    const checks: string[] = [];
+    for await (const check of client.iterateVerificationChecks({ limit: 1 })) checks.push(check.requestType);
+    expect(checks).toEqual(['age_over_18', 'dutch_citizen']);
+  });
+
   it('throws API errors', async () => {
     const client = createUnetClient({ fetchImpl: async () => jsonResponse({ success: false, errorCode: 'bad_request', message: 'nope' }, 400) });
     await expect(client.getLoginSession('missing')).rejects.toBeInstanceOf(UnetApiError);
   });
+
   it('throws contract errors for malformed success payloads', async () => {
     const client = createUnetClient({ fetchImpl: async () => jsonResponse({ success: true }) });
     await expect(client.getLoginSession('bad')).rejects.toBeInstanceOf(UnetContractError);
