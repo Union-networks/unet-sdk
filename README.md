@@ -215,6 +215,13 @@ export function LoginPanel() {
 }
 ```
 
+
+## Make A Web App Miniapp-Ready
+
+The same web app can support both normal browser QR login and in-U-net miniapp launch. Serve a same-origin manifest at `/.well-known/unet-miniapp.json`, register the `serviceId + origin` with U-net, and call `host.createServiceSession` when `window.ReactNativeWebView` is available.
+
+See [Make your web app miniapp-ready](./docs/guides/miniapp-ready.md) for the manifest format, bridge call, and browser fallback pattern.
+
 ## Error Handling
 
 All SDK packages use the shared error classes from `@union-networks/client`:

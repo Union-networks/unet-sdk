@@ -14,6 +14,9 @@ export default defineConfig({
         { text: 'Login assertions', link: '/concepts/login-assertions' },
         { text: 'Checkout-bound verification', link: '/concepts/checkout-bound-verification' },
       ]},
+      { text: 'Guides', items: [
+        { text: 'Make your web app miniapp-ready', link: '/guides/miniapp-ready' },
+      ]},
       { text: 'Reference', items: [{ text: 'API Reference', link: '/api' }]},
     ],
   },

@@ -9,8 +9,14 @@ export interface PageInfo { limit: number; hasNextPage: boolean; nextCursor?: st
 export interface ListPageOptions { limit?: number; cursor?: string; query?: string; category?: string; }
 
 
-export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: { serviceId: string; name: string; origin: string; redirectUrl?: string; icon?: string; status: string }; }
+export interface WebLoginService { serviceId: string; name: string; provider: string; origin: string; redirectUrl?: string; icon?: string; scopes: string[]; status: string; }
+export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: WebLoginService; }
 export interface CreateWebLoginSessionInput { serviceId: string; origin: string; expiresInSeconds?: number; }
+export interface ResolveWebLoginServiceInput { serviceId: string; origin: string; }
+export interface WebLoginServiceResolveResponse { success: true; service: WebLoginService; }
+export interface CreateServiceSessionInput { miniProgramId?: string; serviceId: string; origin: string; scopedUserId: string; proofJws: string; }
+export interface ServiceSessionResponse { success: true; service?: WebLoginService; serviceId: string; scopedUserId: string; sessionId: string; assertionJws: string; expiresAtIso: string; }
+export interface UnetMiniAppManifest { serviceId: string; name: string; provider: string; description: string; icon?: string; launchUrl: string; permissions: string[]; notificationCategories?: string[]; }
 
 export interface VerificationRequestedCheck { requestType: VerificationRequestType; circuitId?: string; vkId?: string; proofFormat?: 'noir-barretenberg-v1'; oracleHash?: 'poseidon2' | 'keccak'; label?: string; }
 export interface VerificationCheckResult { requestType: VerificationRequestType; status: 'passed' | 'warning' | 'failed'; reasonCode?: string; reason?: string; attestationStatus?: 'active' | 'revoked' | 'unknown'; issuerId?: string; }

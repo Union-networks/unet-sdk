@@ -113,3 +113,8 @@ The `scopedUserId` is the account identifier your service should store. It is st
 - Send `assertionJws` to your backend and verify it with `@union-networks/server`.
 - Never ask for or store a public U-net ID to implement login.
 - Handle `denied` and `expired` as normal user outcomes, not server errors.
+
+
+## Miniapp Service Sessions
+
+When the same web app is opened inside U-net as a miniapp, use the native host bridge action `host.createServiceSession` to receive a scoped login assertion without showing a QR code. The SDK exports `CreateServiceSessionInput`, `ServiceSessionResponse`, and `resolveWebLoginService` types/helpers for integrations that need to validate or call the trust-plane service-session endpoint directly. In normal browsers, keep using `createLoginSession` and QR polling.

@@ -59,9 +59,11 @@ export interface paths {
                             service?: {
                                 serviceId: string;
                                 name: string;
+                                provider: string;
                                 origin: string;
                                 redirectUrl?: string;
                                 icon?: string;
+                                scopes: string[];
                                 status: string;
                             };
                         } & {
@@ -172,9 +174,11 @@ export interface paths {
                             service?: {
                                 serviceId: string;
                                 name: string;
+                                provider: string;
                                 origin: string;
                                 redirectUrl?: string;
                                 icon?: string;
+                                scopes: string[];
                                 status: string;
                             };
                         } & {
@@ -202,6 +206,235 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/web-login/services/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve an active registered U-net service by service ID and origin */
+        get: {
+            parameters: {
+                query: {
+                    serviceId: string;
+                    origin: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Registered service */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: true;
+                            service: {
+                                serviceId: string;
+                                name: string;
+                                provider: string;
+                                origin: string;
+                                redirectUrl?: string;
+                                icon?: string;
+                                scopes: string[];
+                                status: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Origin mismatch */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Unknown service */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/web-login/service-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange a U-net miniapp holder proof for a short-lived service login assertion */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        miniProgramId?: string;
+                        serviceId: string;
+                        origin: string;
+                        scopedUserId: string;
+                        proofJws: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Miniapp service session created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: true;
+                            service?: {
+                                serviceId: string;
+                                name: string;
+                                provider: string;
+                                origin: string;
+                                redirectUrl?: string;
+                                icon?: string;
+                                scopes: string[];
+                                status: string;
+                            };
+                            serviceId: string;
+                            scopedUserId: string;
+                            sessionId: string;
+                            assertionJws: string;
+                            /** Format: date-time */
+                            expiresAtIso: string;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Invalid holder proof */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Origin mismatch */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Unknown service */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @constant */
+                            success: false;
+                            errorCode: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -759,7 +992,18 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        UnetMiniAppManifest: {
+            serviceId: string;
+            name: string;
+            provider: string;
+            description: string;
+            icon?: string;
+            launchUrl: string;
+            permissions: string[];
+            notificationCategories?: string[];
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;

@@ -115,14 +115,19 @@
                       "required": [
                         "serviceId",
                         "name",
+                        "provider",
                         "origin",
-                        "status"
+                        "status",
+                        "scopes"
                       ],
                       "properties": {
                         "serviceId": {
                           "type": "string"
                         },
                         "name": {
+                          "type": "string"
+                        },
+                        "provider": {
                           "type": "string"
                         },
                         "origin": {
@@ -133,6 +138,12 @@
                         },
                         "icon": {
                           "type": "string"
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         },
                         "status": {
                           "type": "string"
@@ -317,14 +328,19 @@
                       "required": [
                         "serviceId",
                         "name",
+                        "provider",
                         "origin",
-                        "status"
+                        "status",
+                        "scopes"
                       ],
                       "properties": {
                         "serviceId": {
                           "type": "string"
                         },
                         "name": {
+                          "type": "string"
+                        },
+                        "provider": {
                           "type": "string"
                         },
                         "origin": {
@@ -335,6 +351,12 @@
                         },
                         "icon": {
                           "type": "string"
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         },
                         "status": {
                           "type": "string"
@@ -348,6 +370,409 @@
           },
           "404": {
             "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web-login/services/resolve": {
+      "get": {
+        "tags": [
+          "web-login"
+        ],
+        "summary": "Resolve an active registered U-net service by service ID and origin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "serviceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "service"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "service": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "serviceId",
+                        "name",
+                        "provider",
+                        "origin",
+                        "status",
+                        "scopes"
+                      ],
+                      "properties": {
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "origin": {
+                          "type": "string"
+                        },
+                        "redirectUrl": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web-login/service-session": {
+      "post": {
+        "tags": [
+          "web-login"
+        ],
+        "summary": "Exchange a U-net miniapp holder proof for a short-lived service login assertion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "serviceId",
+                  "origin",
+                  "scopedUserId",
+                  "proofJws"
+                ],
+                "properties": {
+                  "miniProgramId": {
+                    "type": "string"
+                  },
+                  "serviceId": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string"
+                  },
+                  "scopedUserId": {
+                    "type": "string"
+                  },
+                  "proofJws": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Miniapp service session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "serviceId",
+                    "scopedUserId",
+                    "sessionId",
+                    "assertionJws",
+                    "expiresAtIso"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "service": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "serviceId",
+                        "name",
+                        "provider",
+                        "origin",
+                        "status",
+                        "scopes"
+                      ],
+                      "properties": {
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "origin": {
+                          "type": "string"
+                        },
+                        "redirectUrl": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "serviceId": {
+                      "type": "string"
+                    },
+                    "scopedUserId": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "assertionJws": {
+                      "type": "string"
+                    },
+                    "expiresAtIso": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid holder proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "success",
+                    "errorCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown service",
             "content": {
               "application/json": {
                 "schema": {
@@ -1697,6 +2122,52 @@
     }
   },
   "components": {
+    "schemas": {
+      "UnetMiniAppManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "serviceId",
+          "name",
+          "provider",
+          "description",
+          "launchUrl",
+          "permissions"
+        ],
+        "properties": {
+          "serviceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "launchUrl": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notificationCategories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

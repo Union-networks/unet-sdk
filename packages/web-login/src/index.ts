@@ -1,10 +1,16 @@
 import { createUnetClient, pollUntil } from '@union-networks/client';
-import type { CreateWebLoginSessionInput, PollOptions, UnetClientOptions, WebLoginSession } from '@union-networks/client';
+import type { CreateServiceSessionInput, CreateWebLoginSessionInput, PollOptions, ResolveWebLoginServiceInput, ServiceSessionResponse, UnetClientOptions, WebLoginServiceResolveResponse, WebLoginSession } from '@union-networks/client';
 
-export type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/client';
+export type { CreateServiceSessionInput, CreateWebLoginSessionInput, ResolveWebLoginServiceInput, ServiceSessionResponse, UnetMiniAppManifest, WebLoginService, WebLoginServiceResolveResponse, WebLoginSession } from '@union-networks/client';
 
 export const createLoginSession = (input: CreateWebLoginSessionInput, options?: UnetClientOptions): Promise<WebLoginSession> =>
   createUnetClient(options).createLoginSession(input);
+
+export const resolveWebLoginService = (input: ResolveWebLoginServiceInput, options?: UnetClientOptions): Promise<WebLoginServiceResolveResponse> =>
+  createUnetClient(options).resolveWebLoginService(input);
+
+export const createServiceSession = (input: CreateServiceSessionInput, options?: UnetClientOptions): Promise<ServiceSessionResponse> =>
+  createUnetClient(options).createServiceSession(input);
 
 export const pollLoginSession = (sessionId: string, options?: PollOptions & UnetClientOptions): Promise<WebLoginSession> =>
   pollUntil(() => createUnetClient(options).getLoginSession(sessionId), (session) => session.status !== 'pending', options);

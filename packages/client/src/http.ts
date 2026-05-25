@@ -1,5 +1,5 @@
 import { UnetApiError, UnetContractError } from './errors.js';
-import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, CreateWebLoginSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus, WebLoginSession } from './types.js';
+import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateServiceSessionInput, CreateVerificationSessionInput, CreateWebLoginSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, ResolveWebLoginServiceInput, ServiceSessionResponse, UnetClientOptions, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus, WebLoginServiceResolveResponse, WebLoginSession } from './types.js';
 
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 const DEFAULT_VERIFIER = 'https://verifier.egress.live';
@@ -38,6 +38,18 @@ export class UnetClient {
   public async getLoginSession(sessionId: string): Promise<WebLoginSession> {
     const payload = await this.request(this.issuerBaseUrl, `/v1/web-login/sessions/${encodeURIComponent(sessionId)}`);
     return this.assertWebLoginSession(payload);
+  }
+  public async resolveWebLoginService(input: ResolveWebLoginServiceInput): Promise<WebLoginServiceResolveResponse> {
+    const payload = await this.request(this.issuerBaseUrl, withQuery('/v1/web-login/services/resolve', input));
+    if (!isObject(payload) || !isObject(payload.service)) throw new UnetContractError('Invalid web login service resolve response', payload);
+    requireString(payload.service, 'serviceId'); requireString(payload.service, 'origin');
+    return payload as unknown as WebLoginServiceResolveResponse;
+  }
+  public async createServiceSession(input: CreateServiceSessionInput): Promise<ServiceSessionResponse> {
+    const payload = await this.request(this.issuerBaseUrl, '/v1/web-login/service-session', { method: 'POST', body: input });
+    if (!isObject(payload)) throw new UnetContractError('Invalid service session response', payload);
+    requireString(payload, 'serviceId'); requireString(payload, 'scopedUserId'); requireString(payload, 'sessionId'); requireString(payload, 'assertionJws');
+    return payload as unknown as ServiceSessionResponse;
   }
   public async listVerificationChecks(options: ListVerificationChecksOptions = {}): Promise<VerificationCheckCatalogResponse> {
     const payload = await this.request(this.verifierBaseUrl, withQuery('/v1/verification-checks', options));

@@ -46,3 +46,8 @@ For normal integrations, prefer:
 - `@union-networks/web-login`
 - `@union-networks/verification`
 - `@union-networks/react`
+
+
+## Miniapp Manifest Type
+
+The public OpenAPI snapshot includes `UnetMiniAppManifest`, the JSON shape a web app serves from `/.well-known/unet-miniapp.json` to become openable as an unlisted U-net miniapp during development.
