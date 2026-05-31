@@ -538,8 +538,8 @@ export interface paths {
                     content: {
                         "application/json": {
                             checks: {
-                                /** @enum {string} */
-                                requestType: "age_over_18" | "dutch_citizen";
+                                requestType: string;
+                                predicateId?: string;
                                 circuitId?: string;
                                 vkId?: string;
                                 /** @enum {string} */
@@ -547,6 +547,16 @@ export interface paths {
                                 /** @enum {string} */
                                 oracleHash?: "poseidon2" | "keccak";
                                 label?: string;
+                                description?: string;
+                                category?: string;
+                                icon?: string;
+                                consentText?: string;
+                                proofVersion?: string;
+                                /** @enum {string} */
+                                proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+                                proverArtifact?: {
+                                    [key: string]: unknown;
+                                };
                             }[];
                             pageInfo?: {
                                 limit: number;
@@ -589,11 +599,10 @@ export interface paths {
                     "application/json": {
                         verifierId: string;
                         verifierDisplayName: string;
-                        /** @enum {string} */
-                        requestType?: "age_over_18" | "dutch_citizen";
+                        requestType?: string;
                         requestedChecks?: {
-                            /** @enum {string} */
-                            requestType: "age_over_18" | "dutch_citizen";
+                            requestType: string;
+                            predicateId?: string;
                             circuitId?: string;
                             vkId?: string;
                             /** @enum {string} */
@@ -601,6 +610,16 @@ export interface paths {
                             /** @enum {string} */
                             oracleHash?: "poseidon2" | "keccak";
                             label?: string;
+                            description?: string;
+                            category?: string;
+                            icon?: string;
+                            consentText?: string;
+                            proofVersion?: string;
+                            /** @enum {string} */
+                            proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+                            proverArtifact?: {
+                                [key: string]: unknown;
+                            };
                         }[];
                         ttlSeconds?: number;
                     } | unknown | unknown;
@@ -624,8 +643,8 @@ export interface paths {
                             status: "created" | "pending_scan" | "pending_user_action" | "denied" | "submitted" | "verified" | "rejected" | "expired" | "unavailable";
                             qrPayload: string;
                             requestedChecks?: {
-                                /** @enum {string} */
-                                requestType: "age_over_18" | "dutch_citizen";
+                                requestType: string;
+                                predicateId?: string;
                                 circuitId?: string;
                                 vkId?: string;
                                 /** @enum {string} */
@@ -633,6 +652,16 @@ export interface paths {
                                 /** @enum {string} */
                                 oracleHash?: "poseidon2" | "keccak";
                                 label?: string;
+                                description?: string;
+                                category?: string;
+                                icon?: string;
+                                consentText?: string;
+                                proofVersion?: string;
+                                /** @enum {string} */
+                                proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+                                proverArtifact?: {
+                                    [key: string]: unknown;
+                                };
                             }[];
                         };
                     };
@@ -714,8 +743,7 @@ export interface paths {
                             /** @enum {string} */
                             aggregateOutcome?: "passed" | "warning" | "failed";
                             checkResults?: {
-                                /** @enum {string} */
-                                requestType: "age_over_18" | "dutch_citizen";
+                                requestType: string;
                                 /** @enum {string} */
                                 status: "passed" | "warning" | "failed";
                                 /** @enum {string} */
@@ -820,8 +848,8 @@ export interface paths {
                                 qrPayload: string;
                                 qrDataUrl?: string;
                                 requestedChecks: {
-                                    /** @enum {string} */
-                                    requestType: "age_over_18" | "dutch_citizen";
+                                    requestType: string;
+                                    predicateId?: string;
                                     circuitId?: string;
                                     vkId?: string;
                                     /** @enum {string} */
@@ -829,6 +857,16 @@ export interface paths {
                                     /** @enum {string} */
                                     oracleHash?: "poseidon2" | "keccak";
                                     label?: string;
+                                    description?: string;
+                                    category?: string;
+                                    icon?: string;
+                                    consentText?: string;
+                                    proofVersion?: string;
+                                    /** @enum {string} */
+                                    proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+                                    proverArtifact?: {
+                                        [key: string]: unknown;
+                                    };
                                 }[];
                                 /** Format: date-time */
                                 expiresAt: string;
@@ -931,8 +969,8 @@ export interface paths {
                                 qrPayload: string;
                                 qrDataUrl?: string;
                                 requestedChecks: {
-                                    /** @enum {string} */
-                                    requestType: "age_over_18" | "dutch_citizen";
+                                    requestType: string;
+                                    predicateId?: string;
                                     circuitId?: string;
                                     vkId?: string;
                                     /** @enum {string} */
@@ -940,6 +978,16 @@ export interface paths {
                                     /** @enum {string} */
                                     oracleHash?: "poseidon2" | "keccak";
                                     label?: string;
+                                    description?: string;
+                                    category?: string;
+                                    icon?: string;
+                                    consentText?: string;
+                                    proofVersion?: string;
+                                    /** @enum {string} */
+                                    proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+                                    proverArtifact?: {
+                                        [key: string]: unknown;
+                                    };
                                 }[];
                                 /** Format: date-time */
                                 expiresAt: string;

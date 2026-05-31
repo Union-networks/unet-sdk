@@ -1036,10 +1036,14 @@
                         "properties": {
                           "requestType": {
                             "type": "string",
-                            "enum": [
-                              "age_over_18",
-                              "dutch_citizen"
-                            ]
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9._:-]+$"
+                          },
+                          "predicateId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
                           },
                           "circuitId": {
                             "type": "string",
@@ -1068,6 +1072,39 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 160
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "category": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "icon": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          },
+                          "consentText": {
+                            "type": "string",
+                            "maxLength": 1200
+                          },
+                          "proofVersion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "proofEncodingFormat": {
+                            "type": "string",
+                            "enum": [
+                              "bb_binary_proof_with_public_inputs_prefix"
+                            ]
+                          },
+                          "proverArtifact": {
+                            "type": "object",
+                            "additionalProperties": true
                           }
                         }
                       }
@@ -1134,10 +1171,9 @@
                   },
                   "requestType": {
                     "type": "string",
-                    "enum": [
-                      "age_over_18",
-                      "dutch_citizen"
-                    ]
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[a-zA-Z0-9._:-]+$"
                   },
                   "requestedChecks": {
                     "type": "array",
@@ -1151,10 +1187,14 @@
                       "properties": {
                         "requestType": {
                           "type": "string",
-                          "enum": [
-                            "age_over_18",
-                            "dutch_citizen"
-                          ]
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9._:-]+$"
+                        },
+                        "predicateId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
                         },
                         "circuitId": {
                           "type": "string",
@@ -1183,6 +1223,39 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 160
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "category": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "icon": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        },
+                        "consentText": {
+                          "type": "string",
+                          "maxLength": 1200
+                        },
+                        "proofVersion": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "proofEncodingFormat": {
+                          "type": "string",
+                          "enum": [
+                            "bb_binary_proof_with_public_inputs_prefix"
+                          ]
+                        },
+                        "proverArtifact": {
+                          "type": "object",
+                          "additionalProperties": true
                         }
                       }
                     }
@@ -1268,10 +1341,14 @@
                         "properties": {
                           "requestType": {
                             "type": "string",
-                            "enum": [
-                              "age_over_18",
-                              "dutch_citizen"
-                            ]
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9._:-]+$"
+                          },
+                          "predicateId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
                           },
                           "circuitId": {
                             "type": "string",
@@ -1300,6 +1377,39 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 160
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 1000
+                          },
+                          "category": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "icon": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          },
+                          "consentText": {
+                            "type": "string",
+                            "maxLength": 1200
+                          },
+                          "proofVersion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "proofEncodingFormat": {
+                            "type": "string",
+                            "enum": [
+                              "bb_binary_proof_with_public_inputs_prefix"
+                            ]
+                          },
+                          "proverArtifact": {
+                            "type": "object",
+                            "additionalProperties": true
                           }
                         }
                       }
@@ -1488,10 +1598,9 @@
                         "properties": {
                           "requestType": {
                             "type": "string",
-                            "enum": [
-                              "age_over_18",
-                              "dutch_citizen"
-                            ]
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9._:-]+$"
                           },
                           "status": {
                             "type": "string",
@@ -1759,10 +1868,14 @@
                             "properties": {
                               "requestType": {
                                 "type": "string",
-                                "enum": [
-                                  "age_over_18",
-                                  "dutch_citizen"
-                                ]
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9._:-]+$"
+                              },
+                              "predicateId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
                               },
                               "circuitId": {
                                 "type": "string",
@@ -1791,6 +1904,39 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 160
+                              },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 1000
+                              },
+                              "category": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "icon": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              },
+                              "consentText": {
+                                "type": "string",
+                                "maxLength": 1200
+                              },
+                              "proofVersion": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "proofEncodingFormat": {
+                                "type": "string",
+                                "enum": [
+                                  "bb_binary_proof_with_public_inputs_prefix"
+                                ]
+                              },
+                              "proverArtifact": {
+                                "type": "object",
+                                "additionalProperties": true
                               }
                             }
                           }
@@ -2016,10 +2162,14 @@
                             "properties": {
                               "requestType": {
                                 "type": "string",
-                                "enum": [
-                                  "age_over_18",
-                                  "dutch_citizen"
-                                ]
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "^[a-zA-Z0-9._:-]+$"
+                              },
+                              "predicateId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
                               },
                               "circuitId": {
                                 "type": "string",
@@ -2048,6 +2198,39 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 160
+                              },
+                              "description": {
+                                "type": "string",
+                                "maxLength": 1000
+                              },
+                              "category": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "icon": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 160
+                              },
+                              "consentText": {
+                                "type": "string",
+                                "maxLength": 1200
+                              },
+                              "proofVersion": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80
+                              },
+                              "proofEncodingFormat": {
+                                "type": "string",
+                                "enum": [
+                                  "bb_binary_proof_with_public_inputs_prefix"
+                                ]
+                              },
+                              "proverArtifact": {
+                                "type": "object",
+                                "additionalProperties": true
                               }
                             }
                           }
