@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/client",
-  "version": "0.2.0-alpha.3",
+  "version": "0.2.0-alpha.5",
   "description": "Framework-neutral U-net public API client.",
   "type": "module",
   "main": "dist/index.js",
