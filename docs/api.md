@@ -9,14 +9,17 @@ Type-only contract package.
 ## @union-networks/web-login
 
 - `createLoginSession`
+- `createServiceSession`
 - `isApprovedLoginResult`
 - `pollLoginSession`
 - `renderLoginQrPayload`
+- `resolveWebLoginService`
 
 ## @union-networks/verification
 
 - `createCheckoutVerification`
 - `createVerificationSession`
+- `listMiniPrograms`
 - `listVerificationChecks`
 - `pollCheckoutVerification`
 - `pollVerificationResult`
@@ -26,13 +29,22 @@ Type-only contract package.
 - `UnetLoginQr`
 - `UnetVerificationQr`
 - `UnetVerificationStatus`
+- `useMiniPrograms`
 - `useUnetLogin`
 - `useUnetVerification`
+- `useVerificationChecks`
 
 ## @union-networks/server
 
+- `UnetMiniappManifest`
+- `UnetMiniappManifestOptions`
+- `UnetProviderClaimOptions`
+- `UnetProviderClaimResponse`
 - `VerifyLoginAssertionOptions`
 - `WebLoginAssertionClaims`
+- `createUnetMiniappManifest`
+- `createUnetProviderClaim`
+- `createUnetProviderClaimHandler`
 - `verifyLoginAssertion`
 
 ## @union-networks/contracts

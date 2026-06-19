@@ -31,12 +31,19 @@ npm install @union-networks/react@alpha
 
 ## Required Setup
 
-Before a production service can use U-net login, the service must be registered with U-net trust-plane. A service registration contains:
+Before a production service can use U-net login, the service must be known to U-net trust-plane. For self-serve integrations, this is done with domain verification in the U-net dashboard:
+
+1. Log in to the U-net dashboard.
+2. Create a domain claim for your `serviceId` and HTTPS origin.
+3. Add the claim token to your server environment.
+4. Serve `/.well-known/unet-provider-claim.json` or `/.well-known/unet-miniapp.json`.
+5. Verify the domain in the dashboard.
+
+A service record contains:
 
 - `serviceId`, for example `demo-supermarket`
 - allowed browser origin, for example `https://shop.example.com`
 - display name and optional icon
-- redirect URL
 - allowed scopes, starting with `identity.scoped`
 
 For local demos you can use the public demo endpoints:
@@ -218,7 +225,7 @@ export function LoginPanel() {
 
 ## Make A Web App Miniapp-Ready
 
-The same web app can support both normal browser QR login and in-U-net miniapp launch. Serve a same-origin manifest at `/.well-known/unet-miniapp.json`, register the `serviceId + origin` with U-net, and call `host.createServiceSession` when `window.ReactNativeWebView` is available.
+The same web app can support both normal browser QR login and in-U-net miniapp launch. Serve a same-origin manifest at `/.well-known/unet-miniapp.json`, verify the `serviceId + origin` with a dashboard domain claim, and call `host.createServiceSession` when `window.ReactNativeWebView` is available.
 
 See [Make your web app miniapp-ready](./docs/guides/miniapp-ready.md) for the manifest format, bridge call, and browser fallback pattern.
 
@@ -249,6 +256,7 @@ try {
 ## Security Notes
 
 - Verify login assertions on your server. Do not trust browser-only state.
+- Keep provider domain-claim tokens server-side. Browser SDK packages should never see them.
 - Store accounts by `scopedUserId`, not by public U-net ID.
 - Do not ask U-net users for passwords, emails, phone numbers, or global IDs just to use scoped login.
 - For restricted purchases, use checkout-bound verification instead of storing a reusable `ageVerified` flag.

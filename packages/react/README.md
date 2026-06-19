@@ -39,7 +39,20 @@ export function LoginPanel() {
 }
 ```
 
-After approval, send `login.session.assertionJws` to your server and verify it with `@union-networks/server`.
+`login.start()` resolves with the terminal login session. When it is approved, send `assertionJws` to your server and verify it with `@union-networks/server`.
+
+```tsx
+async function onLogin() {
+  const result = await login.start();
+  if (result.status !== 'approved' || !result.assertionJws) return;
+
+  await fetch('/api/unet/session', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ assertionJws: result.assertionJws }),
+  });
+}
+```
 
 ## Verification Hook
 
@@ -97,6 +110,14 @@ Both hooks expose:
 - `load(cursor?)`
 - `loadMore()`
 - `hasNextPage`
+
+Use these with virtualized or infinite lists when your app may have many checks or miniapps.
+
+## QR Rendering
+
+`UnetLoginQr` renders `session.qrDataUrl` as an image when trust-plane provides one. Otherwise it renders the QR payload text so you can pass it to your own QR component.
+
+`UnetVerificationQr` renders the verification QR payload as text. Most production UIs should pass `session.qrPayload` into their preferred QR-code component for visual rendering.
 
 ## Security Notes
 

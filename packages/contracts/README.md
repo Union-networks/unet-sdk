@@ -51,3 +51,9 @@ For normal integrations, prefer:
 ## Miniapp Manifest Type
 
 The public OpenAPI snapshot includes `UnetMiniAppManifest`, the JSON shape a web app serves from `/.well-known/unet-miniapp.json` to become openable as an unlisted U-net miniapp during development.
+
+For most apps, generate the manifest with `createUnetMiniappManifest` from `@union-networks/server` instead of writing the JSON by hand. That helper keeps `launchUrl`, `origin`, permissions, and optional domain-claim data in the shape U-net expects.
+
+## Domain Claims
+
+Domain-control claim responses are public JSON documents served from your origin. The raw claim token is not part of the public contract and must stay server-side. Use `@union-networks/server` to generate the response from server environment variables.

@@ -35,6 +35,24 @@ const result = await unet.getLoginSession(session.sessionId);
 
 For polling and nicer helpers, use `@union-networks/web-login`.
 
+## Service And Miniapp Helpers
+
+```ts
+const service = await unet.resolveWebLoginService({
+  serviceId: 'demo-shop',
+  origin: 'https://shop.example',
+});
+
+const serviceSession = await unet.createServiceSession({
+  serviceId: 'demo-shop',
+  origin: 'https://shop.example',
+  scopedUserId: 'm_demo-shop_...',
+  proofJws: 'holder-proof-from-unet-host',
+});
+```
+
+Most browser apps should not call `createServiceSession` directly. Inside U-net, use the native bridge action `host.createServiceSession`; outside U-net, use QR login. This low-level method is exposed for tests, custom runtimes, and platform integrations.
+
 ## Verification
 
 ```ts
@@ -55,6 +73,15 @@ const status = await unet.getVerificationSession(session.sessionId);
 for await (const check of unet.iterateVerificationChecks({ limit: 50 })) {
   console.log(check.requestType);
 }
+```
+
+Catalog methods accept `limit`, `cursor`, and `query` where supported:
+
+```ts
+const firstPage = await unet.listMiniPrograms({ query: 'shop', limit: 20 });
+const nextPage = firstPage.pageInfo?.nextCursor
+  ? await unet.listMiniPrograms({ cursor: firstPage.pageInfo.nextCursor, limit: 20 })
+  : undefined;
 ```
 
 ## Custom Fetch

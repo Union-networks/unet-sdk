@@ -87,6 +87,8 @@ switch (result.aggregateOutcome) {
 }
 ```
 
+The QR payload is intentionally compact. It contains a session reference, not the full list of requested checks.
+
 `checkResults` contains per-check details such as `holder_denied`, revoked attestation, or proof failure.
 
 ## Checkout-Bound Verification
@@ -127,6 +129,8 @@ if (checkout.verification) {
   }
 }
 ```
+
+Common terminal failure reasons include failed proof, denial, expiry, and holder mismatch. Holder mismatch means the phone that completed the verification is not the same private holder that owns the logged-in scoped ID.
 
 ## Mini-Program Catalog
 

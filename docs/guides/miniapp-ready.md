@@ -1,83 +1,19 @@
 # Make Your Web App Miniapp-Ready
 
-A U-net miniapp can be the same web app you already run in the browser. The app opens inside the U-net WebView shell, receives a scoped identity through the native bridge, and can fall back to QR login when opened in a normal browser.
+A U-net miniapp can be the same web app you already run in the browser. In a normal browser it uses QR login. Inside U-net it uses the native bridge to receive a scoped identity without showing a QR.
 
-Unlisted miniapps are meant for development and partner testing. They do not appear in the official app catalog, and in v1 they can request only `identity.scoped`. Notifications, official-account messaging, and other privileged features require catalog review later.
+Unlisted miniapps are meant for development and self-serve integrations. They do not appear in the official app catalog. In v1, unlisted apps can request `identity.scoped`; catalog listing, official account messaging, notifications, and attestation-studio features require higher tiers and platform approval where applicable.
 
-## 1. Register Your Service
+## Overview
 
-Ask U-net to register a service record with:
+1. Build normal browser login with `@union-networks/web-login`.
+2. Verify login assertions on your server with `@union-networks/server`.
+3. Create a domain claim in the U-net dashboard.
+4. Serve a same-origin `.well-known` claim or manifest.
+5. Open the URL in U-net with Apps -> Open by URL.
+6. Inside U-net, call `host.createServiceSession` instead of showing a QR.
 
-- `serviceId`, such as `example-shop`
-- allowed HTTPS origin, such as `https://shop.example.com`
-- display name, provider, icon, and allowed scopes
-
-The origin in the registration must exactly match the origin that serves your app and manifest.
-
-## 2. Serve A Miniapp Manifest
-
-Serve this file from the same origin as your app:
-
-```text
-https://shop.example.com/.well-known/unet-miniapp.json
-```
-
-Example:
-
-```json
-{
-  "serviceId": "example-shop",
-  "name": "Example Shop",
-  "provider": "Example Inc",
-  "description": "Shop with a U-net scoped identity.",
-  "icon": "basket-outline",
-  "launchUrl": "https://shop.example.com/app",
-  "permissions": ["identity.scoped"]
-}
-```
-
-Rules for unlisted miniapps:
-
-- `launchUrl` must use HTTPS.
-- `launchUrl` must be on the same origin as the entered URL.
-- `serviceId + origin` must resolve to an active registered U-net service.
-- `permissions` must be limited to `identity.scoped` for now.
-
-## 3. Login Inside U-net
-
-When your app runs inside U-net, call the host bridge action `host.createServiceSession`. U-net derives the service-scoped ID locally, signs a holder proof, and returns a short-lived login assertion. Your page never sees the public U-net ID, holder ID, FCM token, or private keys.
-
-```ts
-type BridgeResponse<T> = { id: string; ok: boolean; result?: T; error?: string };
-
-function callUnetHost<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  const bridge = window.ReactNativeWebView;
-  if (!bridge) throw new Error('not_running_inside_unet');
-  const id = crypto.randomUUID();
-  return new Promise((resolve, reject) => {
-    const onMessage = (event: MessageEvent<BridgeResponse<T>>) => {
-      if (event.data?.id !== id) return;
-      window.removeEventListener('message', onMessage as EventListener);
-      event.data.ok ? resolve(event.data.result as T) : reject(new Error(event.data.error ?? 'unet_bridge_failed'));
-    };
-    window.addEventListener('message', onMessage as EventListener);
-    bridge.postMessage(JSON.stringify({ id, action, payload }));
-  });
-}
-
-const session = await callUnetHost<{ scopedUserId: string; assertionJws: string }>('host.createServiceSession');
-await fetch('/api/session', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ assertionJws: session.assertionJws })
-});
-```
-
-On your server, verify `assertionJws` with `@union-networks/server` before creating the web session.
-
-## 4. Fall Back To QR Login In Browsers
-
-If `window.ReactNativeWebView` is missing, use normal QR login from `@union-networks/web-login`:
+## 1. Build Browser QR Login
 
 ```ts
 import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
@@ -85,13 +21,153 @@ import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@uni
 const login = await createLoginSession({
   serviceId: 'example-shop',
   origin: window.location.origin,
-  expiresInSeconds: 120
+  expiresInSeconds: 120,
 });
 
 renderQr(renderLoginQrPayload(login));
 const approved = await pollLoginSession(login.sessionId);
 ```
 
-## 5. Open During Development
+Send `approved.assertionJws` to your backend and verify it with `@union-networks/server`.
 
-In U-net mobile, go to Apps, tap **Open by URL**, and enter any HTTPS URL on your app origin. U-net fetches the manifest, checks the trust-plane service registration, asks for consent, then opens the app in the normal miniapp shell.
+## 2. Verify Your Domain
+
+In the U-net dashboard, create a domain claim for:
+
+- `serviceId`, such as `example-shop`;
+- HTTPS origin, such as `https://shop.example.com`;
+- manifest URL, usually `https://shop.example.com/.well-known/unet-miniapp.json`.
+
+The dashboard returns a claim ID, challenge, and one-time claim token. Store those in server-only environment variables:
+
+```bash
+UNET_PROVIDER_CLAIM_ID=claim_...
+UNET_PROVIDER_CLAIM_CHALLENGE=...
+UNET_PROVIDER_CLAIM_TOKEN=...
+```
+
+The token must never be bundled into client-side JavaScript.
+
+## 3. Serve A Claim Endpoint
+
+```ts
+import { createUnetProviderClaimHandler } from '@union-networks/server';
+
+const getClaim = createUnetProviderClaimHandler({
+  serviceId: 'example-shop',
+  origin: 'https://shop.example.com',
+  claimId: process.env.UNET_PROVIDER_CLAIM_ID!,
+  challenge: process.env.UNET_PROVIDER_CLAIM_CHALLENGE!,
+  claimToken: process.env.UNET_PROVIDER_CLAIM_TOKEN!,
+});
+
+export function GET() {
+  return Response.json(getClaim(), {
+    headers: { 'cache-control': 'no-store' },
+  });
+}
+```
+
+Serve it at:
+
+```text
+https://shop.example.com/.well-known/unet-provider-claim.json
+```
+
+## 4. Serve A Miniapp Manifest
+
+You can also embed the domain claim in the miniapp manifest:
+
+```ts
+import { createUnetMiniappManifest } from '@union-networks/server';
+
+export function GET() {
+  return Response.json(
+    createUnetMiniappManifest({
+      serviceId: 'example-shop',
+      name: 'Example Shop',
+      provider: 'Example',
+      description: 'A web shop that supports U-net scoped login.',
+      origin: 'https://shop.example.com',
+      launchUrl: 'https://shop.example.com',
+      icon: 'https://shop.example.com/icon.png',
+      permissions: ['identity.scoped'],
+      domainClaim: {
+        serviceId: 'example-shop',
+        origin: 'https://shop.example.com',
+        claimId: process.env.UNET_PROVIDER_CLAIM_ID!,
+        challenge: process.env.UNET_PROVIDER_CLAIM_CHALLENGE!,
+        claimToken: process.env.UNET_PROVIDER_CLAIM_TOKEN!,
+      },
+    }),
+    { headers: { 'cache-control': 'no-store' } },
+  );
+}
+```
+
+Serve it at:
+
+```text
+https://shop.example.com/.well-known/unet-miniapp.json
+```
+
+Rules:
+
+- `launchUrl` must be HTTPS.
+- `launchUrl` must be on the same origin as the entered URL.
+- `serviceId + origin` must pass U-net domain verification.
+- unlisted v1 permissions are limited to `identity.scoped`.
+
+## 5. Login Inside U-net
+
+When your app runs inside U-net, call the host bridge action `host.createServiceSession`.
+
+```ts
+type BridgeResponse<T> = { id: string; ok: boolean; result?: T; error?: string };
+
+function callUnetHost<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const bridge = window.ReactNativeWebView;
+  if (!bridge) throw new Error('not_running_inside_unet');
+
+  const id = crypto.randomUUID();
+
+  return new Promise((resolve, reject) => {
+    const onMessage = (event: MessageEvent<BridgeResponse<T>>) => {
+      if (event.data?.id !== id) return;
+      window.removeEventListener('message', onMessage as EventListener);
+      event.data.ok ? resolve(event.data.result as T) : reject(new Error(event.data.error ?? 'unet_bridge_failed'));
+    };
+
+    window.addEventListener('message', onMessage as EventListener);
+    bridge.postMessage(JSON.stringify({ id, action, payload }));
+  });
+}
+
+const session = await callUnetHost<{ scopedUserId: string; assertionJws: string }>('host.createServiceSession');
+
+await fetch('/api/unet/session', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ assertionJws: session.assertionJws }),
+});
+```
+
+Your server verifies `assertionJws` exactly like a browser QR login assertion.
+
+## 6. Browser Fallback
+
+If `window.ReactNativeWebView` is missing, show the normal QR login flow. The same app can therefore work as:
+
+- a normal website;
+- an unlisted U-net miniapp opened by URL;
+- a catalog-listed miniapp after approval and tier activation.
+
+## Development Checklist
+
+- Your app is served over HTTPS.
+- `serviceId` is stable and lowercase-friendly.
+- `origin` exactly matches the deployed site origin.
+- `.well-known/unet-miniapp.json` is reachable without authentication.
+- claim token exists only in server environment variables.
+- login assertions are verified on the server.
+- local accounts are keyed by `scopedUserId`.

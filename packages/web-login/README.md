@@ -117,4 +117,75 @@ The `scopedUserId` is the account identifier your service should store. It is st
 
 ## Miniapp Service Sessions
 
-When the same web app is opened inside U-net as a miniapp, use the native host bridge action `host.createServiceSession` to receive a scoped login assertion without showing a QR code. The SDK exports `CreateServiceSessionInput`, `ServiceSessionResponse`, and `resolveWebLoginService` types/helpers for integrations that need to validate or call the trust-plane service-session endpoint directly. In normal browsers, keep using `createLoginSession` and QR polling.
+When the same web app is opened inside U-net as a miniapp, do not show a QR code. Use the native host bridge action `host.createServiceSession` to receive the same kind of `assertionJws` that QR login returns.
+
+```ts
+type BridgeResponse<T> = { id: string; ok: boolean; result?: T; error?: string };
+
+function callUnetHost<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  const bridge = window.ReactNativeWebView;
+  if (!bridge) throw new Error('not_running_inside_unet');
+
+  const id = crypto.randomUUID();
+
+  return new Promise((resolve, reject) => {
+    const onMessage = (event: MessageEvent<BridgeResponse<T>>) => {
+      if (event.data?.id !== id) return;
+      window.removeEventListener('message', onMessage as EventListener);
+      event.data.ok ? resolve(event.data.result as T) : reject(new Error(event.data.error ?? 'unet_bridge_failed'));
+    };
+
+    window.addEventListener('message', onMessage as EventListener);
+    bridge.postMessage(JSON.stringify({ id, action, payload }));
+  });
+}
+
+const miniappSession = await callUnetHost<{ scopedUserId: string; assertionJws: string }>(
+  'host.createServiceSession',
+);
+
+await fetch('/api/unet/session', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ assertionJws: miniappSession.assertionJws }),
+});
+```
+
+Your server verifies this assertion with `@union-networks/server`, the same as browser QR login.
+
+## Service Registration Checks
+
+Use `resolveWebLoginService` when you need to confirm that U-net knows a `serviceId + origin`, for example before showing setup status in a developer dashboard.
+
+```ts
+import { resolveWebLoginService } from '@union-networks/web-login';
+
+const service = await resolveWebLoginService({
+  serviceId: 'demo-shop',
+  origin: 'https://shop.example',
+});
+```
+
+Normal application login code usually does not need this call; `createLoginSession` will fail with a typed API error if the origin is not registered or verified.
+
+## Browser And Miniapp Pattern
+
+Most apps should implement this shape:
+
+```ts
+async function signInWithUnet() {
+  if (window.ReactNativeWebView) {
+    return callUnetHost('host.createServiceSession');
+  }
+
+  const session = await createLoginSession({
+    serviceId: 'demo-shop',
+    origin: window.location.origin,
+  });
+
+  renderQr(renderLoginQrPayload(session));
+  return pollLoginSession(session.sessionId);
+}
+```
+
+That gives one web app that works both as a normal website and as a U-net miniapp.
