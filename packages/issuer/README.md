@@ -26,8 +26,8 @@ console.log(generateIssuerKeyPairEnv());
 Store the printed values in your server environment:
 
 ```bash
-UNET_ISSUER_ID=issuer:authority-portal
-UNET_ISSUER_KEY_ID=issuer:authority-portal#main
+UNET_ISSUER_ID=issuer:unet-issuer-example
+UNET_ISSUER_KEY_ID=issuer:unet-issuer-example#main
 UNET_ISSUER_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----..."
 UNET_ISSUER_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----..."
 ```
@@ -38,7 +38,7 @@ UNET_ISSUER_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----..."
 import { registerIssuerKey } from '@union-networks/issuer';
 
 await registerIssuerKey({
-  serviceId: 'authority-portal',
+  serviceId: 'unet-issuer-example',
   issuerId: process.env.UNET_ISSUER_ID!,
   keyId: process.env.UNET_ISSUER_KEY_ID!,
   publicKeyPem: process.env.UNET_ISSUER_PUBLIC_KEY_PEM!,
@@ -56,7 +56,7 @@ scoped user:
 import { createAttestationRequest } from '@union-networks/issuer';
 
 const request = await createAttestationRequest({
-  serviceId: 'authority-portal',
+  serviceId: 'unet-issuer-example',
   scopedUserId,
   requestType: 'age_over_18',
   claims: { source: 'issuer-example' },
@@ -75,7 +75,7 @@ import {
 } from '@union-networks/issuer';
 
 await approveAttestationRequest({
-  serviceId: 'authority-portal',
+  serviceId: 'unet-issuer-example',
   requestId,
   signer: createIssuerSignerFromEnv(),
   claims: { predicate: 'age_over_18', result: true },
@@ -93,7 +93,7 @@ attestation to the holder.
 import { revokeAttestation, createIssuerSignerFromEnv } from '@union-networks/issuer';
 
 await revokeAttestation({
-  serviceId: 'authority-portal',
+  serviceId: 'unet-issuer-example',
   attestationHash,
   reason: 'Revoked by issuer',
   signer: createIssuerSignerFromEnv(),
@@ -107,9 +107,9 @@ await revokeAttestation({
 import { createIssuerMiniappManifest } from '@union-networks/issuer';
 
 export const manifest = createIssuerMiniappManifest({
-  serviceId: 'authority-portal',
-  name: 'Authority Portal',
-  provider: 'Demo Authority',
+  serviceId: 'unet-issuer-example',
+  name: 'U-net Issuer Example',
+  provider: 'Example Issuer',
   launchUrl: 'https://your-domain.example/miniapp',
   description: 'Request attestations from the issuer.',
 });
@@ -125,3 +125,7 @@ export const manifest = createIssuerMiniappManifest({
   must happen on the server.
 - U-net receives scoped IDs, issuer signatures, and attestation commitments; it
   should not receive unnecessary private user data.
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.

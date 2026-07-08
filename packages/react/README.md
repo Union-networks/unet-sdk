@@ -26,8 +26,7 @@ export function LoginPanel() {
       origin: window.location.origin,
       expiresInSeconds: 120,
     },
-    { issuerBaseUrl: 'https://issuer.egress.live' },
-  );
+    );
 
   return (
     <section>
@@ -98,7 +97,6 @@ const checks = useVerificationChecks(
 
 const miniPrograms = useMiniPrograms(
   { query: searchText, limit: 20 },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 ```
 
@@ -125,3 +123,7 @@ Use these with virtualized or infinite lists when your app may have many checks 
 - Verify login assertions on your backend.
 - Keep assertion secrets out of React code.
 - Treat `denied`, `expired`, and `failed` as normal UI states.
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.

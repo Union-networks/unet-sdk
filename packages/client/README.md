@@ -16,7 +16,6 @@ npm install @union-networks/client@alpha
 import { createUnetClient } from '@union-networks/client';
 
 const unet = createUnetClient({
-  issuerBaseUrl: 'https://issuer.egress.live',
   verifierBaseUrl: 'https://verifier.egress.live',
 });
 ```
@@ -117,3 +116,7 @@ import { parseUnetQrPayload, verificationQrPayload } from '@union-networks/clien
 const qr = verificationQrPayload('session_ref_here');
 const parsed = parseUnetQrPayload(qr);
 ```
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.

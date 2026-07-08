@@ -109,7 +109,6 @@ const checkout = await createCheckoutVerification(
     restrictedResourceIds: ['wine-001'],
     ttlSeconds: 120,
   },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 
 if (checkout.verification) {
@@ -119,8 +118,7 @@ if (checkout.verification) {
       serviceId: 'demo-supermarket',
       assertionJws,
     },
-    { issuerBaseUrl: 'https://issuer.egress.live' },
-  );
+    );
 
   if (finalCheckout.checkout.status === 'completed') {
     // Continue checkout.
@@ -139,7 +137,6 @@ import { listMiniPrograms } from '@union-networks/verification';
 
 const page = await listMiniPrograms(
   { query: 'supermarket', limit: 10 },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 ```
 
@@ -149,3 +146,7 @@ const page = await listMiniPrograms(
 - Use checkout-bound verification for restricted purchases or account-bound actions.
 - Do not cache a reusable `ageVerified` flag for future purchases unless your policy explicitly supports that.
 - Always handle `warning`, `failed`, `denied`, and `expired` states in the UI.
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.

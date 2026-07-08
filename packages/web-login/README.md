@@ -35,13 +35,11 @@ const session = await createLoginSession(
     origin: window.location.origin,
     expiresInSeconds: 120,
   },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 
 const qrPayload = renderLoginQrPayload(session);
 
 const result = await pollLoginSession(session.sessionId, {
-  issuerBaseUrl: 'https://issuer.egress.live',
   intervalMs: 1500,
   timeoutMs: 120000,
 });
@@ -189,3 +187,7 @@ async function signInWithUnet() {
 ```
 
 That gives one web app that works both as a normal website and as a U-net miniapp.
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.

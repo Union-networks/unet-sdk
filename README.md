@@ -49,7 +49,6 @@ A service record contains:
 For local demos you can use the public demo endpoints:
 
 ```ts
-const issuerBaseUrl = 'https://issuer.egress.live';
 const verifierBaseUrl = 'https://verifier.egress.live';
 ```
 
@@ -80,13 +79,11 @@ const session = await createLoginSession(
     origin: window.location.origin,
     expiresInSeconds: 120,
   },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 
 const qrPayload = renderLoginQrPayload(session);
 
 const result = await pollLoginSession(session.sessionId, {
-  issuerBaseUrl: 'https://issuer.egress.live',
   intervalMs: 1500,
   timeoutMs: 120000,
 });
@@ -178,7 +175,6 @@ const checkout = await createCheckoutVerification(
     restrictedResourceIds: ['wine-001'],
     ttlSeconds: 120,
   },
-  { issuerBaseUrl: 'https://issuer.egress.live' },
 );
 
 if (checkout.requiresVerification && checkout.verification) {
@@ -188,8 +184,7 @@ if (checkout.requiresVerification && checkout.verification) {
       serviceId: 'demo-supermarket',
       assertionJws,
     },
-    { issuerBaseUrl: 'https://issuer.egress.live' },
-  );
+    );
 
   if (finalCheckout.checkout.status === 'completed') {
     // Continue checkout.
@@ -209,8 +204,7 @@ export function LoginPanel() {
       origin: window.location.origin,
       expiresInSeconds: 120,
     },
-    { issuerBaseUrl: 'https://issuer.egress.live' },
-  );
+    );
 
   return (
     <section>
@@ -289,3 +283,7 @@ The public contract snapshot lives at `contracts/openapi/unet-public-api.v1.json
 ```bash
 pnpm contracts:generate
 ```
+
+## Production issuer default
+
+The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.
