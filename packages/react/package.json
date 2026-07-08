@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/react",
-  "version": "0.2.0-alpha.6",
+  "version": "0.2.0-alpha.7",
   "description": "React hooks and components for U-net login and verification.",
   "type": "module",
   "main": "dist/index.js",
@@ -24,6 +24,7 @@
   "dependencies": {
     "@union-networks/client": "workspace:*",
     "@union-networks/web-login": "workspace:*",
-    "@union-networks/verification": "workspace:*"
+    "@union-networks/verification": "workspace:*",
+    "@union-networks/issuer": "workspace:*"
   }
 }

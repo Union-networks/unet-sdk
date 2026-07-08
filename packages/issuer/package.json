@@ -1,7 +1,7 @@
 {
-  "name": "@union-networks/web-login",
+  "name": "@union-networks/issuer",
   "version": "0.2.0-alpha.7",
-  "description": "High-level Sign in with U-net browser helpers.",
+  "description": "Issuer-side helpers for U-net attestation providers.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,5 +20,8 @@
   },
   "dependencies": {
     "@union-networks/client": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

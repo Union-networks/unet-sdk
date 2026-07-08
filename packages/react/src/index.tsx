@@ -1,6 +1,8 @@
 import React from 'react';
 import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
 import { createVerificationSession, listMiniPrograms, listVerificationChecks, pollVerificationResult } from '@union-networks/verification';
+import { createAttestationRequest, listAttestationRequests, listIssuedAttestations } from '@union-networks/issuer';
+import type { AttestationRequest, CreateAttestationRequestInput, IssuedAttestation, ListAttestationRequestsInput } from '@union-networks/issuer';
 import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@union-networks/verification';
 import type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/web-login';
 import type { UnetClientOptions } from '@union-networks/client';
@@ -97,4 +99,67 @@ export function useMiniPrograms(input: ListMiniProgramsOptions = {}, options?: U
   }, [input, options]);
   const loadMore = React.useCallback(() => catalog?.pageInfo?.nextCursor ? load(catalog.pageInfo.nextCursor) : Promise.resolve(undefined), [catalog, load]);
   return { catalog, error, isLoading, load, loadMore, hasNextPage: Boolean(catalog?.pageInfo?.hasNextPage) };
+}
+
+
+export function useIssuerAttestationRequest(input: CreateAttestationRequestInput, options?: UnetClientOptions) {
+  const [request, setRequest] = React.useState<AttestationRequest | undefined>();
+  const [error, setError] = React.useState<Error | undefined>();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const submit = React.useCallback(async () => {
+    setIsSubmitting(true);
+    setError(undefined);
+    try {
+      const result = await createAttestationRequest(input, options);
+      setRequest(result.request);
+      return result.request;
+    } catch (err) {
+      const errorValue = err instanceof Error ? err : new Error(String(err));
+      setError(errorValue);
+      throw errorValue;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [input, options]);
+  return { request, error, isSubmitting, submit };
+}
+
+export function useIssuerRequests(input: ListAttestationRequestsInput, options?: UnetClientOptions) {
+  const [requests, setRequests] = React.useState<AttestationRequest[]>([]);
+  const [error, setError] = React.useState<Error | undefined>();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const load = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(undefined);
+    try {
+      const result = await listAttestationRequests(input, options);
+      setRequests(result.requests);
+      return result.requests;
+    } catch (err) {
+      const errorValue = err instanceof Error ? err : new Error(String(err));
+      setError(errorValue);
+      throw errorValue;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, options]);
+  return { requests, error, isLoading, load };
+}
+
+export function useIssuerAttestations(input: { serviceId: string; scopedUserId?: string; providerToken?: string }, options?: UnetClientOptions) {
+  const [attestations, setAttestations] = React.useState<IssuedAttestation[]>([]);
+  const [error, setError] = React.useState<Error | undefined>();
+  const load = React.useCallback(async () => {
+    setError(undefined);
+    try {
+      const result = await listIssuedAttestations(input, options);
+      setAttestations(result.attestations);
+      return result.attestations;
+    } catch (err) {
+      const errorValue = err instanceof Error ? err : new Error(String(err));
+      setError(errorValue);
+      throw errorValue;
+    }
+  }, [input, options]);
+  return { attestations, error, load };
 }

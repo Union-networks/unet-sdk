@@ -4,28 +4,17 @@
     "rootDir": "src",
     "outDir": "dist",
     "composite": true,
-    "jsx": "react-jsx"
+    "jsx": null
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/**/*.ts"
   ],
   "references": [
     {
       "path": "../client"
-    },
-    {
-      "path": "../web-login"
-    },
-    {
-      "path": "../verification"
-    },
-    {
-      "path": "../issuer"
     }
   ],
   "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx"
+    "src/**/*.test.ts"
   ]
 }

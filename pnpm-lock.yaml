@@ -128,11 +128,24 @@ importers:
 
   packages/contracts: {}
 
+  packages/issuer:
+    dependencies:
+      '@union-networks/client':
+        specifier: workspace:*
+        version: link:../client
+    devDependencies:
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@24.12.4)(jsdom@27.4.0)
+
   packages/react:
     dependencies:
       '@union-networks/client':
         specifier: workspace:*
         version: link:../client
+      '@union-networks/issuer':
+        specifier: workspace:*
+        version: link:../issuer
       '@union-networks/verification':
         specifier: workspace:*
         version: link:../verification
