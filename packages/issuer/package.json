@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/issuer",
-  "version": "0.2.0-alpha.7",
+  "version": "0.2.0-alpha.8",
   "description": "Issuer-side helpers for U-net attestation providers.",
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@aztec/bb.js": "4.2.0",
+    "@noble/ciphers": "^1.3.0",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
     "@union-networks/client": "workspace:*"
   },
   "devDependencies": {

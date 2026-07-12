@@ -129,3 +129,18 @@ export const manifest = createIssuerMiniappManifest({
 ## Production issuer default
 
 The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.
+## Credential signing keys
+
+Issuer API actions continue to use an Ed25519 key. Generic local proofs use a separate secp256k1 credential key so the credential signature can be verified inside Noir. Keep both private keys in server-only environment variables; neither belongs in a client bundle.
+
+```ts
+const signer = {
+  issuerId: 'issuer:example',
+  keyId: 'issuer:example#api',
+  privateKeyPem: process.env.UNET_ISSUER_API_PRIVATE_KEY_PEM!,
+  credentialKeyId: 'issuer:example#credential-v1',
+  credentialPrivateKeyPem: process.env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM!,
+};
+```
+
+`approveAttestationRequest` now creates credential-envelope v2, signs its commitment, encrypts the private claims to the holder's delivery key, and sends only ciphertext plus public anchor metadata through trust-plane. Requests therefore require `holderBinding` and `deliveryPublicKey`, obtained from `host.createServiceSession` when the issuer page runs inside U-net.
