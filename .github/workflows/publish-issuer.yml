@@ -20,6 +20,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @union-networks/client build
       - run: pnpm --filter @union-networks/issuer test
       - run: pnpm --filter @union-networks/issuer typecheck
       - run: pnpm --filter @union-networks/issuer build
