@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/issuer",
-  "version": "0.2.0-alpha.8",
+  "version": "0.2.0-alpha.9",
   "description": "Issuer-side helpers for U-net attestation providers.",
   "type": "module",
   "main": "dist/index.js",
