@@ -1,5 +1,13 @@
 # @union-networks/issuer
 
+## Domain administration credentials
+
+Paid U-net domains can issue private Owner and Admin credentials from a same-origin server callback. Keep both keys server-side: the Ed25519 callback key authenticates the provider response, while the secp256k1 credential key is bound inside the generic `claim_equals_v1` proof.
+
+Run `generateDomainAdminSignerEnv({ serviceId })` once on the provider server, then install its returned `env` value as server secrets. Paste the returned callback public key, credential key ID, and credential public-key hash into the dashboard Keys page. Use `createDomainAdminSignerFromEnv` and `createDomainAdminCallbackHandler` in the callback registered there.
+
+The callback receives only a one-time challenge, requested role, holder binding, and delivery public key. It must return an encrypted credential envelope; holder identity and private claims must never be logged or stored by the callback.
+
 Issuer-side helpers for U-net attestation providers.
 
 Use this package when your service issues attestations, such as an authority,

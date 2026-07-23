@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCredentialEnvelopeV2, createIssuerMiniappManifest, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateIssuerKeyPair, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
+import { createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
 
 describe('@union-networks/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
@@ -32,5 +32,36 @@ describe('@union-networks/issuer', () => {
     expect(first.signature).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(first.claims[0]?.siblings).toHaveLength(8);
     expect(await derivePredicateV2({ proofProfileId: 'claim_range_v1', schemaId: input.schemaId, claimPath: 'age_years', lowerBound: 18, upperBound: 150 })).toMatch(/^[0-9]+$/);
+  });
+
+  it('derives a stable circuit credential key hash', async () => {
+    const keys = generateCredentialSigningKeyPair();
+    expect(await deriveCredentialPublicKeyHash(keys.publicKeyPem)).toBe(await deriveCredentialPublicKeyHash(keys.publicKeyPem));
+  });
+
+  it('exports a complete domain administration signer environment once', async () => {
+    const generated = await generateDomainAdminSignerEnv({ serviceId: 'issuer.example' });
+    expect(generated.env).toContain('UNET_DOMAIN_ADMIN_PRIVATE_KEY_PEM=');
+    expect(generated.env).toContain('UNET_DOMAIN_ADMIN_CREDENTIAL_PRIVATE_KEY_PEM=');
+    expect(generated.credentialPublicKeyHash).toMatch(/^[0-9]+$/);
+  });
+
+  it('validates and consumes domain administration callbacks once', async () => {
+    const signerKeys = generateIssuerKeyPair();
+    const consumed = new Set<string>();
+    const handler = createDomainAdminCallbackHandler({
+      serviceId: 'issuer.example',
+      origin: 'https://issuer.example',
+      signer: { issuerId: 'domain:issuer.example', keyId: 'domain:issuer.example#callback', privateKeyPem: signerKeys.privateKeyPem },
+      consumeChallenge: async (challenge) => consumed.has(challenge) ? false : (consumed.add(challenge), true),
+      issueCredential: async () => ({ attestationCommitment: 'a'.repeat(64), encryptedCredentialEnvelope: { version: 2 }, credentialPublicMetadata: { issuerKeyHash: '123' } }),
+    });
+    const request = {
+      version: 1 as const, action: 'domain-admin.issue' as const, invitationId: 'invite-1', serviceId: 'issuer.example', origin: 'https://issuer.example', role: 'owner' as const,
+      requestType: 'private-domain-admin-issuer-example-owner', schemaId: 'unet.provider.domain-admin.v1', claims: { domain_role: 'issuer.example:owner', service_id: 'issuer.example', role: 'owner' },
+      holderBinding: '123', deliveryPublicKey: 'a'.repeat(43), challenge: 'challenge-1', expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).resolves.toMatchObject({ keyId: 'domain:issuer.example#callback' });
+    await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).rejects.toThrow('domain_admin_challenge_replayed');
   });
 });

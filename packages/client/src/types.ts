@@ -1,4 +1,4 @@
-export type VerificationRequestType = 'age_over_18' | 'dutch_citizen';
+export type VerificationRequestType = string;
 export type VerificationAggregateOutcome = 'passed' | 'warning' | 'failed';
 export type VerificationStatus = 'created' | 'pending_scan' | 'pending_user_action' | 'denied' | 'submitted' | 'verified' | 'rejected' | 'expired' | 'unavailable';
 
@@ -10,8 +10,10 @@ export interface ListPageOptions { limit?: number; cursor?: string; query?: stri
 
 
 export interface WebLoginService { serviceId: string; name: string; provider: string; origin: string; redirectUrl?: string; icon?: string; scopes: string[]; status: string; }
-export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: WebLoginService; }
-export interface CreateWebLoginSessionInput { serviceId: string; origin: string; expiresInSeconds?: number; }
+export interface DomainAdministrationCapabilityRequest { mode: 'optional-multi'; maxSelections?: number; }
+export interface WebLoginCapabilityRequest { domainAdministration?: DomainAdministrationCapabilityRequest; }
+export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: WebLoginService; capabilityRequest?: WebLoginCapabilityRequest; }
+export interface CreateWebLoginSessionInput { serviceId: string; origin: string; expiresInSeconds?: number; capabilityRequest?: WebLoginCapabilityRequest; }
 export interface ResolveWebLoginServiceInput { serviceId: string; origin: string; }
 export interface WebLoginServiceResolveResponse { success: true; service: WebLoginService; }
 export interface CreateServiceSessionInput { miniProgramId?: string; serviceId: string; origin: string; scopedUserId: string; proofJws: string; }

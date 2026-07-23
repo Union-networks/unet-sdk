@@ -1,4 +1,4 @@
-import { createPrivateKey, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto';
+import { createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto';
 import { BarretenbergSync } from '@aztec/bb.js';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
@@ -90,6 +90,10 @@ export interface ApproveAttestationRequestInput { serviceId: string; requestId: 
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface RevokeAttestationInput { serviceId: string; attestationHash: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface IssuerMiniappManifestInput { serviceId: string; name: string; provider: string; launchUrl: string; description?: string; icon?: string; permissions?: string[]; notificationCategories?: string[]; }
+export type DomainAdminRole = 'owner' | 'admin';
+export interface DomainAdminCallbackRequest { version: 1; action: 'domain-admin.issue'; invitationId: string; serviceId: string; origin: string; role: DomainAdminRole; requestType: string; schemaId: 'unet.provider.domain-admin.v1'; claims: { domain_role: string; service_id: string; role: DomainAdminRole }; holderBinding: string; deliveryPublicKey: string; challenge: string; expiresAt: string; }
+export interface DomainAdminCredentialIssueResult { attestationCommitment: string; encryptedCredentialEnvelope: Record<string, unknown>; credentialPublicMetadata: Record<string, unknown>; expiresAt?: string; }
+export interface SignedDomainAdminCredentialResponse { keyId: string; payload: DomainAdminCredentialIssueResult & Pick<DomainAdminCallbackRequest, 'challenge' | 'invitationId' | 'serviceId' | 'role' | 'requestType'>; signature: string; }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const b64url = (bytes: Uint8Array | Buffer): string => Buffer.from(bytes).toString('base64url');
@@ -183,6 +187,42 @@ export function generateCredentialSigningKeyPair() {
   return {
     privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
     publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  };
+}
+
+export async function deriveCredentialPublicKeyHash(publicKeyPem: string): Promise<string> {
+  const jwk = createPublicKey(publicKeyPem).export({ format: 'jwk' });
+  if (jwk.crv !== 'secp256k1' || !jwk.x || !jwk.y) throw new Error('credential_key_must_be_secp256k1');
+  const x = base64urlBytes(jwk.x);
+  const y = base64urlBytes(jwk.y);
+  return fieldString(await pedersen([
+    bytesToBigInt(x.slice(0, 31)), BigInt(x[31]!),
+    bytesToBigInt(y.slice(0, 31)), BigInt(y[31]!),
+  ]));
+}
+
+export async function generateDomainAdminSignerEnv(input: { serviceId: string; keyVersion?: string }): Promise<{ env: string; keyId: string; publicKeyPem: string; credentialKeyId: string; credentialPublicKeyHash: string }> {
+  const version = input.keyVersion?.trim() || '1';
+  const callback = generateIssuerKeyPair();
+  const credential = generateCredentialSigningKeyPair();
+  const keyId = `${input.serviceId}#domain-admin-${version}`;
+  const credentialKeyId = `${input.serviceId}#domain-admin-credential-${version}`;
+  const credentialPublicKeyHash = await deriveCredentialPublicKeyHash(credential.publicKeyPem);
+  return {
+    keyId,
+    publicKeyPem: callback.publicKeyPem,
+    credentialKeyId,
+    credentialPublicKeyHash,
+    env: [
+      `UNET_DOMAIN_ADMIN_ISSUER_ID=domain:${input.serviceId}`,
+      `UNET_DOMAIN_ADMIN_KEY_ID=${keyId}`,
+      `UNET_DOMAIN_ADMIN_PRIVATE_KEY_PEM=${JSON.stringify(callback.privateKeyPem)}`,
+      `UNET_DOMAIN_ADMIN_PUBLIC_KEY_PEM=${JSON.stringify(callback.publicKeyPem)}`,
+      `UNET_DOMAIN_ADMIN_CREDENTIAL_KEY_ID=${credentialKeyId}`,
+      `UNET_DOMAIN_ADMIN_CREDENTIAL_PRIVATE_KEY_PEM=${JSON.stringify(credential.privateKeyPem)}`,
+      `UNET_DOMAIN_ADMIN_CREDENTIAL_PUBLIC_KEY_PEM=${JSON.stringify(credential.publicKeyPem)}`,
+      `UNET_DOMAIN_ADMIN_CREDENTIAL_PUBLIC_KEY_HASH=${credentialPublicKeyHash}`,
+    ].join('\n'),
   };
 }
 
@@ -399,6 +439,56 @@ export function createIssuerSignerFromEnv(env: Record<string, string | undefined
   const privateKeyPem = env.UNET_ISSUER_PRIVATE_KEY_PEM;
   if (!issuerId || !keyId || !privateKeyPem) throw new Error('UNET_ISSUER_ID, UNET_ISSUER_KEY_ID, and UNET_ISSUER_PRIVATE_KEY_PEM are required');
   return { issuerId, keyId, privateKeyPem, ...(env.UNET_ISSUER_PUBLIC_KEY_PEM ? { publicKeyPem: env.UNET_ISSUER_PUBLIC_KEY_PEM } : {}) };
+}
+
+export function createDomainAdminSignerFromEnv(env: Record<string, string | undefined> = process.env): IssuerSigner {
+  const issuerId = env.UNET_DOMAIN_ADMIN_ISSUER_ID ?? env.UNET_ISSUER_ID;
+  const keyId = env.UNET_DOMAIN_ADMIN_KEY_ID ?? env.UNET_ISSUER_KEY_ID;
+  const privateKeyPem = env.UNET_DOMAIN_ADMIN_PRIVATE_KEY_PEM ?? env.UNET_ISSUER_PRIVATE_KEY_PEM;
+  const publicKeyPem = env.UNET_DOMAIN_ADMIN_PUBLIC_KEY_PEM ?? env.UNET_ISSUER_PUBLIC_KEY_PEM;
+  const credentialKeyId = env.UNET_DOMAIN_ADMIN_CREDENTIAL_KEY_ID ?? env.UNET_ISSUER_CREDENTIAL_KEY_ID;
+  const credentialPrivateKeyPem = env.UNET_DOMAIN_ADMIN_CREDENTIAL_PRIVATE_KEY_PEM ?? env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM;
+  const credentialPublicKeyPem = env.UNET_DOMAIN_ADMIN_CREDENTIAL_PUBLIC_KEY_PEM ?? env.UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_PEM;
+  if (!issuerId || !keyId || !privateKeyPem) throw new Error('domain_admin_signer_environment_missing');
+  return {
+    issuerId,
+    keyId,
+    privateKeyPem,
+    ...(publicKeyPem ? { publicKeyPem } : {}),
+    ...(credentialKeyId ? { credentialKeyId } : {}),
+    ...(credentialPrivateKeyPem ? { credentialPrivateKeyPem } : {}),
+    ...(credentialPublicKeyPem ? { credentialPublicKeyPem } : {}),
+    ...(credentialPrivateKeyPem ? { credentialSignatureScheme: 'ecdsa_secp256k1_compact_low_s' as const } : {}),
+  };
+}
+
+export function validateDomainAdminCallbackRequest(value: unknown, input: { serviceId: string; origin: string; challengeHeader?: string; now?: Date }): DomainAdminCallbackRequest {
+  if (!isObject(value)) throw new Error('domain_admin_callback_invalid');
+  if (value.version !== 1 || value.action !== 'domain-admin.issue') throw new Error('domain_admin_callback_action_invalid');
+  if (value.serviceId !== input.serviceId || value.origin !== input.origin.replace(/\/+$/, '')) throw new Error('domain_admin_callback_service_mismatch');
+  if (value.role !== 'owner' && value.role !== 'admin') throw new Error('domain_admin_role_invalid');
+  if (value.schemaId !== 'unet.provider.domain-admin.v1') throw new Error('domain_admin_schema_invalid');
+  if (typeof value.challenge !== 'string' || value.challenge !== input.challengeHeader) throw new Error('domain_admin_challenge_invalid');
+  if (typeof value.expiresAt !== 'string' || Date.parse(value.expiresAt) <= (input.now ?? new Date()).getTime()) throw new Error('domain_admin_invitation_expired');
+  if (typeof value.invitationId !== 'string' || typeof value.requestType !== 'string' || typeof value.holderBinding !== 'string' || typeof value.deliveryPublicKey !== 'string') throw new Error('domain_admin_callback_invalid');
+  if (!isObject(value.claims) || value.claims.domain_role !== `${value.serviceId}:${value.role}` || value.claims.service_id !== value.serviceId || value.claims.role !== value.role) throw new Error('domain_admin_claims_invalid');
+  return value as unknown as DomainAdminCallbackRequest;
+}
+
+export function signDomainAdminCredentialResponse(input: { request: DomainAdminCallbackRequest; credential: DomainAdminCredentialIssueResult; signer: IssuerSigner }): SignedDomainAdminCredentialResponse {
+  if (!/^[a-f0-9]{64}$/i.test(input.credential.attestationCommitment)) throw new Error('attestation_commitment_invalid');
+  const payload = { challenge: input.request.challenge, invitationId: input.request.invitationId, serviceId: input.request.serviceId, role: input.request.role, requestType: input.request.requestType, ...input.credential };
+  return { keyId: input.signer.keyId, payload, signature: b64url(sign(null, Buffer.from(canonicalize(payload), 'utf8'), input.signer.privateKeyPem)) };
+}
+
+export function createDomainAdminCallbackHandler(input: { serviceId: string; origin: string; signer: IssuerSigner; consumeChallenge: (challenge: string) => Promise<boolean>; issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>; }) {
+  return async (body: unknown, headers: Record<string, string | string[] | undefined>): Promise<SignedDomainAdminCredentialResponse> => {
+    const rawHeader = headers['x-unet-domain-admin-challenge'];
+    const challengeHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    const request = validateDomainAdminCallbackRequest(body, { serviceId: input.serviceId, origin: input.origin, challengeHeader });
+    if (!(await input.consumeChallenge(request.challenge))) throw new Error('domain_admin_challenge_replayed');
+    return signDomainAdminCredentialResponse({ request, credential: await input.issueCredential(request), signer: input.signer });
+  };
 }
 
 export function signIssuerAction<TPayload extends Record<string, unknown>>(input: { issuerId: string; keyId: string; privateKeyPem: string; action: IssuerAction; payload: TPayload; issuedAtIso?: string; nonce?: string }): IssuerActionEnvelope<TPayload> {
