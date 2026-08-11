@@ -40,19 +40,12 @@ UNET_ISSUER_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----..."
 UNET_ISSUER_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----..."
 ```
 
-## Register your issuer key
+## Register the issuer and public keys
 
-```ts
-import { registerIssuerKey } from '@union-networks/issuer';
-
-await registerIssuerKey({
-  serviceId: 'unet-issuer-example',
-  issuerId: process.env.UNET_ISSUER_ID!,
-  keyId: process.env.UNET_ISSUER_KEY_ID!,
-  publicKeyPem: process.env.UNET_ISSUER_PUBLIC_KEY_PEM!,
-  providerToken: process.env.UNET_PROVIDER_API_KEY,
-});
-```
+Register the issuer identity from the verified domain's **Keys** page in the
+U-net partner dashboard. Paste only the API and credential-signing public keys
+there. Issuer identity registration is intentionally not available through a
+public runtime endpoint, and private keys stay in the provider environment.
 
 ## Create a holder-facing request
 
@@ -66,8 +59,11 @@ import { createAttestationRequest } from '@union-networks/issuer';
 const request = await createAttestationRequest({
   serviceId: 'unet-issuer-example',
   scopedUserId,
-  requestType: 'age_over_18',
+  requestType: 'age-over-18',
   claims: { source: 'issuer-example' },
+  holderBinding,
+  deliveryPublicKey,
+  providerToken: process.env.UNET_PROVIDER_API_KEY,
 });
 ```
 
@@ -127,8 +123,8 @@ export const manifest = createIssuerMiniappManifest({
 
 - Keep issuer private keys server-side.
 - Use one issuer key per provider/service.
-- Rotate keys by registering a new `keyId`, deploying it, then retiring the old
-  key after pending requests are complete.
+- Rotate public key registrations from the domain Keys page after deploying the
+  matching private key, then retire the old key after pending requests finish.
 - Browser code can create requests and display status, but approval/revocation
   must happen on the server.
 - U-net receives scoped IDs, issuer signatures, and attestation commitments; it

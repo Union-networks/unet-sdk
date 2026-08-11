@@ -23,6 +23,47 @@ export interface IssuerSigner {
   credentialSignatureScheme?: 'ecdsa_secp256k1_compact_low_s';
 }
 
+export type CredentialValidityMode = 'none' | 'fixed' | 'issuer_capped';
+export type CredentialRenewalMode = 'none' | 'holder_reissue' | 'silent_reissue';
+export interface AttestationCredentialPolicy {
+  validityMode: CredentialValidityMode;
+  defaultValidityDays?: number;
+  maximumValidityDays?: number;
+  renewalMode: CredentialRenewalMode;
+  renewalWindowDays?: number;
+}
+
+export interface CredentialValidityWindow {
+  validFromEpoch: number;
+  validUntilEpoch: number;
+}
+
+export function resolveCredentialValidity(input: {
+  policy: AttestationCredentialPolicy;
+  nowEpoch?: number;
+  requestedValidityDays?: number;
+  requestedValidUntilEpoch?: number;
+}): CredentialValidityWindow {
+  const nowEpoch = input.nowEpoch ?? Math.floor(Date.now() / 1000);
+  const day = 86_400;
+  if (input.policy.validityMode === 'none') return { validFromEpoch: nowEpoch, validUntilEpoch: 4_294_967_295 };
+  if (input.policy.validityMode === 'fixed') {
+    const days = Number(input.policy.defaultValidityDays);
+    if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error('credential_policy_invalid');
+    const validUntilEpoch = nowEpoch + days * day;
+    if (input.requestedValidUntilEpoch !== undefined && input.requestedValidUntilEpoch !== validUntilEpoch) throw new Error('credential_fixed_validity_mismatch');
+    if (input.requestedValidityDays !== undefined && input.requestedValidityDays !== days) throw new Error('credential_fixed_validity_mismatch');
+    return { validFromEpoch: nowEpoch, validUntilEpoch };
+  }
+  const maximumDays = Number(input.policy.maximumValidityDays);
+  if (!Number.isInteger(maximumDays) || maximumDays < 1 || maximumDays > 3650) throw new Error('credential_policy_invalid');
+  const requestedUntil = input.requestedValidUntilEpoch
+    ?? (input.requestedValidityDays ? nowEpoch + input.requestedValidityDays * day : undefined);
+  if (!requestedUntil || !Number.isInteger(requestedUntil) || requestedUntil <= nowEpoch) throw new Error('credential_validity_required');
+  if (requestedUntil - nowEpoch > maximumDays * day) throw new Error('credential_validity_exceeds_policy');
+  return { validFromEpoch: nowEpoch, validUntilEpoch: requestedUntil };
+}
+
 export interface CredentialClaimV2 {
   path: string;
   type: 'field' | 'u64' | 'string' | 'boolean';
@@ -81,12 +122,11 @@ export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> =
   signature: string;
 }
 
-export interface RegisterIssuerKeyInput { serviceId: string; issuerId: string; keyId: string; publicKeyPem: string; providerToken?: string; }
-export interface AttestationRequest { requestId: string; serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; status: 'pending' | 'verified' | 'denied' | 'revoked' | string; claims?: Record<string, unknown>; holderBinding?: string; deliveryPublicKey?: string; schemaId?: string; statusEpoch?: number; createdAt?: string; updatedAt?: string; decidedAt?: string; reason?: string; }
-export interface IssuedAttestation { attestationHash: string; requestId?: string; serviceId?: string; scopedUserId?: string; requestType?: VerificationRequestType | string; status: 'active' | 'revoked' | string; issuedAt?: string; revokedAt?: string; reason?: string; }
-export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; }
+export interface AttestationRequest { requestId: string; serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; status: 'pending' | 'verified' | 'denied' | 'revoked' | string; claims?: Record<string, unknown>; holderBinding?: string; deliveryPublicKey?: string; schemaId?: string; statusEpoch?: number; credentialPolicy?: AttestationCredentialPolicy; createdAt?: string; updatedAt?: string; decidedAt?: string; reason?: string; }
+export interface IssuedAttestation { attestationHash: string; requestId?: string; serviceId?: string; scopedUserId?: string; requestType?: VerificationRequestType | string; status: 'active' | 'revoked' | string; issuedAt?: string; expiresAt?: string; revokedAt?: string; reason?: string; }
+export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; providerToken?: string; }
 export interface ListAttestationRequestsInput { serviceId: string; status?: string; scopedUserId?: string; providerToken?: string; }
-export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; validFromEpoch?: number; validUntilEpoch: number; statusEpoch?: number; }; providerToken?: string; }
+export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; }; providerToken?: string; }
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface RevokeAttestationInput { serviceId: string; attestationHash: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface IssuerMiniappManifestInput { serviceId: string; name: string; provider: string; launchUrl: string; description?: string; icon?: string; permissions?: string[]; notificationCategories?: string[]; }
@@ -438,7 +478,18 @@ export function createIssuerSignerFromEnv(env: Record<string, string | undefined
   const keyId = env.UNET_ISSUER_KEY_ID;
   const privateKeyPem = env.UNET_ISSUER_PRIVATE_KEY_PEM;
   if (!issuerId || !keyId || !privateKeyPem) throw new Error('UNET_ISSUER_ID, UNET_ISSUER_KEY_ID, and UNET_ISSUER_PRIVATE_KEY_PEM are required');
-  return { issuerId, keyId, privateKeyPem, ...(env.UNET_ISSUER_PUBLIC_KEY_PEM ? { publicKeyPem: env.UNET_ISSUER_PUBLIC_KEY_PEM } : {}) };
+  return {
+    issuerId,
+    keyId,
+    privateKeyPem,
+    ...(env.UNET_ISSUER_PUBLIC_KEY_PEM ? { publicKeyPem: env.UNET_ISSUER_PUBLIC_KEY_PEM } : {}),
+    ...(env.UNET_ISSUER_CREDENTIAL_KEY_ID ? { credentialKeyId: env.UNET_ISSUER_CREDENTIAL_KEY_ID } : {}),
+    ...(env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM ? { credentialPrivateKeyPem: env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM } : {}),
+    ...(env.UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_PEM ? { credentialPublicKeyPem: env.UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_PEM } : {}),
+    ...(env.UNET_ISSUER_CREDENTIAL_KEY_ID && env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM
+      ? { credentialSignatureScheme: 'ecdsa_secp256k1_compact_low_s' as const }
+      : {}),
+  };
 }
 
 export function createDomainAdminSignerFromEnv(env: Record<string, string | undefined> = process.env): IssuerSigner {
@@ -510,8 +561,10 @@ export function createIssuerMiniappManifest(input: IssuerMiniappManifestInput): 
   return { serviceId: input.serviceId, name: input.name, provider: input.provider, description: input.description ?? `Request attestations from ${input.provider}.`, ...(input.icon ? { icon: input.icon } : {}), launchUrl: input.launchUrl, permissions, ...(input.notificationCategories ? { notificationCategories: input.notificationCategories } : {}) };
 }
 
-export const registerIssuerKey = (input: RegisterIssuerKeyInput, options?: UnetClientOptions) => request<{ success: true; issuerId: string; keyId: string }>('/v1/issuer/keys/register', { method: 'POST', providerToken: input.providerToken, body: { serviceId: input.serviceId, issuerId: input.issuerId, keyId: input.keyId, publicKeyPem: input.publicKeyPem } }, options);
-export const createAttestationRequest = (input: CreateAttestationRequestInput, options?: UnetClientOptions) => request<{ success: true; request: AttestationRequest }>('/v1/issuer/attestation-requests', { method: 'POST', body: input }, options);
+export const createAttestationRequest = (input: CreateAttestationRequestInput, options?: UnetClientOptions) => {
+  const { providerToken, ...body } = input;
+  return request<{ success: true; request: AttestationRequest }>('/v1/issuer/attestation-requests', { method: 'POST', providerToken, body }, options);
+};
 export const listAttestationRequests = (input: ListAttestationRequestsInput, options?: UnetClientOptions) => {
   const query = new URLSearchParams({ serviceId: input.serviceId });
   if (input.status) query.set('status', input.status);
@@ -521,6 +574,12 @@ export const listAttestationRequests = (input: ListAttestationRequestsInput, opt
 export const approveAttestationRequest = (input: ApproveAttestationRequestInput, options?: UnetClientOptions) => {
   if (!input.signer.credentialKeyId || !input.signer.credentialPrivateKeyPem) throw new Error('issuer_credential_signing_key_required');
   const nowEpoch = Math.floor(Date.now() / 1000);
+  const validity = resolveCredentialValidity({
+    policy: input.credential.credentialPolicy,
+    nowEpoch: input.credential.validFromEpoch ?? nowEpoch,
+    ...(input.credential.requestedValidityDays ? { requestedValidityDays: input.credential.requestedValidityDays } : {}),
+    ...(input.credential.validUntilEpoch ? { requestedValidUntilEpoch: input.credential.validUntilEpoch } : {}),
+  });
   return createCredentialEnvelopeV2({
     requestType: input.credential.requestType,
     schemaId: input.credential.schemaId,
@@ -529,8 +588,8 @@ export const approveAttestationRequest = (input: ApproveAttestationRequestInput,
     issuerCredentialKeyId: input.signer.credentialKeyId,
     credentialPrivateKeyPem: input.signer.credentialPrivateKeyPem,
     holderBinding: input.credential.holderBinding,
-    validFromEpoch: input.credential.validFromEpoch ?? nowEpoch,
-    validUntilEpoch: input.credential.validUntilEpoch,
+    validFromEpoch: validity.validFromEpoch,
+    validUntilEpoch: validity.validUntilEpoch,
     statusEpoch: input.credential.statusEpoch ?? 1,
     claims: Object.entries(input.claims ?? {}).map(([path, value]) => ({
       path,
@@ -555,6 +614,8 @@ export const approveAttestationRequest = (input: ApproveAttestationRequestInput,
           issuerCredentialKeyId: credentialEnvelope.issuerCredentialKeyId,
           issuerKeyHash: credentialEnvelope.issuerKeyHash,
           statusEpoch: credentialEnvelope.statusEpoch,
+          validFromEpoch: credentialEnvelope.validFromEpoch,
+          validUntilEpoch: credentialEnvelope.validUntilEpoch,
         },
         encryptedCredentialEnvelope,
       },

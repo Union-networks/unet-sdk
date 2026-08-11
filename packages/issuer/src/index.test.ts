@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
+import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
 
 describe('@union-networks/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
@@ -15,6 +15,51 @@ describe('@union-networks/issuer', () => {
       serviceId: 'authority-portal',
       permissions: ['identity.scoped', 'attestations.request', 'attestations.refresh'],
     });
+  });
+
+  it('sends provider authorization outside the request body', async () => {
+    const originalFetch = globalThis.fetch;
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input, init });
+      return new Response(JSON.stringify({ success: true, request: { requestId: 'request-1' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    try {
+      await createAttestationRequest({
+        serviceId: 'issuer.example',
+        scopedUserId: 'scoped-1',
+        requestType: 'membership-check',
+        holderBinding: '123',
+        deliveryPublicKey: 'a'.repeat(43),
+        providerToken: 'provider-secret',
+      }, { issuerBaseUrl: 'https://issuer.example' });
+      expect(calls[0]?.init?.headers).toMatchObject({ authorization: 'Bearer provider-secret' });
+      expect(String(calls[0]?.init?.body)).not.toContain('provider-secret');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('enforces the exact fixed credential lifetime', () => {
+    expect(resolveCredentialValidity({
+      policy: { validityMode: 'fixed', defaultValidityDays: 365, renewalMode: 'silent_reissue', renewalWindowDays: 30 },
+      nowEpoch: 1_000,
+    })).toEqual({ validFromEpoch: 1_000, validUntilEpoch: 31_537_000 });
+    expect(() => resolveCredentialValidity({
+      policy: { validityMode: 'fixed', defaultValidityDays: 365, renewalMode: 'silent_reissue', renewalWindowDays: 30 },
+      nowEpoch: 1_000,
+      requestedValidityDays: 30,
+    })).toThrow('credential_fixed_validity_mismatch');
+  });
+
+  it('requires capped issuers to provide an expiry within policy', () => {
+    const policy = { validityMode: 'issuer_capped' as const, maximumValidityDays: 90, renewalMode: 'holder_reissue' as const };
+    expect(() => resolveCredentialValidity({ policy, nowEpoch: 1_000 })).toThrow('credential_validity_required');
+    expect(() => resolveCredentialValidity({ policy, nowEpoch: 1_000, requestedValidityDays: 91 })).toThrow('credential_validity_exceeds_policy');
+    expect(resolveCredentialValidity({ policy, nowEpoch: 1_000, requestedValidityDays: 30 })).toEqual({ validFromEpoch: 1_000, validUntilEpoch: 2_593_000 });
   });
 
   it('creates deterministic, signed credential envelope v2 vectors', async () => {
