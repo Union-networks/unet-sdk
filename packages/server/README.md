@@ -129,6 +129,30 @@ Rules enforced by the helper:
 - `launchUrl` must be on the same origin.
 - permissions default to `['identity.scoped']`.
 
+## Emit Official Messaging Automations
+
+Create a scoped Messaging automation key on the domain Keys page, then install it only on your backend. The client resolves the published template, validates variables, renders and encrypts the recipient payload locally, and sends only ciphertext to U-net.
+
+```ts
+import { createUnetServerClient } from '@union-networks/server';
+
+const unet = createUnetServerClient({
+  issuerBaseUrl: 'https://issuer.egress.live',
+  serviceId: 'demo-shop',
+  automationKey: process.env.UNET_MESSAGING_AUTOMATION_KEY!,
+});
+
+await unet.officialMessaging.emitEvent({
+  eventKey: 'order.approved',
+  scopedUserId,
+  eventId: approvalId,
+  processId: orderId,
+  variables: { approvedAt: new Date() },
+});
+```
+
+`eventId` must be a random, stable idempotency identifier. `processId` is optional and is used to update one timeline card; it must be opaque and contain no customer data. Never place message text or sensitive data in push titles, event keys, IDs, or logs.
+
 ## Recommended Route Layout
 
 ```text

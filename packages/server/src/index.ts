@@ -1,4 +1,8 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
+import { x25519 } from '@noble/curves/ed25519.js';
+import { hkdf } from '@noble/hashes/hkdf.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 export interface WebLoginAssertionClaims { iss?: string; aud?: string; serviceId?: string; scopedUserId?: string; sessionId?: string; issuedAtIso?: string; expiresAtIso?: string; iat?: number; exp?: number; }
 export interface VerifyLoginAssertionOptions { secret: string; serviceId?: string; now?: Date; }
@@ -99,4 +103,165 @@ export function createUnetMiniappManifest(options: UnetMiniappManifestOptions): 
     notificationCategories: options.notificationCategories ?? [],
     ...(options.domainClaim ? { domainClaim: createUnetProviderClaim(options.domainClaim) } : {}),
   };
+}
+
+export interface OfficialMessagingVariableDefinition {
+  key: string;
+  type: 'text' | 'number' | 'date';
+  required: boolean;
+}
+
+export interface OfficialMessagingTemplate {
+  templateId: string;
+  version: number;
+  kind: 'standard' | 'process';
+  category: string;
+  notificationTitle: string;
+  variables: OfficialMessagingVariableDefinition[];
+  content: {
+    title: string;
+    body: string;
+    image?: { url: string; alt: string };
+    timeline?: Array<{ key: string; label: string; description?: string }>;
+    actions?: Array<{ type: 'open_mini_program' | 'open_url'; label: string; miniProgramId?: string; path?: string; url?: string; external?: boolean }>;
+  };
+}
+
+export interface OfficialMessagingAutomation {
+  automationId: string;
+  eventKey: string;
+  mode: 'create' | 'update';
+  timelineStepIndex?: number;
+}
+
+export interface EmitOfficialMessagingEventInput {
+  eventKey: string;
+  scopedUserId: string;
+  eventId: string;
+  processId?: string;
+  variables?: Record<string, string | number | Date>;
+}
+
+export interface OfficialMessagingClientOptions {
+  issuerBaseUrl: string;
+  serviceId: string;
+  automationKey?: string;
+  /** @deprecated Use automationKey. */
+  providerKey?: string;
+  fetch?: typeof globalThis.fetch;
+}
+
+type AutomationResolveResponse = {
+  success?: boolean;
+  errorCode?: string;
+  message?: string;
+  automation?: OfficialMessagingAutomation;
+  template?: OfficialMessagingTemplate;
+  recipientEncryptionPublicKey?: string;
+};
+
+const interpolateTemplate = (value: string, variables: Record<string, string>): string =>
+  value.replace(/\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g, (_match, key: string) => variables[key] ?? `{{${key}}}`);
+
+const normalizeAutomationVariables = (
+  definitions: OfficialMessagingVariableDefinition[],
+  supplied: Record<string, string | number | Date>,
+): Record<string, string> => {
+  const allowed = new Set(definitions.map((definition) => definition.key));
+  for (const key of Object.keys(supplied)) if (!allowed.has(key)) throw new Error(`undeclared_automation_variable:${key}`);
+  const normalized: Record<string, string> = {};
+  for (const definition of definitions) {
+    const value = supplied[definition.key];
+    if (value === undefined || value === null || value === '') {
+      if (definition.required) throw new Error(`required_automation_variable_missing:${definition.key}`);
+      continue;
+    }
+    if (definition.type === 'number') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`invalid_automation_variable:${definition.key}`);
+      normalized[definition.key] = String(value);
+    } else if (definition.type === 'date') {
+      const date = value instanceof Date ? value : new Date(String(value));
+      if (!Number.isFinite(date.getTime())) throw new Error(`invalid_automation_variable:${definition.key}`);
+      normalized[definition.key] = date.toISOString();
+    } else {
+      if (typeof value !== 'string') throw new Error(`invalid_automation_variable:${definition.key}`);
+      normalized[definition.key] = value.slice(0, 1000);
+    }
+  }
+  return normalized;
+};
+
+const encryptOfficialPayload = (recipientPublicKey: string, payload: Record<string, unknown>) => {
+  const ephemeral = x25519.keygen(randomBytes(32));
+  const recipient = base64UrlToBuffer(recipientPublicKey);
+  if (recipient.length !== 32) throw new Error('invalid_recipient_encryption_key');
+  const shared = x25519.getSharedSecret(ephemeral.secretKey, recipient);
+  const key = hkdf(sha256, shared, Buffer.from('unet-official-account-v1'), Buffer.from('official-account-message'), 32);
+  const nonce = randomBytes(24);
+  const ciphertext = xchacha20poly1305(key, nonce).encrypt(Buffer.from(JSON.stringify(payload), 'utf8'));
+  return {
+    v: 1,
+    senderEncryptionPublicKey: Buffer.from(ephemeral.publicKey).toString('base64url'),
+    nonce: nonce.toString('base64url'),
+    ciphertext: Buffer.from(ciphertext).toString('base64url'),
+  };
+};
+
+export function createOfficialMessagingClient(options: OfficialMessagingClientOptions) {
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  if (!fetchImpl) throw new Error('fetch_unavailable');
+  const automationKey = options.automationKey ?? options.providerKey;
+  if (!automationKey) throw new Error('messaging_automation_key_required');
+  const baseUrl = options.issuerBaseUrl.replace(/\/+$/, '');
+  const headers = { 'content-type': 'application/json', 'x-unet-provider-key': automationKey };
+  return {
+    async emitEvent(input: EmitOfficialMessagingEventInput) {
+      const resolveResponse = await fetchImpl(`${baseUrl}/v1/official-account/automations/resolve`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ miniProgramId: options.serviceId, eventKey: input.eventKey, scopedUserId: input.scopedUserId }),
+      });
+      const resolved = await resolveResponse.json().catch(() => ({})) as AutomationResolveResponse;
+      if (!resolveResponse.ok || !resolved.automation || !resolved.template || !resolved.recipientEncryptionPublicKey) {
+        throw new Error(resolved.errorCode ?? resolved.message ?? 'automation_resolve_failed');
+      }
+      const variables = normalizeAutomationVariables(resolved.template.variables ?? [], input.variables ?? {});
+      const content = {
+        ...resolved.template.content,
+        title: interpolateTemplate(resolved.template.content.title, variables),
+        body: interpolateTemplate(resolved.template.content.body, variables),
+      };
+      const encryptedPayload = encryptOfficialPayload(resolved.recipientEncryptionPublicKey, {
+        version: 2,
+        kind: 'rich_official_message',
+        title: content.title,
+        text: content.body,
+        rich: {
+          ...content,
+          ...(resolved.template.kind === 'process' ? { currentStepIndex: resolved.automation.timelineStepIndex ?? 0 } : {}),
+        },
+        action: content.actions?.find((action) => action.type === 'open_mini_program'),
+      });
+      const dispatchResponse = await fetchImpl(`${baseUrl}/v1/official-account/automations/dispatch`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          miniProgramId: options.serviceId,
+          eventKey: input.eventKey,
+          eventId: input.eventId,
+          ...(input.processId ? { processId: input.processId } : {}),
+          scopedUserId: input.scopedUserId,
+          variableKeys: Object.keys(variables),
+          encryptedPayload,
+        }),
+      });
+      const result = await dispatchResponse.json().catch(() => ({})) as Record<string, unknown>;
+      if (!dispatchResponse.ok || result.success === false) throw new Error(String(result.errorCode ?? result.message ?? 'automation_dispatch_failed'));
+      return result;
+    },
+  };
+}
+
+export function createUnetServerClient(options: OfficialMessagingClientOptions) {
+  return { officialMessaging: createOfficialMessagingClient(options) };
 }
