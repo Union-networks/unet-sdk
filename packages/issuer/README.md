@@ -54,7 +54,7 @@ miniapp bridge. Then ask trust-plane to open an attestation request for that
 scoped user:
 
 ```ts
-import { createAttestationRequest } from '@union-networks/issuer';
+import { createAttestationRequest, createIssuerSignerFromEnv } from '@union-networks/issuer';
 
 const request = await createAttestationRequest({
   serviceId: 'unet-issuer-example',
@@ -63,9 +63,14 @@ const request = await createAttestationRequest({
   claims: { source: 'issuer-example' },
   holderBinding,
   deliveryPublicKey,
+  signer: createIssuerSignerFromEnv(),
   providerToken: process.env.UNET_PROVIDER_API_KEY,
 });
 ```
+
+The SDK signs the exact HTTP method, path, canonical body hash, timestamp, and
+nonce with this issuer key. Trust-plane requires that replay-protected request
+signature in addition to the service-bound provider API key.
 
 ## Approve a request
 
@@ -123,6 +128,8 @@ export const manifest = createIssuerMiniappManifest({
 
 - Keep issuer private keys server-side.
 - Use one issuer key per provider/service.
+- Never build issuer API calls in browser code; request and list operations are
+  authenticated with both the provider key and registered issuer signature.
 - Rotate public key registrations from the domain Keys page after deploying the
   matching private key, then retire the old key after pending requests finish.
 - Browser code can create requests and display status, but approval/revocation

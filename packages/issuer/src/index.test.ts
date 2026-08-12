@@ -34,9 +34,11 @@ describe('@union-networks/issuer', () => {
         requestType: 'membership-check',
         holderBinding: '123',
         deliveryPublicKey: 'a'.repeat(43),
+        signer: { issuerId: 'issuer:issuer.example', keyId: 'issuer:issuer.example#api', privateKeyPem: generateIssuerKeyPair().privateKeyPem },
         providerToken: 'provider-secret',
       }, { issuerBaseUrl: 'https://issuer.example' });
       expect(calls[0]?.init?.headers).toMatchObject({ authorization: 'Bearer provider-secret' });
+      expect(calls[0]?.init?.headers).toMatchObject({ 'x-unet-issuer-auth': expect.any(String) });
       expect(String(calls[0]?.init?.body)).not.toContain('provider-secret');
     } finally {
       globalThis.fetch = originalFetch;

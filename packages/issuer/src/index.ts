@@ -1,4 +1,4 @@
-import { createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto';
 import { BarretenbergSync } from '@aztec/bb.js';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
@@ -10,7 +10,7 @@ import type { UnetClientOptions, UnetMiniAppManifest, VerificationRequestType } 
 
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 
-export type IssuerAction = 'attestation.approve' | 'attestation.deny' | 'attestation.revoke' | 'issuer.key.register';
+export type IssuerAction = 'attestation.approve' | 'attestation.deny' | 'attestation.revoke' | 'issuer.key.register' | 'issuer.http_request';
 
 export interface IssuerSigner {
   issuerId: string;
@@ -124,8 +124,8 @@ export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> =
 
 export interface AttestationRequest { requestId: string; serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; status: 'pending' | 'verified' | 'denied' | 'revoked' | string; claims?: Record<string, unknown>; holderBinding?: string; deliveryPublicKey?: string; schemaId?: string; statusEpoch?: number; credentialPolicy?: AttestationCredentialPolicy; createdAt?: string; updatedAt?: string; decidedAt?: string; reason?: string; }
 export interface IssuedAttestation { attestationHash: string; requestId?: string; serviceId?: string; scopedUserId?: string; requestType?: VerificationRequestType | string; status: 'active' | 'revoked' | string; issuedAt?: string; expiresAt?: string; revokedAt?: string; reason?: string; }
-export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; providerToken?: string; }
-export interface ListAttestationRequestsInput { serviceId: string; status?: string; scopedUserId?: string; providerToken?: string; }
+export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; signer: IssuerSigner; providerToken?: string; }
+export interface ListAttestationRequestsInput { serviceId: string; status?: string; scopedUserId?: string; signer: IssuerSigner; providerToken?: string; }
 export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; }; providerToken?: string; }
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface RevokeAttestationInput { serviceId: string; attestationHash: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
@@ -440,10 +440,26 @@ const fetchImpl = (options?: UnetClientOptions): typeof fetch => {
   return ((input, init) => fetcher.call(globalThis, input, init)) as typeof fetch;
 };
 
-async function request<T>(path: string, options: { method?: string; body?: unknown; providerToken?: string } = {}, clientOptions?: UnetClientOptions): Promise<T> {
+const issuerHttpRequestHeader = (input: { method: string; path: string; body?: unknown; serviceId: string; signer: IssuerSigner }): string => {
+  const bodyHash = createHash('sha256').update(canonicalize(input.body ?? null)).digest('hex');
+  const envelope = signIssuerAction({
+    issuerId: input.signer.issuerId,
+    keyId: input.signer.keyId,
+    privateKeyPem: input.signer.privateKeyPem,
+    action: 'issuer.http_request',
+    payload: { serviceId: input.serviceId, method: input.method.toUpperCase(), path: input.path, bodyHash },
+  });
+  return b64url(Buffer.from(JSON.stringify(envelope), 'utf8'));
+};
+
+async function request<T>(path: string, options: { method?: string; body?: unknown; providerToken?: string; serviceId?: string; signer?: IssuerSigner } = {}, clientOptions?: UnetClientOptions): Promise<T> {
+  const method = options.method ?? 'GET';
+  const issuerAuthorization = options.signer && options.serviceId
+    ? issuerHttpRequestHeader({ method, path, body: options.body, serviceId: options.serviceId, signer: options.signer })
+    : undefined;
   const response = await fetchImpl(clientOptions)(`${issuerBase(clientOptions)}${path}`, {
-    method: options.method ?? 'GET',
-    headers: { accept: 'application/json', ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.providerToken ? { authorization: `Bearer ${options.providerToken}` } : {}) },
+    method,
+    headers: { accept: 'application/json', ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.providerToken ? { authorization: `Bearer ${options.providerToken}` } : {}), ...(issuerAuthorization ? { 'x-unet-issuer-auth': issuerAuthorization } : {}) },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const text = await response.text();
@@ -562,14 +578,15 @@ export function createIssuerMiniappManifest(input: IssuerMiniappManifestInput): 
 }
 
 export const createAttestationRequest = (input: CreateAttestationRequestInput, options?: UnetClientOptions) => {
-  const { providerToken, ...body } = input;
-  return request<{ success: true; request: AttestationRequest }>('/v1/issuer/attestation-requests', { method: 'POST', providerToken, body }, options);
+  const { providerToken, signer, ...body } = input;
+  return request<{ success: true; request: AttestationRequest }>('/v1/issuer/attestation-requests', { method: 'POST', providerToken, serviceId: input.serviceId, signer, body }, options);
 };
 export const listAttestationRequests = (input: ListAttestationRequestsInput, options?: UnetClientOptions) => {
   const query = new URLSearchParams({ serviceId: input.serviceId });
   if (input.status) query.set('status', input.status);
   if (input.scopedUserId) query.set('scopedUserId', input.scopedUserId);
-  return request<{ success: true; requests: AttestationRequest[] }>(`/v1/issuer/attestation-requests?${query.toString()}`, { providerToken: input.providerToken }, options);
+  const path = `/v1/issuer/attestation-requests?${query.toString()}`;
+  return request<{ success: true; requests: AttestationRequest[] }>(path, { providerToken: input.providerToken, serviceId: input.serviceId, signer: input.signer }, options);
 };
 export const approveAttestationRequest = (input: ApproveAttestationRequestInput, options?: UnetClientOptions) => {
   if (!input.signer.credentialKeyId || !input.signer.credentialPrivateKeyPem) throw new Error('issuer_credential_signing_key_required');
@@ -620,19 +637,20 @@ export const approveAttestationRequest = (input: ApproveAttestationRequestInput,
         encryptedCredentialEnvelope,
       },
     });
-    return request<{ success: true; request: AttestationRequest; attestation?: IssuedAttestation }>(`/v1/issuer/attestation-requests/${encodeURIComponent(input.requestId)}/decision`, { method: 'POST', providerToken: input.providerToken, body: { serviceId: input.serviceId, decision: 'verify', envelope } }, options);
+    return request<{ success: true; request: AttestationRequest; attestation?: IssuedAttestation }>(`/v1/issuer/attestation-requests/${encodeURIComponent(input.requestId)}/decision`, { method: 'POST', providerToken: input.providerToken, serviceId: input.serviceId, signer: input.signer, body: { serviceId: input.serviceId, decision: 'verify', envelope } }, options);
   });
 };
 export const denyAttestationRequest = (input: DenyAttestationRequestInput, options?: UnetClientOptions) => {
   const envelope = signIssuerAction({ issuerId: input.signer.issuerId, keyId: input.signer.keyId, privateKeyPem: input.signer.privateKeyPem, action: 'attestation.deny', payload: { serviceId: input.serviceId, requestId: input.requestId, reason: input.reason ?? 'Denied by issuer' } });
-  return request<{ success: true; request: AttestationRequest }>(`/v1/issuer/attestation-requests/${encodeURIComponent(input.requestId)}/decision`, { method: 'POST', providerToken: input.providerToken, body: { serviceId: input.serviceId, decision: 'deny', reason: input.reason, envelope } }, options);
+  return request<{ success: true; request: AttestationRequest }>(`/v1/issuer/attestation-requests/${encodeURIComponent(input.requestId)}/decision`, { method: 'POST', providerToken: input.providerToken, serviceId: input.serviceId, signer: input.signer, body: { serviceId: input.serviceId, decision: 'deny', reason: input.reason, envelope } }, options);
 };
-export const listIssuedAttestations = (input: { serviceId: string; scopedUserId?: string; providerToken?: string }, options?: UnetClientOptions) => {
+export const listIssuedAttestations = (input: { serviceId: string; scopedUserId?: string; signer: IssuerSigner; providerToken?: string }, options?: UnetClientOptions) => {
   const query = new URLSearchParams({ serviceId: input.serviceId });
   if (input.scopedUserId) query.set('scopedUserId', input.scopedUserId);
-  return request<{ success: true; attestations: IssuedAttestation[] }>(`/v1/issuer/attestations?${query.toString()}`, { providerToken: input.providerToken }, options);
+  const path = `/v1/issuer/attestations?${query.toString()}`;
+  return request<{ success: true; attestations: IssuedAttestation[] }>(path, { providerToken: input.providerToken, serviceId: input.serviceId, signer: input.signer }, options);
 };
 export const revokeAttestation = (input: RevokeAttestationInput, options?: UnetClientOptions) => {
   const envelope = signIssuerAction({ issuerId: input.signer.issuerId, keyId: input.signer.keyId, privateKeyPem: input.signer.privateKeyPem, action: 'attestation.revoke', payload: { serviceId: input.serviceId, attestationHash: input.attestationHash, reason: input.reason ?? 'Revoked by issuer' } });
-  return request<{ success: true; attestationHash: string; status: string }>(`/v1/issuer/attestations/${encodeURIComponent(input.attestationHash)}/revoke`, { method: 'POST', providerToken: input.providerToken, body: { serviceId: input.serviceId, reason: input.reason, envelope } }, options);
+  return request<{ success: true; attestationHash: string; status: string }>(`/v1/issuer/attestations/${encodeURIComponent(input.attestationHash)}/revoke`, { method: 'POST', providerToken: input.providerToken, serviceId: input.serviceId, signer: input.signer, body: { serviceId: input.serviceId, reason: input.reason, envelope } }, options);
 };
