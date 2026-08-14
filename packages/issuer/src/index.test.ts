@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
+import { createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
 
 describe('@union-networks/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
@@ -63,5 +63,29 @@ describe('@union-networks/issuer', () => {
     };
     await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).resolves.toMatchObject({ keyId: 'domain:issuer.example#callback' });
     await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).rejects.toThrow('domain_admin_challenge_replayed');
+  });
+
+  it('authorizes holder relinquishment callbacks once and returns a normal issuer revocation envelope', async () => {
+    const signerKeys = generateIssuerKeyPair();
+    const challenges = new Set<string>();
+    const handler = createHolderRelinquishmentCallbackHandler({
+      serviceId: 'issuer.example',
+      signer: { issuerId: 'issuer:example', keyId: 'issuer:example#api', privateKeyPem: signerKeys.privateKeyPem },
+      consumeChallenge: async (challenge) => challenges.has(challenge) ? false : (challenges.add(challenge), true),
+      authorizeRelinquishment: async () => true
+    });
+    const request = {
+      version: 1 as const,
+      action: 'attestation.relinquish' as const,
+      actionId: 'remove-1',
+      serviceId: 'issuer.example',
+      issuerId: 'issuer:example',
+      requestType: 'membership-check',
+      attestationHash: 'd'.repeat(64),
+      challenge: 'challenge-1',
+      issuedAtIso: new Date().toISOString()
+    };
+    await expect(handler(request)).resolves.toMatchObject({ action: 'attestation.revoke', payload: { actionId: 'remove-1', challenge: 'challenge-1' } });
+    await expect(handler(request)).rejects.toThrow('holder_relinquishment_challenge_replayed');
   });
 });
