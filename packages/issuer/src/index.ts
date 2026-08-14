@@ -122,9 +122,10 @@ export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> =
   signature: string;
 }
 
+export interface RegisterIssuerKeyInput { serviceId: string; issuerId: string; keyId: string; publicKeyPem: string; providerToken?: string; }
 export interface AttestationRequest { requestId: string; serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; status: 'pending' | 'verified' | 'denied' | 'revoked' | string; claims?: Record<string, unknown>; holderBinding?: string; deliveryPublicKey?: string; schemaId?: string; statusEpoch?: number; credentialPolicy?: AttestationCredentialPolicy; createdAt?: string; updatedAt?: string; decidedAt?: string; reason?: string; }
 export interface IssuedAttestation { attestationHash: string; requestId?: string; serviceId?: string; scopedUserId?: string; requestType?: VerificationRequestType | string; status: 'active' | 'revoked' | string; issuedAt?: string; expiresAt?: string; revokedAt?: string; reason?: string; }
-export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; signer: IssuerSigner; providerToken?: string; }
+export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; replaceExisting?: boolean; signer: IssuerSigner; providerToken?: string; }
 export interface ListAttestationRequestsInput { serviceId: string; status?: string; scopedUserId?: string; signer: IssuerSigner; providerToken?: string; }
 export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; }; providerToken?: string; }
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
@@ -134,6 +135,7 @@ export type DomainAdminRole = 'owner' | 'admin';
 export interface DomainAdminCallbackRequest { version: 1; action: 'domain-admin.issue'; invitationId: string; serviceId: string; origin: string; role: DomainAdminRole; requestType: string; schemaId: 'unet.provider.domain-admin.v1'; claims: { domain_role: string; service_id: string; role: DomainAdminRole }; holderBinding: string; deliveryPublicKey: string; challenge: string; expiresAt: string; }
 export interface DomainAdminCredentialIssueResult { attestationCommitment: string; encryptedCredentialEnvelope: Record<string, unknown>; credentialPublicMetadata: Record<string, unknown>; expiresAt?: string; }
 export interface SignedDomainAdminCredentialResponse { keyId: string; payload: DomainAdminCredentialIssueResult & Pick<DomainAdminCallbackRequest, 'challenge' | 'invitationId' | 'serviceId' | 'role' | 'requestType'>; signature: string; }
+export interface HolderRelinquishmentCallbackRequest { version: 1; action: 'attestation.relinquish'; actionId: string; serviceId: string; issuerId: string; requestType: string; attestationHash: string; challenge: string; issuedAtIso: string; }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const b64url = (bytes: Uint8Array | Buffer): string => Buffer.from(bytes).toString('base64url');
@@ -555,6 +557,38 @@ export function createDomainAdminCallbackHandler(input: { serviceId: string; ori
     const request = validateDomainAdminCallbackRequest(body, { serviceId: input.serviceId, origin: input.origin, challengeHeader });
     if (!(await input.consumeChallenge(request.challenge))) throw new Error('domain_admin_challenge_replayed');
     return signDomainAdminCredentialResponse({ request, credential: await input.issueCredential(request), signer: input.signer });
+  };
+}
+
+export function createHolderRelinquishmentCallbackHandler(input: {
+  serviceId: string;
+  signer: IssuerSigner;
+  consumeChallenge: (challenge: string) => Promise<boolean>;
+  authorizeRelinquishment: (request: HolderRelinquishmentCallbackRequest) => Promise<boolean>;
+}) {
+  return async (body: unknown): Promise<IssuerActionEnvelope> => {
+    if (!isObject(body) || body.version !== 1 || body.action !== 'attestation.relinquish') throw new Error('holder_relinquishment_callback_invalid');
+    const request = body as unknown as HolderRelinquishmentCallbackRequest;
+    if (request.serviceId !== input.serviceId || request.issuerId !== input.signer.issuerId) throw new Error('holder_relinquishment_issuer_mismatch');
+    if (!request.actionId || !request.requestType || !request.challenge || !/^[a-f0-9]{64}$/i.test(request.attestationHash)) throw new Error('holder_relinquishment_callback_invalid');
+    const issuedAt = Date.parse(request.issuedAtIso);
+    if (!Number.isFinite(issuedAt) || Math.abs(Date.now() - issuedAt) > 10 * 60_000) throw new Error('holder_relinquishment_callback_expired');
+    if (!(await input.consumeChallenge(request.challenge))) throw new Error('holder_relinquishment_challenge_replayed');
+    if (!(await input.authorizeRelinquishment(request))) throw new Error('holder_relinquishment_not_authorized');
+    return signIssuerAction({
+      issuerId: input.signer.issuerId,
+      keyId: input.signer.keyId,
+      privateKeyPem: input.signer.privateKeyPem,
+      action: 'attestation.revoke',
+      payload: {
+        serviceId: request.serviceId,
+        requestType: request.requestType,
+        attestationHash: request.attestationHash.toLowerCase(),
+        actionId: request.actionId,
+        challenge: request.challenge,
+        reason: 'holder_relinquishment'
+      }
+    });
   };
 }
 
