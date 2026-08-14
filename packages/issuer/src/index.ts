@@ -127,7 +127,7 @@ export interface AttestationRequest { requestId: string; serviceId: string; scop
 export interface IssuedAttestation { attestationHash: string; requestId?: string; serviceId?: string; scopedUserId?: string; requestType?: VerificationRequestType | string; status: 'active' | 'revoked' | string; issuedAt?: string; expiresAt?: string; revokedAt?: string; reason?: string; }
 export interface CreateAttestationRequestInput { serviceId: string; scopedUserId: string; requestType: VerificationRequestType | string; claims?: Record<string, unknown>; holderBinding: string; deliveryPublicKey: string; replaceExisting?: boolean; signer: IssuerSigner; providerToken?: string; }
 export interface ListAttestationRequestsInput { serviceId: string; status?: string; scopedUserId?: string; signer: IssuerSigner; providerToken?: string; }
-export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; }; providerToken?: string; }
+export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; serviceAccountGenerationCommitment?: string; }; providerToken?: string; }
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface RevokeAttestationInput { serviceId: string; attestationHash: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface IssuerMiniappManifestInput { serviceId: string; name: string; provider: string; launchUrl: string; description?: string; icon?: string; permissions?: string[]; notificationCategories?: string[]; }
@@ -667,6 +667,9 @@ export const approveAttestationRequest = (input: ApproveAttestationRequestInput,
           statusEpoch: credentialEnvelope.statusEpoch,
           validFromEpoch: credentialEnvelope.validFromEpoch,
           validUntilEpoch: credentialEnvelope.validUntilEpoch,
+          ...(input.credential.serviceAccountGenerationCommitment
+            ? { serviceAccountGenerationCommitment: input.credential.serviceAccountGenerationCommitment }
+            : {}),
         },
         encryptedCredentialEnvelope,
       },
