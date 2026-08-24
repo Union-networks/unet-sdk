@@ -1,6 +1,56 @@
 import { createUnetClient, pollUntil, UnetApiError } from '@union-networks/client';
 import type { CreateServiceSessionInput, CreateWebLoginSessionInput, PollOptions, ResolveWebLoginServiceInput, ServiceSessionResponse, UnetClientOptions, WebLoginServiceResolveResponse, WebLoginSession } from '@union-networks/client';
 
+export interface DirectProviderLoginChallenge {
+  protocolVersion: 2;
+  requestRef: string;
+  serviceId: string;
+  origin: string;
+  challenge: string;
+  challengeUrl: string;
+  approvalUrl: string;
+  expiresAtIso: string;
+}
+
+export interface DirectProviderLoginPollResult {
+  state: 'pending' | 'approved' | 'consumed' | 'expired';
+  session?: { sessionId: string; scopedUserId: string; expiresAtIso: string };
+}
+
+const providerRequest = async <T>(origin: string, path: string, init?: RequestInit, fetchImpl = globalThis.fetch): Promise<T> => {
+  const normalizedOrigin = new URL(origin).origin;
+  const url = new URL(path, normalizedOrigin);
+  if (url.origin !== normalizedOrigin) throw new Error('direct_login_origin_mismatch');
+  const response = await fetchImpl(url, init);
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok) throw new Error(String(payload.error ?? `direct_login_http_${response.status}`));
+  return payload as T;
+};
+
+export const createDirectProviderLogin = (
+  origin: string,
+  path = '/api/unet/login/challenge',
+  fetchImpl?: typeof globalThis.fetch,
+): Promise<DirectProviderLoginChallenge> => providerRequest(origin, path, { method: 'POST' }, fetchImpl);
+
+export const pollDirectProviderLogin = (
+  origin: string,
+  requestRef: string,
+  path = '/api/unet/login/status',
+  fetchImpl?: typeof globalThis.fetch,
+): Promise<DirectProviderLoginPollResult> => providerRequest(origin, `${path}?requestRef=${encodeURIComponent(requestRef)}`, undefined, fetchImpl);
+
+export const renderDirectLoginQrPayload = (challenge: DirectProviderLoginChallenge): string =>
+  `unet://service-login?payload=${encodeURIComponent(JSON.stringify({
+    kind: 'unet_service_login',
+    version: 2,
+    serviceId: challenge.serviceId,
+    origin: challenge.origin,
+    requestRef: challenge.requestRef,
+    challengeUrl: challenge.challengeUrl,
+    expiresAtIso: challenge.expiresAtIso,
+  }))}`;
+
 export type { CreateServiceSessionInput, CreateWebLoginSessionInput, ResolveWebLoginServiceInput, ServiceSessionResponse, UnetMiniAppManifest, WebLoginService, WebLoginServiceResolveResponse, WebLoginSession } from '@union-networks/client';
 
 export const createLoginSession = (input: CreateWebLoginSessionInput, options?: UnetClientOptions): Promise<WebLoginSession> =>

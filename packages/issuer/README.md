@@ -1,5 +1,9 @@
 # @union-networks/issuer
 
+Ledger V2 issuers keep three separate private keys: API authorization, credential signing, and a dedicated secp256k1 ledger signer. `generateLedgerV2SignerEnv` creates the third key; providers submit the signed operation to any configured relayer, which cannot change its contents.
+
+`createDirectIssuerService` and `PostgresDirectIssuerRequestStore` implement provider-owned attestation requests and encrypted delivery. Ciphertext is persisted before anchoring, delivery is withheld until Ledger V2 confirms the commitment, and replacement revocation occurs only after wallet acknowledgement.
+
 ## Domain administration credentials
 
 Paid U-net domains can issue private Owner and Admin credentials from a same-origin server callback. Keep both keys server-side: the Ed25519 callback key authenticates the provider response, while the secp256k1 credential key is bound inside the generic `claim_equals_v1` proof.

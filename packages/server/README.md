@@ -1,5 +1,7 @@
 # @union-networks/server
 
+`createDirectLoginService` implements U-net Direct Login Protocol V2. The provider creates and stores its own one-time challenge, binds a scoped account to its Ed25519 public key on first login, verifies every later challenge signature, and creates its own service session. `PostgresDirectLoginChallengeStore` and `PostgresDirectLoginAccountStore` provide durable adapters without placing U-net infrastructure on the login data path.
+
 Server-side helpers for U-net web integrations.
 
 Use this package in your backend. It verifies login assertions, creates domain-control proof responses, and generates miniapp manifests without exposing provider secrets to browser JavaScript.

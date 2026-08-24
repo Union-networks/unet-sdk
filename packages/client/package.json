@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/client",
-  "version": "0.2.0-alpha.7",
+  "version": "0.2.0-alpha.8",
   "description": "Framework-neutral U-net public API client.",
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
     "@union-networks/contracts": "workspace:*"
   }
 }

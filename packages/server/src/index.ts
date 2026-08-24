@@ -4,6 +4,9 @@ import { x25519 } from '@noble/curves/ed25519.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 
+export * from './directLogin.js';
+export * from './directLoginPostgres.js';
+
 export interface WebLoginAssertionClaims { iss?: string; aud?: string; serviceId?: string; scopedUserId?: string; sessionId?: string; issuedAtIso?: string; expiresAtIso?: string; iat?: number; exp?: number; }
 export interface VerifyLoginAssertionOptions { secret: string; serviceId?: string; now?: Date; }
 

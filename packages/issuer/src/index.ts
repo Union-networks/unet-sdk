@@ -8,6 +8,10 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { UnetApiError } from '@union-networks/client';
 import type { UnetClientOptions, UnetMiniAppManifest, VerificationRequestType } from '@union-networks/client';
 
+export * from './ledgerV2.js';
+export * from './directIssuer.js';
+export * from './directIssuerPostgres.js';
+
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 
 export type IssuerAction = 'attestation.approve' | 'attestation.deny' | 'attestation.revoke' | 'issuer.key.register' | 'issuer.http_request';
