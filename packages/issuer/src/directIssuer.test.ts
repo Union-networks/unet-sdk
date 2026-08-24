@@ -46,4 +46,35 @@ describe('direct issuer service', () => {
     await service.acknowledgeDelivery(replacement.requestId, replacement.deliveryCapability, replacementReady.attestationHash!);
     expect(events).toEqual(['anchored', 'anchored', 'replaced-revoked']);
   });
+
+  it('lists, denies, and revokes provider-owned requests without central storage', async () => {
+    const store = new InMemoryDirectIssuerRequestStore();
+    const revoked: string[] = [];
+    let credentialIndex = 0;
+    const service = createDirectIssuerService({
+      store,
+      replacementModeFor: async () => 'parallel',
+      buildCredential: async () => ({
+        attestationHash: (++credentialIndex).toString(16).padStart(64, '0'),
+        encryptedCredentialEnvelope: { ciphertext: 'opaque' },
+      }),
+      anchorCredential: async () => ({ transactionHash: `0x${'22'.repeat(32)}`, status: 'active' }),
+      revokeReplacedCredential: async () => undefined,
+      revokeCredential: async ({ attestationHash }) => { revoked.push(attestationHash); },
+    });
+    const deniedRequest = await service.createRequest({
+      serviceAccountRef: 'account-a', checkId: 'check-a', holderBinding: 'binding', deliveryPublicKey: 'delivery',
+      holderRevocationSigner: `0x${'11'.repeat(20)}`, idempotencyKey: 'deny-a',
+    });
+    expect((await service.deny(deniedRequest.requestId)).state).toBe('denied');
+    expect(await service.list({ state: 'denied' })).toHaveLength(1);
+
+    const issuedRequest = await service.createRequest({
+      serviceAccountRef: 'account-a', checkId: 'check-a', holderBinding: 'binding', deliveryPublicKey: 'delivery',
+      holderRevocationSigner: `0x${'33'.repeat(20)}`, idempotencyKey: 'issue-a',
+    });
+    const ready = await service.approve(issuedRequest.requestId);
+    expect((await service.revoke(ready.attestationHash!, 'operator_revoked')).state).toBe('revoked');
+    expect(revoked).toEqual([ready.attestationHash]);
+  });
 });

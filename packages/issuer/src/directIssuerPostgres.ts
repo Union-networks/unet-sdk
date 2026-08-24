@@ -11,7 +11,7 @@ export async function ensureDirectIssuerSchema(db: SqlClient): Promise<void> {
       service_account_ref TEXT NOT NULL,
       check_id TEXT NOT NULL,
       idempotency_key TEXT NOT NULL,
-      state TEXT NOT NULL CHECK(state IN ('pending','anchoring','ready','delivered','denied','failed')),
+      state TEXT NOT NULL CHECK(state IN ('pending','anchoring','ready','delivered','denied','failed','revoked')),
       attestation_hash TEXT,
       request_record JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL,
@@ -20,6 +20,11 @@ export async function ensureDirectIssuerSchema(db: SqlClient): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS unet_attestation_active_v2_idx
       ON unet_attestation_requests_v2(service_account_ref,check_id,state);
+  `);
+  await db.query(`
+    ALTER TABLE unet_attestation_requests_v2 DROP CONSTRAINT IF EXISTS unet_attestation_requests_v2_state_check;
+    ALTER TABLE unet_attestation_requests_v2 ADD CONSTRAINT unet_attestation_requests_v2_state_check
+      CHECK(state IN ('pending','anchoring','ready','delivered','denied','failed','revoked'));
   `);
 }
 
@@ -56,6 +61,25 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
        WHERE service_account_ref=$1 AND check_id=$2 AND state IN ('ready','delivered')
        ORDER BY created_at DESC`,
       [serviceAccountRef, checkId],
+    );
+    return result.rows.map((row) => row.request_record);
+  }
+
+  public async findByAttestationHash(attestationHash: string): Promise<DirectIssuerRequestRecord | undefined> {
+    const result = await this.db.query<{ request_record: DirectIssuerRequestRecord }>(
+      'SELECT request_record FROM unet_attestation_requests_v2 WHERE attestation_hash=$1 LIMIT 1',
+      [attestationHash],
+    );
+    return result.rows[0]?.request_record;
+  }
+
+  public async list(input: { state?: DirectIssuerRequestRecord['state']; serviceAccountRef?: string; limit?: number } = {}): Promise<DirectIssuerRequestRecord[]> {
+    const limit = Math.min(500, Math.max(1, input.limit ?? 100));
+    const result = await this.db.query<{ request_record: DirectIssuerRequestRecord }>(
+      `SELECT request_record FROM unet_attestation_requests_v2
+       WHERE ($1::text IS NULL OR state=$1) AND ($2::text IS NULL OR service_account_ref=$2)
+       ORDER BY created_at DESC LIMIT $3`,
+      [input.state ?? null, input.serviceAccountRef ?? null, limit],
     );
     return result.rows.map((row) => row.request_record);
   }

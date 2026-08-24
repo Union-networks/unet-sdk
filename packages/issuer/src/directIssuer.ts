@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-export type DirectIssuerRequestState = 'pending' | 'anchoring' | 'ready' | 'delivered' | 'denied' | 'failed';
+export type DirectIssuerRequestState = 'pending' | 'anchoring' | 'ready' | 'delivered' | 'denied' | 'failed' | 'revoked';
 export type CredentialReplacementMode = 'deny' | 'replace_after_delivery' | 'parallel';
 
 export interface DirectIssuerRequestInput {
@@ -32,6 +32,8 @@ export interface DirectIssuerRequestStore {
   get(requestId: string): Promise<DirectIssuerRequestRecord | undefined>;
   findByIdempotency(serviceAccountRef: string, idempotencyKey: string): Promise<DirectIssuerRequestRecord | undefined>;
   findActive(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]>;
+  findByAttestationHash(attestationHash: string): Promise<DirectIssuerRequestRecord | undefined>;
+  list(input?: { state?: DirectIssuerRequestState; serviceAccountRef?: string; limit?: number }): Promise<DirectIssuerRequestRecord[]>;
   update(record: DirectIssuerRequestRecord): Promise<void>;
 }
 
@@ -48,6 +50,7 @@ export interface DirectIssuerServiceOptions {
     holderRevocationSigner: string;
   }) => Promise<{ transactionHash: string; status: 'active' }>;
   revokeReplacedCredential: (input: { requestId: string; attestationHash: string }) => Promise<void>;
+  revokeCredential?: (input: { requestId: string; attestationHash: string; reason: string }) => Promise<void>;
   now?: () => Date;
 }
 
@@ -125,6 +128,33 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
       }
     },
 
+    async deny(requestId: string, category = 'issuer_denied'): Promise<DirectIssuerRequestRecord> {
+      const request = await options.store.get(requestId);
+      if (!request || request.state !== 'pending') throw new Error('issuer_request_not_pending');
+      const denied: DirectIssuerRequestRecord = {
+        ...request,
+        state: 'denied',
+        failureCategory: category.replace(/[^a-z0-9_.-]/gi, '_').slice(0, 80),
+        updatedAtIso: now().toISOString(),
+      };
+      await options.store.update(denied);
+      return denied;
+    },
+
+    async list(input?: { state?: DirectIssuerRequestState; serviceAccountRef?: string; limit?: number }) {
+      return options.store.list(input);
+    },
+
+    async revoke(attestationHash: string, reason = 'issuer_revoked'): Promise<DirectIssuerRequestRecord> {
+      const request = await options.store.findByAttestationHash(attestationHash.replace(/^0x/, '').toLowerCase());
+      if (!request?.attestationHash || !['ready', 'delivered'].includes(request.state)) throw new Error('active_credential_not_found');
+      if (!options.revokeCredential) throw new Error('issuer_revocation_not_configured');
+      await options.revokeCredential({ requestId: request.requestId, attestationHash: request.attestationHash, reason });
+      const revoked = { ...request, state: 'revoked' as const, updatedAtIso: now().toISOString() };
+      await options.store.update(revoked);
+      return revoked;
+    },
+
     async getDelivery(requestId: string, deliveryCapability: string): Promise<{
       state: DirectIssuerRequestState;
       attestationHash?: string;
@@ -177,6 +207,19 @@ export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStor
   public async findActive(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]> {
     return [...this.records.values()]
       .filter((record) => record.serviceAccountRef === serviceAccountRef && record.checkId === checkId && ['ready', 'delivered'].includes(record.state))
+      .map((record) => structuredClone(record));
+  }
+
+  public async findByAttestationHash(attestationHash: string): Promise<DirectIssuerRequestRecord | undefined> {
+    const value = [...this.records.values()].find((record) => record.attestationHash === attestationHash);
+    return value ? structuredClone(value) : undefined;
+  }
+
+  public async list(input: { state?: DirectIssuerRequestState; serviceAccountRef?: string; limit?: number } = {}): Promise<DirectIssuerRequestRecord[]> {
+    return [...this.records.values()]
+      .filter((record) => (!input.state || record.state === input.state) && (!input.serviceAccountRef || record.serviceAccountRef === input.serviceAccountRef))
+      .sort((left, right) => right.createdAtIso.localeCompare(left.createdAtIso))
+      .slice(0, Math.min(500, Math.max(1, input.limit ?? 100)))
       .map((record) => structuredClone(record));
   }
 
