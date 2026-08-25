@@ -133,11 +133,13 @@ export function generateLedgerV2SignerEnv(input: { issuerId: string; keyId?: str
 export function createLedgerV2SignerFromEnv(
   issuerId: string,
   env: Record<string, string | undefined> = process.env,
+  prefix = 'UNET_ISSUER_LEDGER',
 ): LedgerV2Signer {
-  const keyId = env.UNET_ISSUER_LEDGER_KEY_ID;
-  const privateKeyHex = env.UNET_ISSUER_LEDGER_PRIVATE_KEY;
-  const configuredAddress = env.UNET_ISSUER_LEDGER_ADDRESS;
-  const keyEpoch = Number(env.UNET_ISSUER_LEDGER_KEY_EPOCH ?? '1');
+  if (!/^[A-Z][A-Z0-9_]*$/.test(prefix)) throw new Error('issuer_ledger_environment_prefix_invalid');
+  const keyId = env[`${prefix}_KEY_ID`];
+  const privateKeyHex = env[`${prefix}_PRIVATE_KEY`];
+  const configuredAddress = env[`${prefix}_ADDRESS`];
+  const keyEpoch = Number(env[`${prefix}_KEY_EPOCH`] ?? '1');
   if (!keyId || !privateKeyHex || !configuredAddress || !Number.isInteger(keyEpoch) || keyEpoch < 1) {
     throw new Error('issuer_ledger_signer_environment_missing');
   }
@@ -279,4 +281,92 @@ export async function submitLedgerV2Operation(input: {
     }
   }
   throw new Error(`ledger_v2_relayers_unavailable:${failures.join(',')}`);
+}
+
+export async function anchorLedgerV2CredentialFromEnv(input: {
+  issuerId: string;
+  attestationHash: string;
+  holderRevocationSigner: string;
+  requestId: string;
+  env?: Record<string, string | undefined>;
+  signerEnvPrefix?: string;
+  fetch?: typeof globalThis.fetch;
+}): Promise<{ transactionHash: string; issuerIdHash: string }> {
+  const env = input.env ?? process.env;
+  const fetchImpl = input.fetch ?? globalThis.fetch;
+  if (!fetchImpl) throw new Error('fetch_unavailable');
+  const chainId = Number(env.LEDGER_V2_CHAIN_ID);
+  const ledgerAddress = env.LEDGER_V2_CONTRACT_ADDRESS;
+  const readUrl = env.LEDGER_V2_READ_URL?.replace(/\/+$/, '');
+  const relayerUrls = (env.LEDGER_V2_RELAYER_URLS ?? '').split(',').map((value) => value.trim().replace(/\/+$/, '')).filter(Boolean);
+  if (!Number.isSafeInteger(chainId) || !ledgerAddress || !readUrl || relayerUrls.length < 2) {
+    throw new Error('ledger_v2_provider_configuration_incomplete');
+  }
+  const signer = createLedgerV2SignerFromEnv(input.issuerId, env, input.signerEnvPrefix);
+  const issuerIdHash = ledgerV2IssuerIdHash(input.issuerId);
+  const nonceResponse = await fetchImpl(`${readUrl}/v2/nonces/issuer/${issuerIdHash}`, { cache: 'no-store' });
+  const nonceBody = await nonceResponse.json().catch(() => ({})) as { result?: { ledgerNonce?: string }; error?: string };
+  if (!nonceResponse.ok || nonceBody.result?.ledgerNonce === undefined) throw new Error(nonceBody.error ?? 'ledger_v2_nonce_unavailable');
+  const signed = signLedgerV2Anchor({
+    domain: { chainId, ledgerAddress },
+    signer,
+    attestationHash: input.attestationHash,
+    holderRevocationSigner: input.holderRevocationSigner,
+    requestId: input.requestId,
+    nonce: nonceBody.result.ledgerNonce,
+    deadline: Math.floor(Date.now() / 1000) + 300,
+  });
+  const submitted = await submitLedgerV2Operation({
+    relayerUrls,
+    path: '/v2/operations/anchor',
+    payload: { operation: { ...signed.operation }, signature: signed.signature },
+    fetch: fetchImpl,
+  });
+  const transactionHash = String(submitted.transactionHash ?? '');
+  if (!/^0x[a-f0-9]{64}$/i.test(transactionHash)) throw new Error('ledger_v2_transaction_hash_missing');
+  return { transactionHash, issuerIdHash };
+}
+
+export async function revokeLedgerV2CredentialFromEnv(input: {
+  issuerId: string;
+  attestationHash: string;
+  requestId: string;
+  reason: string;
+  env?: Record<string, string | undefined>;
+  signerEnvPrefix?: string;
+  fetch?: typeof globalThis.fetch;
+}): Promise<{ transactionHash: string; issuerIdHash: string }> {
+  const env = input.env ?? process.env;
+  const fetchImpl = input.fetch ?? globalThis.fetch;
+  if (!fetchImpl) throw new Error('fetch_unavailable');
+  const chainId = Number(env.LEDGER_V2_CHAIN_ID);
+  const ledgerAddress = env.LEDGER_V2_CONTRACT_ADDRESS;
+  const readUrl = env.LEDGER_V2_READ_URL?.replace(/\/+$/, '');
+  const relayerUrls = (env.LEDGER_V2_RELAYER_URLS ?? '').split(',').map((value) => value.trim().replace(/\/+$/, '')).filter(Boolean);
+  if (!Number.isSafeInteger(chainId) || !ledgerAddress || !readUrl || relayerUrls.length < 2) {
+    throw new Error('ledger_v2_provider_configuration_incomplete');
+  }
+  const signer = createLedgerV2SignerFromEnv(input.issuerId, env, input.signerEnvPrefix);
+  const issuerIdHash = ledgerV2IssuerIdHash(input.issuerId);
+  const nonceResponse = await fetchImpl(`${readUrl}/v2/nonces/issuer/${issuerIdHash}`, { cache: 'no-store' });
+  const nonceBody = await nonceResponse.json().catch(() => ({})) as { result?: { ledgerNonce?: string }; error?: string };
+  if (!nonceResponse.ok || nonceBody.result?.ledgerNonce === undefined) throw new Error(nonceBody.error ?? 'ledger_v2_nonce_unavailable');
+  const signed = signLedgerV2IssuerRevoke({
+    domain: { chainId, ledgerAddress },
+    signer,
+    attestationHash: input.attestationHash,
+    requestId: input.requestId,
+    reason: input.reason,
+    nonce: nonceBody.result.ledgerNonce,
+    deadline: Math.floor(Date.now() / 1000) + 300,
+  });
+  const submitted = await submitLedgerV2Operation({
+    relayerUrls,
+    path: '/v2/operations/revoke/issuer',
+    payload: { operation: { ...signed.operation }, signature: signed.signature },
+    fetch: fetchImpl,
+  });
+  const transactionHash = String(submitted.transactionHash ?? '');
+  if (!/^0x[a-f0-9]{64}$/i.test(transactionHash)) throw new Error('ledger_v2_transaction_hash_missing');
+  return { transactionHash, issuerIdHash };
 }

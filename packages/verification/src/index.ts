@@ -19,8 +19,10 @@ export const createVerificationSession = (input: CreateVerificationSessionInput,
 export const pollVerificationResult = (sessionId: string, options?: PollOptions & UnetClientOptions): Promise<VerificationSessionStatus> =>
   pollUntil(() => createUnetClient(options).getVerificationSession(sessionId), (result) => ['verified', 'denied', 'rejected', 'expired', 'unavailable'].includes(result.status), options);
 
+/** @deprecated Sovereign Core V2 providers keep checkout state locally and call createVerificationSession. */
 export const createCheckoutVerification = (input: CreateCheckoutVerificationInput, options?: UnetClientOptions): Promise<CheckoutVerificationResponse> =>
   createUnetClient(options).createCheckoutVerification(input);
 
+/** @deprecated Poll the provider-owned checkout and use pollVerificationResult for its hosted verifier session. */
 export const pollCheckoutVerification = (input: { checkoutId: string; serviceId?: string; assertionJws: string }, options?: PollOptions & UnetClientOptions): Promise<CheckoutVerificationResponse> =>
   pollUntil(() => createUnetClient(options).getCheckoutVerification(input), (result) => result.checkout.status !== 'pending_verification', options);

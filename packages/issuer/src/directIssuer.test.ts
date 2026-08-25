@@ -77,4 +77,56 @@ describe('direct issuer service', () => {
     expect((await service.revoke(ready.attestationHash!, 'operator_revoked')).state).toBe('revoked');
     expect(revoked).toEqual([ready.attestationHash]);
   });
+
+  it('renews with an opaque delivery capability and preserves the provider account context', async () => {
+    const store = new InMemoryDirectIssuerRequestStore();
+    const revoked: string[] = [];
+    let credentialIndex = 0;
+    const service = createDirectIssuerService({
+      store,
+      replacementModeFor: async () => 'replace_after_delivery',
+      buildCredential: async (request) => ({
+        attestationHash: (++credentialIndex).toString(16).padStart(64, '0'),
+        encryptedCredentialEnvelope: { ciphertext: request.requestId },
+      }),
+      anchorCredential: async () => ({ transactionHash: `0x${'55'.repeat(32)}`, status: 'active' }),
+      revokeReplacedCredential: async ({ attestationHash }) => { revoked.push(attestationHash); },
+    });
+    const first = await service.createRequest({
+      serviceAccountRef: 'scoped-account-a',
+      checkId: 'membership.messaging-access',
+      holderBinding: 'holder-a',
+      deliveryPublicKey: 'delivery-a',
+      holderRevocationSigner: `0x${'11'.repeat(20)}`,
+      claims: { membership_id: 'messaging-access', service_account_generation: 'generation-a' },
+      idempotencyKey: 'initial',
+    });
+    const ready = await service.approve(first.requestId);
+    await service.acknowledgeDelivery(first.requestId, first.deliveryCapability, ready.attestationHash!);
+
+    await expect(service.createRenewalRequest({
+      requestId: first.requestId,
+      deliveryCapability: 'wrong-capability',
+      holderBinding: 'holder-b',
+      deliveryPublicKey: 'delivery-b',
+      holderRevocationSigner: `0x${'22'.repeat(20)}`,
+      idempotencyKey: 'renewal-1',
+    })).rejects.toThrow('renewal_capability_invalid');
+
+    const renewal = await service.createRenewalRequest({
+      requestId: first.requestId,
+      deliveryCapability: first.deliveryCapability,
+      holderBinding: 'holder-b',
+      deliveryPublicKey: 'delivery-b',
+      holderRevocationSigner: `0x${'22'.repeat(20)}`,
+      idempotencyKey: 'renewal-1',
+    });
+    const renewalRecord = await store.get(renewal.requestId);
+    expect(renewalRecord?.serviceAccountRef).toBe('scoped-account-a');
+    expect(renewalRecord?.claims?.service_account_generation).toBe('generation-a');
+    expect(renewalRecord?.replacedAttestationHash).toBe(ready.attestationHash);
+    const renewedReady = await service.approve(renewal.requestId);
+    await service.acknowledgeDelivery(renewal.requestId, renewal.deliveryCapability, renewedReady.attestationHash!);
+    expect(revoked).toEqual([ready.attestationHash]);
+  });
 });

@@ -14,7 +14,7 @@ export interface DirectProviderLoginChallenge {
 
 export interface DirectProviderLoginPollResult {
   state: 'pending' | 'approved' | 'consumed' | 'expired';
-  session?: { sessionId: string; scopedUserId: string; expiresAtIso: string };
+  session?: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string };
 }
 
 const providerRequest = async <T>(origin: string, path: string, init?: RequestInit, fetchImpl = globalThis.fetch): Promise<T> => {
@@ -92,3 +92,20 @@ export const submitDomainAdministrationSelections = (requestRef: string, selecti
 
 export const getDomainAdministrationSelectionStatus = (requestRef: string, options?: UnetClientOptions) =>
   dashboardRequest<{ success: true; selections: DomainAdministrationSelectionStatus[] }>(`/v1/web-login/requests/${encodeURIComponent(requestRef)}/domain-administration/status`, { headers: { accept: 'application/json' } }, options);
+
+export const submitDirectDomainAdministrationSelections = (
+  challenge: Pick<DirectProviderLoginChallenge, 'requestRef' | 'expiresAtIso'>,
+  selections: DomainAdministrationSelection[],
+  options?: UnetClientOptions,
+) => dashboardRequest<{ success: true; results: DomainAdministrationProofRequest[] }>(
+  `/v2/dashboard/direct-login/${encodeURIComponent(challenge.requestRef)}/domain-administration/selections`,
+  { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expiresAt: challenge.expiresAtIso, selections: selections.slice(0, 10) }) },
+  options,
+);
+
+export const getDirectDomainAdministrationSelectionStatus = (requestRef: string, options?: UnetClientOptions) =>
+  dashboardRequest<{ success: true; selections: DomainAdministrationSelectionStatus[] }>(
+    `/v2/dashboard/direct-login/${encodeURIComponent(requestRef)}/domain-administration/status`,
+    { headers: { accept: 'application/json' } },
+    options,
+  );

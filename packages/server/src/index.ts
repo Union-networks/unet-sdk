@@ -6,6 +6,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 
 export * from './directLogin.js';
 export * from './directLoginPostgres.js';
+export * from './officialMessagingInbox.js';
 
 export interface WebLoginAssertionClaims { iss?: string; aud?: string; serviceId?: string; scopedUserId?: string; sessionId?: string; issuedAtIso?: string; expiresAtIso?: string; iat?: number; exp?: number; }
 export interface VerifyLoginAssertionOptions { secret: string; serviceId?: string; now?: Date; }
@@ -147,11 +148,26 @@ export interface EmitOfficialMessagingEventInput {
 
 export interface OfficialMessagingClientOptions {
   issuerBaseUrl: string;
+  /** Standalone U-net messaging transport. Required with recipientResolver. */
+  messagingBaseUrl?: string;
   serviceId: string;
   automationKey?: string;
   /** @deprecated Use automationKey. */
   providerKey?: string;
+  /**
+   * Resolves provider-owned recipient state. This function runs only on the
+   * provider server; scopedUserId is never sent to U-net infrastructure.
+   */
+  recipientResolver?: (scopedUserId: string) => Promise<OfficialMessagingRecipient | undefined>;
   fetch?: typeof globalThis.fetch;
+}
+
+export interface OfficialMessagingRecipient {
+  /** Random, provider-stored 32-byte reference encoded as 64 lowercase hex characters. */
+  recipientReference: string;
+  recipientEncryptionPublicKey: string;
+  mailboxAddress: string;
+  sendCapability: string;
 }
 
 type AutomationResolveResponse = {
@@ -161,6 +177,20 @@ type AutomationResolveResponse = {
   automation?: OfficialMessagingAutomation;
   template?: OfficialMessagingTemplate;
   recipientEncryptionPublicKey?: string;
+};
+
+type AutomationPrepareResponse = {
+  success?: boolean;
+  errorCode?: string;
+  message?: string;
+  duplicate?: boolean;
+  ignoredRegression?: boolean;
+  dispatchRef?: string;
+  automation?: OfficialMessagingAutomation;
+  template?: OfficialMessagingTemplate;
+  logicalMessageId?: string;
+  messageId?: string;
+  revision?: number;
 };
 
 const interpolateTemplate = (value: string, variables: Record<string, string>): string =>
@@ -216,9 +246,82 @@ export function createOfficialMessagingClient(options: OfficialMessagingClientOp
   const automationKey = options.automationKey ?? options.providerKey;
   if (!automationKey) throw new Error('messaging_automation_key_required');
   const baseUrl = options.issuerBaseUrl.replace(/\/+$/, '');
+  const messagingBaseUrl = options.messagingBaseUrl?.replace(/\/+$/, '');
   const headers = { 'content-type': 'application/json', 'x-unet-provider-key': automationKey };
+  const recordOutcome = async (dispatchRef: string, outcome: string): Promise<void> => {
+    const response = await fetchImpl(`${baseUrl}/v2/official-account/automations/outcome`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ miniProgramId: options.serviceId, dispatchRef, outcome }),
+    });
+    if (!response.ok) throw new Error('automation_outcome_failed');
+  };
   return {
     async emitEvent(input: EmitOfficialMessagingEventInput) {
+      if (options.recipientResolver || messagingBaseUrl) {
+        if (!options.recipientResolver || !messagingBaseUrl) throw new Error('provider_owned_messaging_configuration_incomplete');
+        const recipient = await options.recipientResolver(input.scopedUserId);
+        if (!recipient) throw new Error('official_messaging_recipient_not_found');
+        if (!/^[a-f0-9]{64}$/.test(recipient.recipientReference)) throw new Error('official_messaging_recipient_reference_invalid');
+        const prepareResponse = await fetchImpl(`${baseUrl}/v2/official-account/automations/prepare`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            miniProgramId: options.serviceId,
+            eventKey: input.eventKey,
+            eventId: input.eventId,
+            ...(input.processId ? { processId: input.processId } : {}),
+            recipientReference: recipient.recipientReference,
+            variableKeys: Object.keys(input.variables ?? {}),
+          }),
+        });
+        const prepared = await prepareResponse.json().catch(() => ({})) as AutomationPrepareResponse;
+        if (!prepareResponse.ok || !prepared.dispatchRef || !prepared.automation || !prepared.template || !prepared.logicalMessageId || !prepared.revision) {
+          throw new Error(prepared.errorCode ?? prepared.message ?? 'automation_prepare_failed');
+        }
+        if (prepared.ignoredRegression) {
+          await recordOutcome(prepared.dispatchRef, 'ignored_regression');
+          return { success: true, status: 'ignored_regression', messageId: prepared.messageId, revision: prepared.revision };
+        }
+        const variables = normalizeAutomationVariables(prepared.template.variables ?? [], input.variables ?? {});
+        const content = {
+          ...prepared.template.content,
+          title: interpolateTemplate(prepared.template.content.title, variables),
+          body: interpolateTemplate(prepared.template.content.body, variables),
+        };
+        const encryptedPayload = encryptOfficialPayload(recipient.recipientEncryptionPublicKey, {
+          version: 2,
+          kind: 'rich_official_message',
+          title: content.title,
+          text: content.body,
+          rich: {
+            ...content,
+            ...(prepared.template.kind === 'process' ? { currentStepIndex: prepared.automation.timelineStepIndex ?? 0 } : {}),
+          },
+          action: content.actions?.find((action) => action.type === 'open_mini_program'),
+        });
+        try {
+          const deliveryResponse = await fetchImpl(`${messagingBaseUrl}/v2/mailboxes/${encodeURIComponent(recipient.mailboxAddress)}/messages`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sendCapability: recipient.sendCapability,
+              idempotencyKey: input.eventId,
+              ciphertext: encryptedPayload,
+              logicalMessageId: prepared.logicalMessageId,
+              revision: prepared.revision,
+            }),
+          });
+          const delivered = await deliveryResponse.json().catch(() => ({})) as Record<string, unknown>;
+          if (!deliveryResponse.ok || delivered.success === false) throw new Error(String(delivered.error ?? 'official_message_delivery_failed'));
+          const status = String(delivered.status ?? 'stored');
+          await recordOutcome(prepared.dispatchRef, ['updated', 'duplicate', 'ignored_regression'].includes(status) ? status : 'stored');
+          return delivered;
+        } catch (error) {
+          await recordOutcome(prepared.dispatchRef, 'failed').catch(() => undefined);
+          throw error;
+        }
+      }
       const resolveResponse = await fetchImpl(`${baseUrl}/v1/official-account/automations/resolve`, {
         method: 'POST',
         headers,

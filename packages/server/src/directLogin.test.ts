@@ -49,8 +49,10 @@ describe('direct provider login v2', () => {
     ].join('\n');
     await service.approve({ ...unsigned, signature: sign(null, Buffer.from(message), privateKey).toString('base64url') });
     const approved = await service.poll(challenge.requestRef);
-    expect(approved).toMatchObject({ state: 'approved', session: { scopedUserId: 'unet_scoped_random' } });
-    await expect(service.exchangeSession(approved.session!.sessionId)).resolves.toMatchObject({ scopedUserId: 'unet_scoped_random' });
+    expect(approved).toMatchObject({ state: 'approved', session: { requestRef: challenge.requestRef, scopedUserId: 'unet_scoped_random' } });
+    await expect(service.prepareSessionExchange(approved.session!.sessionId)).resolves.toMatchObject({ requestRef: challenge.requestRef, scopedUserId: 'unet_scoped_random' });
+    await expect(service.prepareSessionExchange(approved.session!.sessionId)).resolves.toMatchObject({ requestRef: challenge.requestRef, scopedUserId: 'unet_scoped_random' });
+    await expect(service.completeSessionExchange(approved.session!.sessionId)).resolves.toBeUndefined();
     await expect(service.exchangeSession(approved.session!.sessionId)).rejects.toThrow('direct_login_session_invalid');
   });
 });

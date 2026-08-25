@@ -54,6 +54,15 @@ export interface DirectIssuerServiceOptions {
   now?: () => Date;
 }
 
+export interface DirectIssuerRenewalInput {
+  requestId: string;
+  deliveryCapability: string;
+  holderBinding: string;
+  deliveryPublicKey: string;
+  holderRevocationSigner: string;
+  idempotencyKey: string;
+}
+
 const hashCapability = (value: string) => createHash('sha256').update(value).digest('hex');
 const randomId = (prefix: string) => `${prefix}_${randomBytes(18).toString('base64url')}`;
 const isHolderRevocationAddress = (value: string) => /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -85,6 +94,36 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
       };
       await options.store.create(record);
       return { requestId: record.requestId, deliveryCapability, state: record.state, replacementRequired: Boolean(record.replacedAttestationHash) };
+    },
+
+    async createRenewalRequest(input: DirectIssuerRenewalInput): Promise<{ requestId: string; deliveryCapability: string; state: DirectIssuerRequestState; replacementRequired: true }> {
+      const previous = await options.store.get(input.requestId);
+      if (!previous || previous.deliveryCapabilityHash !== hashCapability(input.deliveryCapability)) throw new Error('renewal_capability_invalid');
+      if (previous.state !== 'delivered' || !previous.attestationHash) throw new Error('credential_not_renewable');
+      if (!input.holderBinding || !input.deliveryPublicKey || !input.idempotencyKey) throw new Error('issuer_renewal_invalid');
+      if (!isHolderRevocationAddress(input.holderRevocationSigner)) throw new Error('holder_revocation_signer_invalid');
+      const replay = await options.store.findByIdempotency(previous.serviceAccountRef, input.idempotencyKey);
+      if (replay) throw new Error('issuer_request_idempotency_replayed');
+      const deliveryCapability = randomId('delivery');
+      const timestamp = now().toISOString();
+      const record: DirectIssuerRequestRecord = {
+        serviceAccountRef: previous.serviceAccountRef,
+        checkId: previous.checkId,
+        holderBinding: input.holderBinding,
+        deliveryPublicKey: input.deliveryPublicKey,
+        holderRevocationSigner: input.holderRevocationSigner,
+        claims: previous.claims ? structuredClone(previous.claims) : undefined,
+        consent: previous.consent ? structuredClone(previous.consent) : undefined,
+        idempotencyKey: input.idempotencyKey,
+        requestId: randomId('attest'),
+        deliveryCapabilityHash: hashCapability(deliveryCapability),
+        state: 'pending',
+        createdAtIso: timestamp,
+        updatedAtIso: timestamp,
+        replacedAttestationHash: previous.attestationHash,
+      };
+      await options.store.create(record);
+      return { requestId: record.requestId, deliveryCapability, state: record.state, replacementRequired: true };
     },
 
     async approve(requestId: string): Promise<DirectIssuerRequestRecord> {

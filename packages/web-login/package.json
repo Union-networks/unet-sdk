@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/web-login",
-  "version": "0.2.0-alpha.8",
+  "version": "0.2.0-alpha.10",
   "description": "High-level Sign in with U-net browser helpers.",
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@union-networks/client": "workspace:*"
+    "@union-networks/client": "0.2.0-alpha.8"
   }
 }

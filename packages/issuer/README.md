@@ -1,25 +1,6 @@
 # @union-networks/issuer
 
-Ledger V2 issuers keep three separate private keys: API authorization, credential signing, and a dedicated secp256k1 ledger signer. `generateLedgerV2SignerEnv` creates the third key; providers submit the signed operation to any configured relayer, which cannot change its contents.
-
-`createDirectIssuerService` and `PostgresDirectIssuerRequestStore` implement provider-owned attestation requests and encrypted delivery. Ciphertext is persisted before anchoring, delivery is withheld until Ledger V2 confirms the commitment, and replacement revocation occurs only after wallet acknowledgement.
-
-## Domain administration credentials
-
-Paid U-net domains can issue private Owner and Admin credentials from a same-origin server callback. Keep both keys server-side: the Ed25519 callback key authenticates the provider response, while the secp256k1 credential key is bound inside the generic `claim_equals_v1` proof.
-
-Run `generateDomainAdminSignerEnv({ serviceId })` once on the provider server, then install its returned `env` value as server secrets. Paste the returned callback public key, credential key ID, and credential public-key hash into the dashboard Keys page. Use `createDomainAdminSignerFromEnv` and `createDomainAdminCallbackHandler` in the callback registered there.
-
-The callback receives only a one-time challenge, requested role, holder binding, and delivery public key. It must return an encrypted credential envelope; holder identity and private claims must never be logged or stored by the callback.
-
-Issuer-side helpers for U-net attestation providers.
-
-Use this package when your service issues attestations, such as an authority,
-membership provider, school, event organizer, or other domain that can approve
-or revoke claims for a scoped U-net user.
-
-This package is intentionally server-first. Issuer signing keys must stay in
-your backend environment and must never be included in frontend bundles.
+Server-side helpers for providers that issue U-net credentials. Sovereign Core V2 keeps requests, encrypted delivery, replacement state, and issuer private keys on provider infrastructure. Trust-plane remains the signed schema, check, issuer-profile, and proof-release control plane.
 
 ## Install
 
@@ -27,135 +8,64 @@ your backend environment and must never be included in frontend bundles.
 pnpm add @union-networks/issuer
 ```
 
-## Generate an issuer keypair
+## Key separation
+
+Every issuer uses three independent private keys:
+
+- Ed25519 API authorization key for provider callbacks and management actions.
+- secp256k1 credential key for signatures verified inside generic Noir profiles.
+- secp256k1 Ledger V2 key for EIP-712 anchor, revoke, rotate, and retire operations.
+
+Generate the Ledger V2 key with `generateLedgerV2SignerEnv`. Private keys remain server-only. Relayers receive signed operations and pay gas, but cannot change the issuer, commitment, holder revocation address, request hash, nonce, or deadline.
+
+## Provider-owned issuance
+
+Use `createDirectIssuerService` with `PostgresDirectIssuerRequestStore` behind same-origin provider routes. The wallet submits a credential-specific holder binding, delivery public key, and holder revocation address directly to the provider.
+
+The provider must:
+
+1. Apply its issuance and replacement policy.
+2. Build and sign credential-envelope v2.
+3. Encrypt it to the wallet's delivery key.
+4. Persist the ciphertext before anchoring.
+5. Call `anchorLedgerV2CredentialFromEnv` through two or more relayers.
+6. Expose delivery only after Ledger V2 confirms the commitment.
+
+Acknowledgement and replacement are provider-owned. With `replace_after_delivery`, revoke the previous commitment only after the new encrypted envelope is acknowledged. Issuer revocation uses `revokeLedgerV2CredentialFromEnv`; holders can revoke independently with the credential-specific holder key.
+
+## Domain administration credentials
+
+Paid domains issue private Owner and Admin credentials from same-origin server callbacks. Run this once on the provider server:
 
 ```ts
-import { generateIssuerKeyPairEnv } from '@union-networks/issuer';
+import { generateDomainAdminSignerEnv } from '@union-networks/issuer';
 
-console.log(generateIssuerKeyPairEnv());
+console.log(await generateDomainAdminSignerEnv({ serviceId: 'your-service' }));
 ```
 
-Store the printed values in your server environment:
+Install the returned environment block as server secrets. Register only the callback public key, credential key ID/hash, Ledger V2 key ID/address, and callback URL from the dashboard Keys page.
 
-```bash
-UNET_ISSUER_ID=issuer:unet-issuer-example
-UNET_ISSUER_KEY_ID=issuer:unet-issuer-example#main
-UNET_ISSUER_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----..."
-UNET_ISSUER_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----..."
-```
+Use `createDomainAdminSignerFromEnv` and `createDomainAdminCallbackHandler` for issuance. Ledger V2 issue and revoke callbacks must validate `x-unet-control-authorization` with the server-only control secret before signing an operation. `generateDomainAdminSignerEnv` emits the dedicated domain-admin ledger signer under `UNET_DOMAIN_ADMIN_LEDGER_*`.
 
-## Register the issuer and public keys
-
-Register the issuer identity from the verified domain's **Keys** page in the
-U-net partner dashboard. Paste only the API and credential-signing public keys
-there. Issuer identity registration is intentionally not available through a
-public runtime endpoint, and private keys stay in the provider environment.
-
-## Create a holder-facing request
-
-In a miniapp, create or receive a scoped service session through the U-net
-miniapp bridge. Then ask trust-plane to open an attestation request for that
-scoped user:
-
-```ts
-import { createAttestationRequest, createIssuerSignerFromEnv } from '@union-networks/issuer';
-
-const request = await createAttestationRequest({
-  serviceId: 'unet-issuer-example',
-  scopedUserId,
-  requestType: 'age-over-18',
-  claims: { source: 'issuer-example' },
-  holderBinding,
-  deliveryPublicKey,
-  signer: createIssuerSignerFromEnv(),
-  providerToken: process.env.UNET_PROVIDER_API_KEY,
-});
-```
-
-The SDK signs the exact HTTP method, path, canonical body hash, timestamp, and
-nonce with this issuer key. Trust-plane requires that replay-protected request
-signature in addition to the service-bound provider API key.
-
-## Approve a request
-
-Approval must happen on your server, because it signs with your issuer private
-key:
-
-```ts
-import {
-  approveAttestationRequest,
-  createIssuerSignerFromEnv,
-} from '@union-networks/issuer';
-
-await approveAttestationRequest({
-  serviceId: 'unet-issuer-example',
-  requestId,
-  signer: createIssuerSignerFromEnv(),
-  claims: { predicate: 'age_over_18', result: true },
-  providerToken: process.env.UNET_PROVIDER_API_KEY,
-});
-```
-
-Trust-plane verifies the issuer signature, checks that the issuer key is
-registered for the service/schema, anchors the commitment, and delivers the
-attestation to the holder.
-
-## Revoke an attestation
-
-```ts
-import { revokeAttestation, createIssuerSignerFromEnv } from '@union-networks/issuer';
-
-await revokeAttestation({
-  serviceId: 'unet-issuer-example',
-  attestationHash,
-  reason: 'Revoked by issuer',
-  signer: createIssuerSignerFromEnv(),
-  providerToken: process.env.UNET_PROVIDER_API_KEY,
-});
-```
-
-## Miniapp manifest helper
+## Miniapp manifest
 
 ```ts
 import { createIssuerMiniappManifest } from '@union-networks/issuer';
 
 export const manifest = createIssuerMiniappManifest({
-  serviceId: 'unet-issuer-example',
-  name: 'U-net Issuer Example',
-  provider: 'Example Issuer',
-  launchUrl: 'https://your-domain.example/miniapp',
-  description: 'Request attestations from the issuer.',
+  serviceId: 'your-service',
+  name: 'Example Issuer',
+  provider: 'Example Organization',
+  launchUrl: 'https://issuer.example/miniapp',
 });
 ```
 
-## Security notes
+## Security
 
-- Keep issuer private keys server-side.
-- Use one issuer key per provider/service.
-- Never build issuer API calls in browser code; request and list operations are
-  authenticated with both the provider key and registered issuer signature.
-- Rotate public key registrations from the domain Keys page after deploying the
-  matching private key, then retire the old key after pending requests finish.
-- Browser code can create requests and display status, but approval/revocation
-  must happen on the server.
-- U-net receives scoped IDs, issuer signatures, and attestation commitments; it
-  should not receive unnecessary private user data.
-
-## Production issuer default
-
-The SDK defaults to `https://issuer.egress.live`. You only need to pass `issuerBaseUrl` when targeting a local or staging trust-plane. Keep `origin` explicit: in browser code this is usually `window.location.origin`, and on the server it should be your configured public deployment origin. An `origin_mismatch` means the registered U-net service/domain claim does not match the current site origin.
-## Credential signing keys
-
-Issuer API actions continue to use an Ed25519 key. Generic local proofs use a separate secp256k1 credential key so the credential signature can be verified inside Noir. Keep both private keys in server-only environment variables; neither belongs in a client bundle.
-
-```ts
-const signer = {
-  issuerId: 'issuer:example',
-  keyId: 'issuer:example#api',
-  privateKeyPem: process.env.UNET_ISSUER_API_PRIVATE_KEY_PEM!,
-  credentialKeyId: 'issuer:example#credential-v1',
-  credentialPrivateKeyPem: process.env.UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM!,
-};
-```
-
-`approveAttestationRequest` now creates credential-envelope v2, signs its commitment, encrypts the private claims to the holder's delivery key, and sends only ciphertext plus public anchor metadata through trust-plane. Requests therefore require `holderBinding` and `deliveryPublicKey`, obtained from `host.createServiceSession` when the issuer page runs inside U-net.
+- Never put API, credential, or ledger private keys in browser bundles.
+- Persist encrypted delivery before submitting an anchor operation.
+- Require chain confirmation before making delivery ready.
+- Keep callback challenges replay-protected and validate body-bound control authorization.
+- Do not log claims, holder bindings, delivery capabilities, private keys, or credential envelopes.
+- Browser code may submit holder-authorized requests and display status; issuance and issuer revocation stay server-side.
+- U-net control-plane services do not receive scoped IDs, request records, or encrypted credential envelopes in Sovereign Core V2.

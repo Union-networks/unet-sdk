@@ -26,6 +26,7 @@ export interface DirectLoginApproval {
 
 export interface DirectLoginSession {
   sessionId: string;
+  requestRef: string;
   scopedUserId: string;
   expiresAtIso: string;
 }
@@ -58,6 +59,7 @@ export interface DirectLoginServiceOptions {
   accountStore: DirectLoginAccountStore;
   challengeTtlSeconds?: number;
   sessionTtlSeconds?: number;
+  onAccountRetired?: (scopedUserId: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -172,6 +174,7 @@ export function createDirectLoginService(options: DirectLoginServiceOptions) {
       await options.accountStore.bindPublicKey(approval.scopedUserId, approval.accountPublicKeyPem);
       const session = {
         sessionId: randomId('session'),
+        requestRef: record.requestRef,
         scopedUserId: approval.scopedUserId,
         expiresAtIso: new Date(now().getTime() + sessionTtlSeconds * 1_000).toISOString(),
       };
@@ -194,14 +197,28 @@ export function createDirectLoginService(options: DirectLoginServiceOptions) {
       return { state: 'approved', session: record.session };
     },
 
-    async exchangeSession(sessionId: string): Promise<DirectLoginSession> {
+    async prepareSessionExchange(sessionId: string): Promise<DirectLoginSession> {
+      const record = await options.challengeStore.getBySessionId(sessionId);
+      if (!record || record.state !== 'approved' || !record.session || record.session.sessionId !== sessionId) {
+        throw new Error('direct_login_session_invalid');
+      }
+      if (Date.parse(record.session.expiresAtIso) <= now().getTime()) throw new Error('direct_login_session_expired');
+      return record.session;
+    },
+
+    async completeSessionExchange(sessionId: string): Promise<void> {
       const record = await options.challengeStore.getBySessionId(sessionId);
       if (!record || record.state !== 'approved' || !record.session || record.session.sessionId !== sessionId) {
         throw new Error('direct_login_session_invalid');
       }
       if (Date.parse(record.session.expiresAtIso) <= now().getTime()) throw new Error('direct_login_session_expired');
       if (!(await options.challengeStore.consume(record.requestRef))) throw new Error('direct_login_session_already_exchanged');
-      return record.session;
+    },
+
+    async exchangeSession(sessionId: string): Promise<DirectLoginSession> {
+      const session = await this.prepareSessionExchange(sessionId);
+      await this.completeSessionExchange(sessionId);
+      return session;
     },
 
     async retire(retirement: ServiceAccountRetirement): Promise<void> {
@@ -217,6 +234,7 @@ export function createDirectLoginService(options: DirectLoginServiceOptions) {
         throw new Error('service_account_retirement_bad_signature');
       }
       await options.accountStore.retire(retirement.scopedUserId);
+      await options.onAccountRetired?.(retirement.scopedUserId);
     },
   };
 }

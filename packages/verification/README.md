@@ -15,7 +15,7 @@ npm install @union-networks/verification@alpha
 - Lists dynamic verification checks from trust-plane.
 - Creates verification sessions and QR payloads.
 - Polls verification results.
-- Creates checkout-bound verification sessions that bind a proof to the same holder who logged into your service.
+- Supports provider-owned action and checkout records through expiring hosted verifier sessions.
 - Lists mini-program catalog entries when needed for app/provider discovery.
 
 ## List Available Checks
@@ -91,44 +91,28 @@ The QR payload is intentionally compact. It contains a session reference, not th
 
 `checkResults` contains per-check details such as `holder_denied`, revoked attestation, or proof failure.
 
-## Checkout-Bound Verification
+## Provider-Owned Checkout Verification
 
-Use checkout-bound verification when a user is already signed in with U-net and you need to verify a restricted action. This prevents a different phone from satisfying the check for the logged-in account.
+Keep the checkout in your own database. Create a hosted verifier session, store only its random session ID/reference with the checkout, and mark the checkout complete after the verifier reports `verified` and `passed`.
 
 ```ts
 import {
-  createCheckoutVerification,
-  pollCheckoutVerification,
+  createVerificationSession,
+  pollVerificationResult,
 } from '@union-networks/verification';
 
-const checkout = await createCheckoutVerification(
-  {
-    serviceId: 'demo-supermarket',
-    assertionJws,
-    requiredChecks: ['age_over_18'],
-    restrictedResourceIds: ['wine-001'],
-    ttlSeconds: 120,
-  },
-);
-
-if (checkout.verification) {
-  const finalCheckout = await pollCheckoutVerification(
-    {
-      checkoutId: checkout.checkout.checkoutId,
-      serviceId: 'demo-supermarket',
-      assertionJws,
-    },
-    );
-
-  if (finalCheckout.checkout.status === 'completed') {
-    // Continue checkout.
-  } else {
-    console.log(finalCheckout.checkout.failureReason);
-  }
-}
+const verification = await createVerificationSession({
+  verifierId: 'shop.example',
+  verifierDisplayName: 'Example Shop',
+  requestedChecks: [{ requestType: 'age_over_18' }],
+  ttlSeconds: 120,
+});
+await saveCheckout({ verificationSessionId: verification.sessionId });
+const result = await pollVerificationResult(verification.sessionId);
+if (result.status === 'verified' && result.aggregateOutcome === 'passed') await completeCheckout();
 ```
 
-Common terminal failure reasons include failed proof, denial, expiry, and holder mismatch. Holder mismatch means the phone that completed the verification is not the same private holder that owns the logged-in scoped ID.
+The verifier stores only an expiring session and sanitized outcome. It does not need a holder ID or a trust-plane scoped-account relationship. The legacy central checkout helpers remain exported only for staged migration and stop working after V2 enforcement.
 
 ## Mini-Program Catalog
 

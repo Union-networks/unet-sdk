@@ -10,48 +10,39 @@ Use this package when a website wants to show a one-time U-net QR code and recei
 npm install @union-networks/web-login@alpha
 ```
 
-## What This Package Does
+## Sovereign Core V2
 
-- Creates a web-login session with U-net trust-plane.
-- Produces the QR payload for the mobile app to scan.
-- Polls the session until the user approves, denies, or the QR expires.
-- Exposes a small helper to detect approved results.
+Login challenges and sessions are provider-owned. Your server exposes the standard routes from `@union-networks/server`; browser code calls those routes with `createDirectProviderLogin`, renders `renderDirectLoginQrPayload`, and polls `pollDirectProviderLogin`.
 
-It does not verify the login assertion on your server. Use `@union-networks/server` for that.
+The U-net control plane is not on the login data path. The scoped ID is bound to a service-account public key on first login, and each later login proves possession of that key with a fresh signed challenge.
 
 ## Basic Usage
 
 ```ts
 import {
-  createLoginSession,
-  isApprovedLoginResult,
-  pollLoginSession,
-  renderLoginQrPayload,
+  createDirectProviderLogin,
+  pollDirectProviderLogin,
+  renderDirectLoginQrPayload,
 } from '@union-networks/web-login';
 
-const session = await createLoginSession(
-  {
-    serviceId: 'demo-supermarket',
-    origin: window.location.origin,
-    expiresInSeconds: 120,
-  },
-);
+const challenge = await createDirectProviderLogin(window.location.origin);
+const qrPayload = renderDirectLoginQrPayload(challenge);
+let result;
+do {
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  result = await pollDirectProviderLogin(window.location.origin, challenge.requestRef);
+} while (result.state === 'pending');
 
-const qrPayload = renderLoginQrPayload(session);
-
-const result = await pollLoginSession(session.sessionId, {
-  intervalMs: 1500,
-  timeoutMs: 120000,
-});
-
-if (isApprovedLoginResult(result)) {
+if (result.state === 'approved' && result.session) {
   await fetch('/api/unet/session', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ assertionJws: result.assertionJws }),
+    body: JSON.stringify({ providerSessionId: result.session.sessionId }),
   });
 }
 ```
+
+The V1 central helpers remain exported only for staged migration and return `protocol_upgrade_required` after Sovereign Core V2 enforcement is enabled.
 
 ## API
 
@@ -107,8 +98,9 @@ The `scopedUserId` is the account identifier your service should store. It is st
 
 ## Security Notes
 
-- Do not trust `scopedUserId` directly from browser JavaScript.
-- Send `assertionJws` to your backend and verify it with `@union-networks/server`.
+- Never accept a browser-supplied scoped ID as authentication.
+- Exchange the opaque provider session ID on your own server and set an HTTP-only service cookie.
+- Validate the QR origin against the signed U-net service registry before approval.
 - Never ask for or store a public U-net ID to implement login.
 - Handle `denied` and `expired` as normal user outcomes, not server errors.
 

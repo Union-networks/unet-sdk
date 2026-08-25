@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyIssuerEnvelopeSignature } from './index.js';
+import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createDomainAdminControlAuthorization, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyDomainAdminControlAuthorization, verifyIssuerEnvelopeSignature } from './index.js';
 
 describe('@union-networks/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
@@ -90,7 +90,17 @@ describe('@union-networks/issuer', () => {
     const generated = await generateDomainAdminSignerEnv({ serviceId: 'issuer.example' });
     expect(generated.env).toContain('UNET_DOMAIN_ADMIN_PRIVATE_KEY_PEM=');
     expect(generated.env).toContain('UNET_DOMAIN_ADMIN_CREDENTIAL_PRIVATE_KEY_PEM=');
+    expect(generated.env).toContain('UNET_DOMAIN_ADMIN_LEDGER_PRIVATE_KEY=0x');
+    expect(generated.ledgerAddress).toMatch(/^0x[a-f0-9]{40}$/);
     expect(generated.credentialPublicKeyHash).toMatch(/^[0-9]+$/);
+  });
+
+  it('authenticates domain administration control callbacks over canonical request data', () => {
+    const secret = 'domain-admin-control-secret-for-tests';
+    const body = { version: 2, action: 'domain-admin.issue', serviceId: 'issuer.example', nested: { b: 2, a: 1 } };
+    const authorization = createDomainAdminControlAuthorization(body, secret);
+    expect(verifyDomainAdminControlAuthorization(body, authorization, secret)).toBe(true);
+    expect(verifyDomainAdminControlAuthorization({ ...body, serviceId: 'other.example' }, authorization, secret)).toBe(false);
   });
 
   it('validates and consumes domain administration callbacks once', async () => {
