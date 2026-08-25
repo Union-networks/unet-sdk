@@ -74,6 +74,26 @@ describe('direct issuer service', () => {
       holderRevocationSigner: `0x${'33'.repeat(20)}`, idempotencyKey: 'issue-a',
     });
     const ready = await service.approve(issuedRequest.requestId);
+    await expect(service.authorizeRevocation({
+      requestId: issuedRequest.requestId,
+      deliveryCapability: 'wrong-capability',
+      attestationHash: ready.attestationHash!,
+    })).rejects.toThrow('revocation_capability_invalid');
+    await expect(service.authorizeRevocation({
+      requestId: issuedRequest.requestId,
+      deliveryCapability: issuedRequest.deliveryCapability,
+      attestationHash: `${'ff'.repeat(32)}`,
+    })).rejects.toThrow('revocation_commitment_mismatch');
+    await expect(service.authorizeRevocation({
+      requestId: issuedRequest.requestId,
+      deliveryCapability: issuedRequest.deliveryCapability,
+      attestationHash: ready.attestationHash!,
+    })).resolves.toMatchObject({
+      serviceAccountRef: 'account-a',
+      attestationHash: ready.attestationHash,
+      state: 'ready',
+    });
+    expect((await service.revoke(ready.attestationHash!, 'operator_revoked')).state).toBe('revoked');
     expect((await service.revoke(ready.attestationHash!, 'operator_revoked')).state).toBe('revoked');
     expect(revoked).toEqual([ready.attestationHash]);
   });

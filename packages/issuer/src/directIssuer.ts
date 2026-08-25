@@ -186,12 +186,38 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
 
     async revoke(attestationHash: string, reason = 'issuer_revoked'): Promise<DirectIssuerRequestRecord> {
       const request = await options.store.findByAttestationHash(attestationHash.replace(/^0x/, '').toLowerCase());
+      if (request?.state === 'revoked' && request.attestationHash) return request;
       if (!request?.attestationHash || !['ready', 'delivered'].includes(request.state)) throw new Error('active_credential_not_found');
       if (!options.revokeCredential) throw new Error('issuer_revocation_not_configured');
       await options.revokeCredential({ requestId: request.requestId, attestationHash: request.attestationHash, reason });
       const revoked = { ...request, state: 'revoked' as const, updatedAtIso: now().toISOString() };
       await options.store.update(revoked);
       return revoked;
+    },
+
+    async authorizeRevocation(input: {
+      requestId: string;
+      deliveryCapability: string;
+      attestationHash: string;
+    }): Promise<Pick<DirectIssuerRequestRecord, 'requestId' | 'serviceAccountRef' | 'checkId' | 'attestationHash' | 'state'>> {
+      const request = await options.store.get(input.requestId);
+      if (!request || request.deliveryCapabilityHash !== hashCapability(input.deliveryCapability)) {
+        throw new Error('revocation_capability_invalid');
+      }
+      const attestationHash = input.attestationHash.replace(/^0x/, '').toLowerCase();
+      if (!request.attestationHash || request.attestationHash !== attestationHash) {
+        throw new Error('revocation_commitment_mismatch');
+      }
+      if (!['ready', 'delivered', 'revoked'].includes(request.state)) {
+        throw new Error('credential_not_revocable');
+      }
+      return {
+        requestId: request.requestId,
+        serviceAccountRef: request.serviceAccountRef,
+        checkId: request.checkId,
+        attestationHash: request.attestationHash,
+        state: request.state,
+      };
     },
 
     async getDelivery(requestId: string, deliveryCapability: string): Promise<{
