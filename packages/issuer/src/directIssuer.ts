@@ -251,6 +251,8 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
   };
 }
 
+export type DirectIssuerService = ReturnType<typeof createDirectIssuerService>;
+
 export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStore {
   private readonly records = new Map<string, DirectIssuerRequestRecord>();
 

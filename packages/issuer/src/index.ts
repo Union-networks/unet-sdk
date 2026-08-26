@@ -12,6 +12,7 @@ import { generateLedgerV2Signer } from './ledgerV2.js';
 export * from './ledgerV2.js';
 export * from './directIssuer.js';
 export * from './directIssuerPostgres.js';
+export * from './webAdapters.js';
 
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 
@@ -561,6 +562,51 @@ export function signDomainAdminCredentialResponse(input: { request: DomainAdminC
   if (!/^[a-f0-9]{64}$/i.test(input.credential.attestationCommitment)) throw new Error('attestation_commitment_invalid');
   const payload = { challenge: input.request.challenge, invitationId: input.request.invitationId, serviceId: input.request.serviceId, role: input.request.role, requestType: input.request.requestType, ...input.credential };
   return { keyId: input.signer.keyId, payload, signature: b64url(sign(null, Buffer.from(canonicalize(payload), 'utf8'), input.signer.privateKeyPem)) };
+}
+
+export async function generateAttestationIssuerEnv(input: { serviceId: string; issuerId?: string; keyVersion?: string }): Promise<{
+  env: string;
+  issuerId: string;
+  keyId: string;
+  publicKeyPem: string;
+  credentialKeyId: string;
+  credentialPublicKeyPem: string;
+  credentialPublicKeyHash: string;
+  ledgerKeyId: string;
+  ledgerAddress: string;
+}> {
+  const version = input.keyVersion?.trim() || '1';
+  const issuerId = input.issuerId?.trim() || `issuer:${input.serviceId}`;
+  const api = generateIssuerKeyPair();
+  const credential = generateCredentialSigningKeyPair();
+  const keyId = `${input.serviceId}#issuer-api-${version}`;
+  const credentialKeyId = `${input.serviceId}#issuer-credential-${version}`;
+  const ledger = generateLedgerV2Signer({ issuerId, keyId: `${input.serviceId}#ledger-${version}` });
+  const credentialPublicKeyHash = await deriveCredentialPublicKeyHash(credential.publicKeyPem);
+  return {
+    issuerId,
+    keyId,
+    publicKeyPem: api.publicKeyPem,
+    credentialKeyId,
+    credentialPublicKeyPem: credential.publicKeyPem,
+    credentialPublicKeyHash,
+    ledgerKeyId: ledger.keyId,
+    ledgerAddress: ledger.address,
+    env: [
+      `UNET_ISSUER_ID=${issuerId}`,
+      `UNET_ISSUER_KEY_ID=${keyId}`,
+      `UNET_ISSUER_PRIVATE_KEY_PEM=${JSON.stringify(api.privateKeyPem)}`,
+      `UNET_ISSUER_PUBLIC_KEY_PEM=${JSON.stringify(api.publicKeyPem)}`,
+      `UNET_ISSUER_CREDENTIAL_KEY_ID=${credentialKeyId}`,
+      `UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM=${JSON.stringify(credential.privateKeyPem)}`,
+      `UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_PEM=${JSON.stringify(credential.publicKeyPem)}`,
+      `UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_HASH=${credentialPublicKeyHash}`,
+      `UNET_ISSUER_LEDGER_KEY_ID=${ledger.keyId}`,
+      `UNET_ISSUER_LEDGER_PRIVATE_KEY=${ledger.privateKeyHex}`,
+      `UNET_ISSUER_LEDGER_ADDRESS=${ledger.address}`,
+      `UNET_ISSUER_LEDGER_KEY_EPOCH=${ledger.keyEpoch}`,
+    ].join('\n'),
+  };
 }
 
 export function createDomainAdminControlAuthorization(body: unknown, secret: string): string {
