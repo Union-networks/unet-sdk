@@ -239,6 +239,8 @@ export function createDirectLoginService(options: DirectLoginServiceOptions) {
   };
 }
 
+export type DirectLoginService = ReturnType<typeof createDirectLoginService>;
+
 export class InMemoryDirectLoginChallengeStore implements DirectLoginChallengeStore {
   private readonly records = new Map<string, DirectLoginChallengeRecord>();
 
@@ -266,5 +268,30 @@ export class InMemoryDirectLoginChallengeStore implements DirectLoginChallengeSt
     if (!record || record.state !== 'approved') return false;
     this.records.set(requestRef, { ...record, state: 'consumed' });
     return true;
+  }
+}
+
+export class InMemoryDirectLoginAccountStore implements DirectLoginAccountStore {
+  private readonly accounts = new Map<string, { publicKeyPem: string; status: 'active' | 'retired' }>();
+
+  public async getPublicKey(scopedUserId: string): Promise<string | undefined> {
+    const account = this.accounts.get(scopedUserId);
+    return account?.status === 'active' ? account.publicKeyPem : undefined;
+  }
+
+  public async bindPublicKey(scopedUserId: string, publicKeyPem: string): Promise<'created' | 'existing'> {
+    const existing = this.accounts.get(scopedUserId);
+    if (!existing) {
+      this.accounts.set(scopedUserId, { publicKeyPem, status: 'active' });
+      return 'created';
+    }
+    if (existing.status === 'retired') throw new Error('service_account_retired');
+    if (existing.publicKeyPem !== publicKeyPem) throw new Error('direct_login_account_key_mismatch');
+    return 'existing';
+  }
+
+  public async retire(scopedUserId: string): Promise<void> {
+    const existing = this.accounts.get(scopedUserId);
+    if (existing) this.accounts.set(scopedUserId, { ...existing, status: 'retired' });
   }
 }

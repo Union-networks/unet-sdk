@@ -2,56 +2,80 @@
 
 `createDirectLoginService` implements U-net Direct Login Protocol V2. The provider creates and stores its own one-time challenge, binds a scoped account to its Ed25519 public key on first login, verifies every later challenge signature, and creates its own service session. `PostgresDirectLoginChallengeStore` and `PostgresDirectLoginAccountStore` provide durable adapters without placing U-net infrastructure on the login data path.
 
-Server-side helpers for U-net web integrations.
-
-Use this package in your backend. It verifies login assertions, creates domain-control proof responses, and generates miniapp manifests without exposing provider secrets to browser JavaScript.
+Server-side helpers for U-net web integrations. Providers own their Direct
+Login V2 challenges, accounts, sessions, retirement handling, and official
+inbox records; U-net is not on the login data path.
 
 ## Install
 
 ```bash
-npm install @union-networks/server@alpha
+npm install @union-networks/server@alpha pg
 ```
 
 ## What Belongs On The Server
 
 Keep these values in server-only environment variables:
 
-- `UNET_WEB_LOGIN_ASSERTION_SECRET`: shared assertion-verification secret for your U-net environment.
+- `UNET_PROVIDER_DATABASE_URL`: provider-owned Postgres connection string.
+- `UNET_PROVIDER_SESSION_SECRET`: random provider session secret containing at least 32 characters.
 - `UNET_PROVIDER_CLAIM_ID`: claim ID from the U-net dashboard.
 - `UNET_PROVIDER_CLAIM_CHALLENGE`: challenge from the U-net dashboard.
 - `UNET_PROVIDER_CLAIM_TOKEN`: one-time domain-claim token from the U-net dashboard.
 
 Do not expose the claim token in frontend bundles, public config, analytics, logs, or HTML.
 
-## Verify Browser Login Assertions
+## Direct Login V2
 
-After a browser QR login or miniapp service session, send `assertionJws` to your backend and verify it before creating a local session.
+Create a provider-owned login service with the durable Postgres adapters:
 
 ```ts
-import { verifyLoginAssertion } from '@union-networks/server';
+import { Pool } from 'pg';
+import {
+  PostgresDirectLoginAccountStore,
+  PostgresDirectLoginChallengeStore,
+  createDirectLoginService,
+  createDirectLoginWebHandlers,
+  ensureDirectLoginSchema,
+} from '@union-networks/server';
 
-export async function POST(request: Request) {
-  const { assertionJws } = await request.json();
+const pool = new Pool({ connectionString: process.env.UNET_PROVIDER_DATABASE_URL });
+await ensureDirectLoginSchema(pool);
+const accountStore = new PostgresDirectLoginAccountStore(pool);
+const service = createDirectLoginService({
+  serviceId: 'demo-shop',
+  origin: 'https://shop.example',
+  accountStore,
+  challengeStore: new PostgresDirectLoginChallengeStore(pool),
+});
 
-  const claims = verifyLoginAssertion(assertionJws, {
-    secret: process.env.UNET_WEB_LOGIN_ASSERTION_SECRET!,
-    serviceId: 'demo-shop',
-  });
-
-  // Store/load your account by this scoped ID.
-  // It is stable for your service and different for every other service.
-  const scopedUserId = claims.scopedUserId!;
-
-  return Response.json({ ok: true, scopedUserId });
-}
+export const unetLogin = createDirectLoginWebHandlers({
+  serviceId: 'demo-shop',
+  origin: 'https://shop.example',
+  service,
+  accountStore,
+  exchange: async (session) => {
+    // Create your own HTTP-only provider session here.
+    return { success: true, expiresAtIso: session.expiresAtIso };
+  },
+});
 ```
 
-`verifyLoginAssertion` checks:
+Mount the returned handlers at these canonical routes:
 
-- the JWS signature;
-- the token expiry;
-- the expected `serviceId`, when provided;
-- required login fields such as `sessionId` and `scopedUserId`.
+```text
+POST /api/unet/login/challenge
+GET  /api/unet/login/challenge?requestRef=...
+POST /api/unet/login/approve
+GET  /api/unet/login/status?requestRef=...
+POST /api/unet/login/exchange
+POST /api/unet/account/retire
+```
+
+Publish `/.well-known/unet-service.json` with
+`createUnetServiceManifestHandler`. Browser login and
+`host.createServiceSession` use the same provider-hosted challenge flow.
+`verifyLoginAssertion` remains exported only for compatibility with legacy
+V1 integrations.
 
 ## Expose A Domain-Control Claim
 
@@ -131,6 +155,11 @@ Rules enforced by the helper:
 - `launchUrl` must be on the same origin.
 - permissions default to `['identity.scoped']`.
 
+For a permissionless read-only site, explicitly use `permissions: []`. Such a
+site receives no scoped identity and cannot invoke identity or attestation
+bridge actions. Login-capable unlisted services must also be domain-verified,
+publish the Direct Login V2 service manifest, and pass dashboard readiness.
+
 ## Emit Official Messaging Automations
 
 Create a scoped Messaging automation key on the domain Keys page, then install it only on your backend. The client resolves the published template, validates variables, renders and encrypts the recipient payload locally, and sends only ciphertext to U-net.
@@ -161,10 +190,15 @@ await unet.officialMessaging.emitEvent({
 app/
   api/
     unet/
-      session/route.ts
+      login/challenge/route.ts
+      login/approve/route.ts
+      login/status/route.ts
+      login/exchange/route.ts
+      account/retire/route.ts
   .well-known/
     unet-provider-claim.json/route.ts
     unet-miniapp.json/route.ts
+    unet-service.json/route.ts
 ```
 
 The `.well-known` routes let U-net verify and launch your origin. The API route verifies login assertions and creates your app session.
@@ -173,6 +207,6 @@ The `.well-known` routes let U-net verify and launch your origin. The API route 
 
 - The claim token is a provider secret. Keep it server-side.
 - Domain control is not legal identity verification. Show users your verified origin clearly.
-- Always verify login assertions server-side before trusting `scopedUserId`.
+- Always verify the signed Direct Login challenge before trusting `scopedUserId`.
 - Store your local account by `scopedUserId`; never ask for a global U-net ID.
 - Rotate a domain claim if a token is accidentally exposed.
