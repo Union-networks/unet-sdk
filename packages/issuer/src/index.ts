@@ -249,7 +249,7 @@ export async function deriveCredentialPublicKeyHash(publicKeyPem: string): Promi
   ]));
 }
 
-export async function generateDomainAdminSignerEnv(input: { serviceId: string; keyVersion?: string }): Promise<{ env: string; keyId: string; publicKeyPem: string; credentialKeyId: string; credentialPublicKeyHash: string; ledgerKeyId: string; ledgerAddress: string }> {
+export async function generateDomainAdminSignerEnv(input: { serviceId: string; keyVersion?: string }): Promise<{ env: string; keyId: string; publicKeyPem: string; credentialKeyId: string; credentialPublicKeyPem: string; credentialPublicKeyHash: string; ledgerKeyId: string; ledgerAddress: string }> {
   const version = input.keyVersion?.trim() || '1';
   const callback = generateIssuerKeyPair();
   const credential = generateCredentialSigningKeyPair();
@@ -261,6 +261,7 @@ export async function generateDomainAdminSignerEnv(input: { serviceId: string; k
     keyId,
     publicKeyPem: callback.publicKeyPem,
     credentialKeyId,
+    credentialPublicKeyPem: credential.publicKeyPem,
     credentialPublicKeyHash,
     ledgerKeyId: ledger.keyId,
     ledgerAddress: ledger.address,
@@ -622,15 +623,100 @@ export function verifyDomainAdminControlAuthorization(body: unknown, authorizati
   return expectedBytes.length === actualBytes.length && timingSafeEqual(expectedBytes, actualBytes);
 }
 
-export function createDomainAdminCallbackHandler(input: { serviceId: string; origin: string; signer: IssuerSigner; controlAuthorizationSecret?: string; consumeChallenge: (challenge: string) => Promise<boolean>; issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>; }) {
+export interface DomainAdminControlAuthorizationPayload {
+  version: 2;
+  keyId: string;
+  method: string;
+  path: string;
+  audience: string;
+  bodySha256: string;
+  issuedAt: number;
+  nonce: string;
+}
+
+export function createDomainAdminControlAuthorizationV2(input: {
+  body: unknown;
+  privateKeyPem: string;
+  keyId: string;
+  method: string;
+  path: string;
+  audience: string;
+  issuedAt?: number;
+  nonce?: string;
+}): string {
+  const payload: DomainAdminControlAuthorizationPayload = {
+    version: 2,
+    keyId: input.keyId,
+    method: input.method.toUpperCase(),
+    path: input.path,
+    audience: input.audience,
+    bodySha256: createHash('sha256').update(canonicalize(input.body)).digest('hex'),
+    issuedAt: input.issuedAt ?? Math.floor(Date.now() / 1_000),
+    nonce: input.nonce ?? randomBytes(18).toString('base64url'),
+  };
+  const encoded = Buffer.from(canonicalize(payload)).toString('base64url');
+  const signature = sign(null, Buffer.from(encoded), createPrivateKey(input.privateKeyPem.replace(/\\n/g, '\n'))).toString('base64url');
+  return `v2.${encoded}.${signature}`;
+}
+
+export function verifyDomainAdminControlAuthorizationV2(input: {
+  body: unknown;
+  authorization: string | undefined;
+  publicKeys: Record<string, string>;
+  method: string;
+  path: string;
+  audience: string;
+  nowEpoch?: number;
+  maximumAgeSeconds?: number;
+}): { valid: boolean; payload?: DomainAdminControlAuthorizationPayload } {
+  try {
+    const [version, encoded, encodedSignature] = input.authorization?.split('.') ?? [];
+    if (version !== 'v2' || !encoded || !encodedSignature) return { valid: false };
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as DomainAdminControlAuthorizationPayload;
+    const publicKeyPem = input.publicKeys[payload.keyId];
+    if (!publicKeyPem || payload.version !== 2 || payload.method !== input.method.toUpperCase() || payload.path !== input.path || payload.audience !== input.audience) return { valid: false };
+    if (payload.bodySha256 !== createHash('sha256').update(canonicalize(input.body)).digest('hex') || !/^[A-Za-z0-9_-]{16,}$/.test(payload.nonce)) return { valid: false };
+    const now = input.nowEpoch ?? Math.floor(Date.now() / 1_000);
+    if (Math.abs(now - payload.issuedAt) > (input.maximumAgeSeconds ?? 300)) return { valid: false };
+    if (!verify(null, Buffer.from(encoded), createPublicKey(publicKeyPem.replace(/\\n/g, '\n')), Buffer.from(encodedSignature, 'base64url'))) return { valid: false };
+    return { valid: true, payload };
+  } catch {
+    return { valid: false };
+  }
+}
+
+export async function fetchUnetControlPublicKeys(input: {
+  controlPlaneUrl?: string;
+  fetch?: typeof globalThis.fetch;
+} = {}): Promise<Record<string, string>> {
+  const fetchImpl = input.fetch ?? globalThis.fetch;
+  if (!fetchImpl) throw new Error('control_key_fetch_unavailable');
+  const origin = new URL(input.controlPlaneUrl ?? process.env.UNET_CONTROL_PLANE_URL ?? 'https://issuer.egress.live').origin;
+  const response = await fetchImpl(`${origin}/.well-known/unet-control-keys.json`, { headers: { accept: 'application/json' } });
+  const body = await response.json().catch(() => ({})) as { keys?: Array<{ keyId?: unknown; algorithm?: unknown; publicKeyPem?: unknown }> };
+  if (!response.ok || !Array.isArray(body.keys)) throw new Error('control_key_discovery_failed');
+  const keys = Object.fromEntries(body.keys
+    .filter((item) => item.algorithm === 'Ed25519' && typeof item.keyId === 'string' && typeof item.publicKeyPem === 'string')
+    .map((item) => [item.keyId as string, item.publicKeyPem as string]));
+  if (!Object.keys(keys).length) throw new Error('control_key_discovery_empty');
+  return keys;
+}
+
+export function createDomainAdminCallbackHandler(input: { serviceId: string; origin: string; signer: IssuerSigner; controlAuthorizationSecret?: string; controlPublicKeys?: Record<string, string>; controlAuthorizationPath?: string; consumeControlNonce?: (nonce: string) => Promise<boolean>; consumeChallenge: (challenge: string) => Promise<boolean>; issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>; }) {
   return async (body: unknown, headers: Record<string, string | string[] | undefined>): Promise<SignedDomainAdminCredentialResponse> => {
     const rawHeader = headers['x-unet-domain-admin-challenge'];
     const challengeHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
     const request = validateDomainAdminCallbackRequest(body, { serviceId: input.serviceId, origin: input.origin, challengeHeader });
     const rawAuthorization = headers['x-unet-control-authorization'];
     const authorization = Array.isArray(rawAuthorization) ? rawAuthorization[0] : rawAuthorization;
-    if (request.version === 2 && (!input.controlAuthorizationSecret || !verifyDomainAdminControlAuthorization(body, authorization, input.controlAuthorizationSecret))) {
-      throw new Error('domain_admin_control_authorization_invalid');
+    if (request.version === 2) {
+      const asymmetric = input.controlPublicKeys ? verifyDomainAdminControlAuthorizationV2({
+        body, authorization, publicKeys: input.controlPublicKeys, method: 'POST',
+        path: input.controlAuthorizationPath ?? '/api/unet/domain-admin/issue', audience: input.serviceId,
+      }) : { valid: false as const };
+      const legacy = Boolean(input.controlAuthorizationSecret && verifyDomainAdminControlAuthorization(body, authorization, input.controlAuthorizationSecret));
+      if (!asymmetric.valid && !legacy) throw new Error('domain_admin_control_authorization_invalid');
+      if (asymmetric.payload && input.consumeControlNonce && !(await input.consumeControlNonce(asymmetric.payload.nonce))) throw new Error('domain_admin_control_authorization_replayed');
     }
     if (!(await input.consumeChallenge(request.challenge))) throw new Error('domain_admin_challenge_replayed');
     return signDomainAdminCredentialResponse({ request, credential: await input.issueCredential(request), signer: input.signer });

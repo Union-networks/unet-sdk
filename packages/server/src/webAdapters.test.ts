@@ -1,7 +1,7 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createDirectLoginService, InMemoryDirectLoginAccountStore, InMemoryDirectLoginChallengeStore } from './directLogin.js';
-import { createDirectLoginWebHandlers } from './webAdapters.js';
+import { createDirectLoginWebHandlers, createProviderSelfTestHandler, createUnetProtocolOptionsHandler } from './webAdapters.js';
 
 describe('direct login web adapters', () => {
   it('creates, approves, polls, and exchanges a provider-owned session', async () => {
@@ -20,5 +20,21 @@ describe('direct login web adapters', () => {
     const polled = await (await handlers.challengeStatus(new Request(`https://shop.example/api/unet/login/status?requestRef=${challenge.requestRef}`))).json() as any;
     expect(polled.state).toBe('approved');
     expect((await handlers.exchange(new Request('https://shop.example/api/unet/login/exchange', { method: 'POST', body: JSON.stringify({ sessionId: polled.session.sessionId }) }))).status).toBe(200);
+  });
+
+  it('advertises protocol contracts and runs only authenticated non-persisting self-tests', async () => {
+    const options = await createUnetProtocolOptionsHandler({ methods: ['POST'], capabilities: ['direct_login'] })();
+    expect(options.status).toBe(204);
+    expect(options.headers.get('x-unet-protocol-version')).toBe('2');
+    let databaseChecks = 0;
+    const handler = createProviderSelfTestHandler({
+      serviceId: 'shop',
+      authorize: async (request) => request.headers.get('authorization') === 'signed-control-request',
+      checks: { database: async () => { databaseChecks += 1; } },
+    });
+    const body = JSON.stringify({ version: 1, action: 'provider.self-test', serviceId: 'shop', checks: ['database'] });
+    expect((await handler(new Request('https://shop.example/api/unet/self-test', { method: 'POST', body }))).status).toBe(403);
+    expect((await handler(new Request('https://shop.example/api/unet/self-test', { method: 'POST', headers: { authorization: 'signed-control-request' }, body }))).status).toBe(200);
+    expect(databaseChecks).toBe(1);
   });
 });

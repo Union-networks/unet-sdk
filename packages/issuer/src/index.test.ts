@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createDomainAdminControlAuthorization, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyDomainAdminControlAuthorization, verifyIssuerEnvelopeSignature } from './index.js';
+import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createDomainAdminControlAuthorization, createDomainAdminControlAuthorizationV2, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, fetchUnetControlPublicKeys, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyDomainAdminControlAuthorization, verifyDomainAdminControlAuthorizationV2, verifyIssuerEnvelopeSignature } from './index.js';
 
 describe('@union-networks/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
@@ -101,6 +101,25 @@ describe('@union-networks/issuer', () => {
     const authorization = createDomainAdminControlAuthorization(body, secret);
     expect(verifyDomainAdminControlAuthorization(body, authorization, secret)).toBe(true);
     expect(verifyDomainAdminControlAuthorization({ ...body, serviceId: 'other.example' }, authorization, secret)).toBe(false);
+  });
+
+  it('authenticates asymmetric domain administration callbacks', () => {
+    const keys = generateIssuerKeyPair();
+    const body = { version: 2, action: 'domain-admin.issue', serviceId: 'issuer.example' };
+    const authorization = createDomainAdminControlAuthorizationV2({ body, privateKeyPem: keys.privateKeyPem, keyId: 'control-1', method: 'POST', path: '/api/unet/domain-admin/issue', audience: 'issuer.example', issuedAt: 1000, nonce: 'abcdefghijklmnop' });
+    expect(verifyDomainAdminControlAuthorizationV2({ body, authorization, publicKeys: { 'control-1': keys.publicKeyPem }, method: 'POST', path: '/api/unet/domain-admin/issue', audience: 'issuer.example', nowEpoch: 1000 }).valid).toBe(true);
+    expect(verifyDomainAdminControlAuthorizationV2({ body, authorization, publicKeys: { 'control-1': keys.publicKeyPem }, method: 'POST', path: '/wrong', audience: 'issuer.example', nowEpoch: 1000 }).valid).toBe(false);
+  });
+
+  it('discovers only Ed25519 control keys', async () => {
+    const keys = await fetchUnetControlPublicKeys({
+      controlPlaneUrl: 'https://issuer.example',
+      fetch: async () => new Response(JSON.stringify({ keys: [
+        { keyId: 'control-1', algorithm: 'Ed25519', publicKeyPem: 'pem' },
+        { keyId: 'wrong', algorithm: 'RSA', publicKeyPem: 'no' },
+      ] }), { status: 200 }),
+    });
+    expect(keys).toEqual({ 'control-1': 'pem' });
   });
 
   it('validates and consumes domain administration callbacks once', async () => {

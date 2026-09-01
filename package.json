@@ -11,6 +11,7 @@
     "typecheck": "tsc -b packages/* examples/react-login examples/react-age-check examples/checkout-bound-verification --pretty false",
     "test": "vitest run",
     "docs:api": "node scripts/generate-api-reference.mjs",
+    "env:generate": "tsx scripts/generate-provider-environment.ts",
     "docs:dev": "pnpm docs:api && vitepress dev docs",
     "docs:build": "pnpm docs:api && vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -29,6 +30,7 @@
     "vitepress": "^1.6.4",
     "vitest": "^3.2.4",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tsx": "^4.20.6"
   }
 }

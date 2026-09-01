@@ -37,6 +37,43 @@ export interface DirectLoginWebAdapterOptions {
   exchange?: (session: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string }) => Promise<Response | JsonObject>;
 }
 
+export function createUnetProtocolOptionsHandler(input: { methods: string[]; capabilities: string[] }) {
+  const methods = Array.from(new Set(["OPTIONS", ...input.methods.map((method) => method.toUpperCase())]));
+  return async (): Promise<Response> => new Response(null, {
+    status: 204,
+    headers: {
+      allow: methods.join(", "),
+      "x-unet-protocol-version": "2",
+      "x-unet-capabilities": input.capabilities.join(","),
+      "cache-control": "no-store",
+    },
+  });
+}
+
+export type ProviderSelfTestName = "database" | "replay" | "direct_login" | "issuer_storage" | "delivery" | "revocation" | "official_messaging";
+
+export function createProviderSelfTestHandler(input: {
+  serviceId: string;
+  authorize: (request: Request, body: Record<string, unknown>) => Promise<boolean>;
+  checks: Partial<Record<ProviderSelfTestName, () => Promise<void>>>;
+}) {
+  return async (request: Request): Promise<Response> => {
+    try {
+      const value = await body<JsonObject>(request);
+      const requested = Array.isArray(value.checks) ? value.checks.filter((item): item is ProviderSelfTestName => typeof item === "string" && item in input.checks) : [];
+      if (value.version !== 1 || value.action !== "provider.self-test" || value.serviceId !== input.serviceId || !requested.length) return json({ success: false, error: "provider_self_test_invalid" }, 400);
+      if (!(await input.authorize(request, value))) return json({ success: false, error: "provider_self_test_unauthorized" }, 403);
+      const results = await Promise.all(requested.map(async (name) => {
+        try { await input.checks[name]!(); return { name, status: "passed" as const }; }
+        catch { return { name, status: "failed" as const }; }
+      }));
+      return json({ success: true, protocolVersion: 2, results });
+    } catch (error) {
+      return safeError(error);
+    }
+  };
+}
+
 export function createDirectLoginWebHandlers(options: DirectLoginWebAdapterOptions) {
   return {
     challenge: async (_request: Request): Promise<Response> => {

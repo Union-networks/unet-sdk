@@ -9,6 +9,7 @@ export * from './directLoginPostgres.js';
 export * from './officialMessagingInbox.js';
 export * from './operationalMetrics.js';
 export * from './providerBroadcast.js';
+export * from './providerEnvironment.js';
 export * from './serviceManifest.js';
 export * from './webAdapters.js';
 

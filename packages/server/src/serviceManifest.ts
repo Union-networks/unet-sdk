@@ -17,6 +17,7 @@ export interface UnetServiceManifestV2 {
     status: string;
     exchange: string;
     retirement: string;
+    selfTest: string;
     officialInbox?: string;
     officialBroadcast?: string;
   };
@@ -62,6 +63,7 @@ export function createUnetServiceManifest(options: UnetServiceManifestOptions): 
       status: sameOriginUrl(origin, '/api/unet/login/status'),
       exchange: sameOriginUrl(origin, '/api/unet/login/exchange'),
       retirement: sameOriginUrl(origin, '/api/unet/account/retire'),
+      selfTest: sameOriginUrl(origin, '/api/unet/self-test'),
       ...(options.officialMessaging
         ? {
             officialInbox: sameOriginUrl(origin, '/api/unet/official-inbox'),
