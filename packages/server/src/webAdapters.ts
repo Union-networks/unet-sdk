@@ -34,7 +34,7 @@ export interface DirectLoginWebAdapterOptions {
   service: DirectLoginService;
   accountStore: DirectLoginAccountStore;
   inboxStore?: OfficialMessagingInboxStore;
-  exchange?: (session: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string }) => Promise<Response | JsonObject>;
+  exchange?: (session: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string }) => Promise<Response | Record<string, unknown>>;
 }
 
 export function createUnetProtocolOptionsHandler(input: { methods: string[]; capabilities: string[] }) {

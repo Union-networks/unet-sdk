@@ -1,0 +1,40 @@
+{
+  "name": "@union-networks/server",
+  "version": "0.2.0",
+  "description": "Compatibility bridge from @union-networks/server to @u-net/server.",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "compat/server"
+  },
+  "homepage": "https://docs.egress.live/v1/migration/from-union-networks",
+  "deprecated": "This package moved to @u-net/server. Install @u-net/server instead.",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@u-net/server": "workspace:^"
+  },
+  "license": "Apache-2.0"
+}

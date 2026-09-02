@@ -1,17 +1,13 @@
-# @union-networks/setup
+# @u-net/setup
 
-Generate provider secrets locally from the setup manifest downloaded from the U-net dashboard:
+Local CLI and library for generating provider-owned keys, canonical environment files, and public registration bundles without uploading private material.
 
-```sh
-npx @union-networks/setup configure --manifest unet-setup.json --out .env.local --public-out unet-registration.json
+```bash
+npm install @u-net/setup@next
 ```
 
-Provider-owned values may be supplied without placing them in the downloaded manifest:
-
-```sh
-npx @union-networks/setup configure --manifest unet-setup.json --out .env.local --public-out unet-registration.json --database-url "$DATABASE_URL" --session-secret "$SESSION_SECRET"
+```bash
+npx @u-net/setup@next configure --manifest unet-setup.json --out .env.local --public-out unet-registration.json
 ```
 
-For a dashboard-selected custom issuer, pass its immutable ID with `--issuer-id`.
-
-Only upload `unet-registration.json`. The generated `.env.local` and private keys remain on provider infrastructure.
+See [docs.egress.live](https://docs.egress.live) for guides and the versioned API reference.

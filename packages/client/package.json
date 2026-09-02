@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/client",
-  "version": "0.2.0-alpha.9",
+  "name": "@u-net/client",
+  "version": "1.0.0-rc.1",
   "description": "Framework-neutral U-net public API client.",
   "type": "module",
-  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/client"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/client",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "identity",
+    "attestations",
+    "ledger-v2"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -21,6 +46,7 @@
   "dependencies": {
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
-    "@union-networks/contracts": "workspace:*"
-  }
+    "@u-net/contracts": "workspace:^"
+  },
+  "license": "Apache-2.0"
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createAttestationRequest, createCredentialEnvelopeV2, createDomainAdminCallbackHandler, createDomainAdminControlAuthorization, createDomainAdminControlAuthorizationV2, createHolderRelinquishmentCallbackHandler, createIssuerMiniappManifest, deriveCredentialPublicKeyHash, deriveHolderBindingV2, derivePredicateV2, fetchUnetControlPublicKeys, generateCredentialSigningKeyPair, generateDomainAdminSignerEnv, generateIssuerKeyPair, resolveCredentialValidity, signIssuerAction, verifyDomainAdminControlAuthorization, verifyDomainAdminControlAuthorizationV2, verifyIssuerEnvelopeSignature } from './index.js';
 
-describe('@union-networks/issuer', () => {
+describe('@u-net/issuer', () => {
   it('signs and verifies issuer envelopes', () => {
     const keys = generateIssuerKeyPair();
     const envelope = signIssuerAction({ issuerId: 'issuer:test', keyId: 'issuer:test#main', privateKeyPem: keys.privateKeyPem, action: 'attestation.approve', payload: { requestId: 'request-1', claims: { ok: true } } });

@@ -5,8 +5,8 @@ import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { x25519 } from '@noble/curves/ed25519.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { UnetApiError } from '@union-networks/client';
-import type { UnetClientOptions, UnetMiniAppManifest, VerificationRequestType } from '@union-networks/client';
+import { UnetApiError } from '@u-net/client';
+import type { UnetClientOptions, UnetMiniAppManifest, VerificationRequestType } from '@u-net/client';
 import { generateLedgerV2Signer } from './ledgerV2.js';
 
 export * from './ledgerV2.js';
@@ -450,7 +450,7 @@ const canonicalize = (value: unknown): string => {
 };
 
 const signatureInput = (envelope: Omit<IssuerActionEnvelope, 'signature'>): Buffer => Buffer.from(canonicalize(envelope), 'utf8');
-const issuerBase = (options?: UnetClientOptions): string => (options?.issuerBaseUrl ?? DEFAULT_ISSUER).replace(/\/+$/, '');
+const issuerBase = (options?: UnetClientOptions): string => ((options as UnetClientOptions & { issuerBaseUrl?: string } | undefined)?.issuerBaseUrl ?? DEFAULT_ISSUER).replace(/\/+$/, '');
 const fetchImpl = (options?: UnetClientOptions): typeof fetch => {
   const fetcher = options?.fetchImpl ?? globalThis.fetch;
   return ((input, init) => fetcher.call(globalThis, input, init)) as typeof fetch;
@@ -721,6 +721,22 @@ export function createDomainAdminCallbackHandler(input: { serviceId: string; ori
     if (!(await input.consumeChallenge(request.challenge))) throw new Error('domain_admin_challenge_replayed');
     return signDomainAdminCredentialResponse({ request, credential: await input.issueCredential(request), signer: input.signer });
   };
+}
+
+export function createDomainAdminCallbackHandlerV2(input: {
+  serviceId: string;
+  origin: string;
+  signer: IssuerSigner;
+  controlPublicKeys: Record<string, string>;
+  controlAuthorizationPath?: string;
+  consumeControlNonce: (nonce: string) => Promise<boolean>;
+  consumeChallenge: (challenge: string) => Promise<boolean>;
+  issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>;
+}) {
+  return createDomainAdminCallbackHandler({
+    ...input,
+    controlAuthorizationSecret: undefined,
+  });
 }
 
 export function createHolderRelinquishmentCallbackHandler(input: {

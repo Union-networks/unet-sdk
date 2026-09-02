@@ -8,6 +8,7 @@ function walk(dir) {
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) {
+      if (entry === 'node_modules') continue;
       if (entry === 'dist') {
         rmSync(full, { recursive: true, force: true });
       } else {

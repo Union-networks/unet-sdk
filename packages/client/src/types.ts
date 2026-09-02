@@ -2,22 +2,32 @@ export type VerificationRequestType = string;
 export type VerificationAggregateOutcome = 'passed' | 'warning' | 'failed';
 export type VerificationStatus = 'created' | 'pending_scan' | 'pending_user_action' | 'denied' | 'submitted' | 'verified' | 'rejected' | 'expired' | 'unavailable';
 
-export interface UnetClientOptions { issuerBaseUrl?: string; verifierBaseUrl?: string; fetchImpl?: typeof fetch; defaultTimeoutMs?: number; }
+/** Runtime configuration for public U-net control-plane and verifier calls. */
+export interface UnetClientOptions {
+  controlPlaneUrl?: string;
+  verifierBaseUrl?: string;
+  fetchImpl?: typeof fetch;
+  defaultTimeoutMs?: number;
+}
 export interface PollOptions { intervalMs?: number; timeoutMs?: number; signal?: AbortSignal; }
 
 export interface PageInfo { limit: number; hasNextPage: boolean; nextCursor?: string; totalCount?: number; }
 export interface ListPageOptions { limit?: number; cursor?: string; query?: string; category?: string; }
 
 
-export interface WebLoginService { serviceId: string; name: string; provider: string; origin: string; redirectUrl?: string; icon?: string; scopes: string[]; status: string; }
-export interface DomainAdministrationCapabilityRequest { mode: 'optional-multi'; maxSelections?: number; }
-export interface WebLoginCapabilityRequest { domainAdministration?: DomainAdministrationCapabilityRequest; }
-export interface WebLoginSession { success: true; sessionId: string; requestRef: string; serviceId: string; origin: string; status: 'pending' | 'approved' | 'denied' | 'expired'; scopedUserId?: string; assertionJws?: string; qrPayload?: string; qrDataUrl?: string; createdAt: string; expiresAt: string; decidedAt?: string; service?: WebLoginService; capabilityRequest?: WebLoginCapabilityRequest; }
-export interface CreateWebLoginSessionInput { serviceId: string; origin: string; expiresInSeconds?: number; capabilityRequest?: WebLoginCapabilityRequest; }
-export interface ResolveWebLoginServiceInput { serviceId: string; origin: string; }
-export interface WebLoginServiceResolveResponse { success: true; service: WebLoginService; }
-export interface CreateServiceSessionInput { miniProgramId?: string; serviceId: string; origin: string; scopedUserId: string; proofJws: string; }
-export interface ServiceSessionResponse { success: true; service?: WebLoginService; serviceId: string; scopedUserId: string; sessionId: string; assertionJws: string; expiresAtIso: string; }
+/** Public Direct Login metadata for one verified service origin. */
+export interface VerifiedService {
+  serviceId: string;
+  name: string;
+  provider: string;
+  origin: string;
+  icon?: string;
+  status: 'active';
+  accountPolicy: { mode: 'single' | 'multiple'; maxAccounts: number; policyVersion: 2 };
+  endpoints: { challenge: string; approval: string; status: string; exchange: string; retirement: string };
+}
+export interface ResolveServiceInput { serviceId: string; origin: string; }
+export interface ServiceResolution { success: true; registryRevision: string; service: VerifiedService; }
 export interface UnetMiniAppManifest { serviceId: string; name: string; provider: string; description: string; icon?: string; launchUrl: string; permissions: string[]; notificationCategories?: string[]; }
 
 export interface VerificationRequestedCheck { requestType: VerificationRequestType; circuitId?: string; vkId?: string; proofFormat?: 'noir-barretenberg-v1'; oracleHash?: 'poseidon2' | 'keccak'; label?: string; }
@@ -46,7 +56,3 @@ export type ListMiniProgramsOptions = ListPageOptions;
 export interface CreateVerificationSessionInput { verifierId: string; verifierDisplayName: string; requestType?: VerificationRequestType; requestedChecks?: VerificationRequestedCheck[]; ttlSeconds?: number; }
 export interface VerificationSession { sessionId: string; sessionRef: string; createdAt: string; expiresAt: string; status: VerificationStatus; qrPayload: string; requestedChecks?: VerificationRequestedCheck[]; }
 export interface VerificationSessionStatus { sessionId: string; status: VerificationStatus; checkedAt: string; expiresAt: string; resultCode?: string; reasonCode?: string; aggregateOutcome?: VerificationAggregateOutcome; checkResults?: VerificationCheckResult[]; }
-
-export interface CreateCheckoutVerificationInput { serviceId: string; assertionJws: string; requiredChecks: VerificationRequestType[]; restrictedResourceIds?: string[]; ttlSeconds?: number; }
-export interface CheckoutVerification { checkoutId: string; serviceId: string; scopedUserId: string; status: 'completed' | 'pending_verification' | 'failed' | 'expired'; requiredChecks: VerificationRequestType[]; restrictedResourceIds: string[]; verificationSessionId?: string; verificationSessionRef?: string; failureReason?: string; createdAt: string; updatedAt: string; expiresAt?: string; }
-export interface CheckoutVerificationResponse { success: true; requiresVerification?: boolean; checkout: CheckoutVerification; verification?: { sessionId: string; sessionRef: string; qrPayload: string; qrDataUrl?: string; requestedChecks: VerificationRequestedCheck[]; expiresAt: string }; }

@@ -1,20 +1,5 @@
-# Checkout-bound verification and holder binding
+# Provider-bound verification
 
-Checkout-bound verification prevents one person from logging into a service while another person completes the attestation proof. Trust-plane privately binds the checkout to the holder behind the logged-in scoped ID. The provider sees only the scoped ID and checkout result.
+Sovereign Core V2 removes the central checkout API. Providers keep checkout state locally and create a hosted verification session only for the checks required by that transaction.
 
-```ts
-import { createCheckoutVerification, pollCheckoutVerification } from '@union-networks/verification';
-
-const checkout = await createCheckoutVerification({
-  serviceId: 'demo-supermarket',
-  assertionJws,
-  requiredChecks: ['age_over_18'],
-  restrictedResourceIds: ['beer-pale-ale'],
-});
-
-const result = await pollCheckoutVerification({
-  checkoutId: checkout.checkout.checkoutId,
-  serviceId: 'demo-supermarket',
-  assertionJws,
-});
-```
+Bind the verifier session reference to the provider-owned checkout record, accept the proof outcome once, and expire both records together. Do not persist disclosed claims when a pass, warning, or failure outcome is sufficient.

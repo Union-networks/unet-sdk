@@ -1,7 +1,7 @@
-import { createUnetClient, pollUntil } from '@union-networks/client';
-import type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
+import { createUnetClient, pollUntil } from '@u-net/client';
+import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, PollOptions, UnetClientOptions, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@u-net/client';
 
-export type { CheckoutVerificationResponse, CreateCheckoutVerificationInput, CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@union-networks/client';
+export type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationRequestedCheck, VerificationSession, VerificationSessionStatus } from '@u-net/client';
 
 export const listVerificationChecks = (input: ListVerificationChecksOptions = {}, options?: UnetClientOptions): Promise<VerificationCheckCatalogResponse> =>
   createUnetClient(options).listVerificationChecks(input);
@@ -18,11 +18,3 @@ export const createVerificationSession = (input: CreateVerificationSessionInput,
 
 export const pollVerificationResult = (sessionId: string, options?: PollOptions & UnetClientOptions): Promise<VerificationSessionStatus> =>
   pollUntil(() => createUnetClient(options).getVerificationSession(sessionId), (result) => ['verified', 'denied', 'rejected', 'expired', 'unavailable'].includes(result.status), options);
-
-/** @deprecated Sovereign Core V2 providers keep checkout state locally and call createVerificationSession. */
-export const createCheckoutVerification = (input: CreateCheckoutVerificationInput, options?: UnetClientOptions): Promise<CheckoutVerificationResponse> =>
-  createUnetClient(options).createCheckoutVerification(input);
-
-/** @deprecated Poll the provider-owned checkout and use pollVerificationResult for its hosted verifier session. */
-export const pollCheckoutVerification = (input: { checkoutId: string; serviceId?: string; assertionJws: string }, options?: PollOptions & UnetClientOptions): Promise<CheckoutVerificationResponse> =>
-  pollUntil(() => createUnetClient(options).getCheckoutVerification(input), (result) => result.checkout.status !== 'pending_verification', options);

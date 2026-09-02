@@ -1,33 +1,37 @@
 import React from 'react';
-import { createLoginSession, pollLoginSession, renderLoginQrPayload } from '@union-networks/web-login';
-import { createVerificationSession, listMiniPrograms, listVerificationChecks, pollVerificationResult } from '@union-networks/verification';
-import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@union-networks/verification';
-import type { CreateWebLoginSessionInput, WebLoginSession } from '@union-networks/web-login';
-import type { UnetClientOptions } from '@union-networks/client';
+import { createDirectProviderLogin, renderDirectLoginQrPayload, waitForDirectProviderLogin } from '@u-net/web-login';
+import { createVerificationSession, listMiniPrograms, listVerificationChecks, pollVerificationResult } from '@u-net/verification';
+import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@u-net/verification';
+import type { DirectProviderLoginChallenge, DirectProviderLoginOptions, DirectProviderLoginPollResult } from '@u-net/web-login';
+import type { UnetClientOptions } from '@u-net/client';
 
-export function useUnetLogin(input: CreateWebLoginSessionInput, options?: UnetClientOptions) {
-  const [session, setSession] = React.useState<WebLoginSession | undefined>();
+export function useUnetLogin(origin: string, options?: DirectProviderLoginOptions) {
+  const [challenge, setChallenge] = React.useState<DirectProviderLoginChallenge | undefined>();
+  const [result, setResult] = React.useState<DirectProviderLoginPollResult | undefined>();
   const [error, setError] = React.useState<Error | undefined>();
+  const [isLoading, setIsLoading] = React.useState(false);
   const start = React.useCallback(async () => {
+    setIsLoading(true);
     setError(undefined);
     try {
-      const created = await createLoginSession(input, options);
-      setSession(created);
-      const result = await pollLoginSession(created.sessionId, options);
-      setSession(result);
-      return result;
+      const created = await createDirectProviderLogin(origin, options);
+      setChallenge(created);
+      const finalResult = await waitForDirectProviderLogin(origin, created.requestRef, options);
+      setResult(finalResult);
+      return finalResult;
     } catch (err) {
       const errorValue = err instanceof Error ? err : new Error(String(err));
       setError(errorValue);
       throw errorValue;
+    } finally {
+      setIsLoading(false);
     }
-  }, [input, options]);
-  return { session, error, start };
+  }, [origin, options]);
+  return { challenge, result, error, isLoading, start };
 }
 
-export function UnetLoginQr(props: { session: WebLoginSession; alt?: string }) {
-  if (props.session.qrDataUrl) return <img src={props.session.qrDataUrl} alt={props.alt ?? 'Sign in with U-net'} />;
-  return <pre>{renderLoginQrPayload(props.session)}</pre>;
+export function UnetLoginQr(props: { challenge: DirectProviderLoginChallenge; label?: string }) {
+  return <pre aria-label={props.label ?? 'U-net Direct Login QR payload'}>{renderDirectLoginQrPayload(props.challenge)}</pre>;
 }
 
 export function useUnetVerification(input: CreateVerificationSessionInput, options?: UnetClientOptions) {

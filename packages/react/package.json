@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/react",
-  "version": "0.2.0-alpha.8",
+  "name": "@u-net/react",
+  "version": "1.0.0-rc.1",
   "description": "React hooks and components for U-net login and verification.",
   "type": "module",
-  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/react",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "react",
+    "identity",
+    "verification"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -22,9 +47,9 @@
     "react": ">=18"
   },
   "dependencies": {
-    "@union-networks/client": "workspace:*",
-    "@union-networks/web-login": "workspace:*",
-    "@union-networks/verification": "workspace:*",
-    "@union-networks/issuer": "workspace:*"
-  }
+    "@u-net/client": "workspace:^",
+    "@u-net/web-login": "workspace:^",
+    "@u-net/verification": "workspace:^"
+  },
+  "license": "Apache-2.0"
 }

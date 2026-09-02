@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pollVerificationResult } from './index.js';
 
-describe('@union-networks/verification', () => {
+describe('@u-net/verification', () => {
   it('polls until a terminal verification state', async () => {
     let count = 0;
     const fetchImpl = async () => {

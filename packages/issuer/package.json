@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/issuer",
-  "version": "0.2.0-alpha.24",
+  "name": "@u-net/issuer",
+  "version": "1.0.0-rc.1",
   "description": "Issuer-side helpers for U-net attestation providers.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/public.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/public.d.ts",
+      "import": "./dist/public.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/issuer"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/issuer",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "issuer",
+    "credentials",
+    "ledger-v2"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -23,9 +48,10 @@
     "@noble/ciphers": "^1.3.0",
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
-    "@union-networks/client": "workspace:*"
+    "@u-net/client": "workspace:^"
   },
   "devDependencies": {
     "vitest": "^3.2.4"
-  }
+  },
+  "license": "Apache-2.0"
 }

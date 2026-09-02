@@ -19,9 +19,6 @@
     },
     {
       "path": "../verification"
-    },
-    {
-      "path": "../issuer"
     }
   ],
   "exclude": [

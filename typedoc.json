@@ -1,0 +1,20 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": [
+    "packages/client",
+    "packages/contracts",
+    "packages/issuer",
+    "packages/react",
+    "packages/server",
+    "packages/setup",
+    "packages/verification",
+    "packages/web-login"
+  ],
+  "entryPointStrategy": "packages",
+  "out": "docs/api/generated",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "cleanOutputDir": true
+}

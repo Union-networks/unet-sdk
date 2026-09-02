@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/server",
-  "version": "0.2.0-alpha.17",
+  "name": "@u-net/server",
+  "version": "1.0.0-rc.1",
   "description": "Server-side U-net assertion verification helpers.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/public.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/public.d.ts",
+      "import": "./dist/public.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/server",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "server",
+    "direct-login",
+    "messaging"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -22,5 +47,6 @@
     "@noble/ciphers": "^1.3.0",
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0"
-  }
+  },
+  "license": "Apache-2.0"
 }

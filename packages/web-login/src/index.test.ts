@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isApprovedLoginResult, renderLoginQrPayload } from './index.js';
+import { isDirectProviderLoginApproved, renderDirectLoginQrPayload } from './index.js';
 
-describe('@union-networks/web-login', () => {
+describe('@u-net/web-login', () => {
   it('renders a login QR payload and detects approval', () => {
-    const session = { success: true as const, sessionId: 's', requestRef: 'r', serviceId: 'svc', origin: 'https://x.test', status: 'approved' as const, scopedUserId: 'm_svc_1', assertionJws: 'jwt', createdAt: 'now', expiresAt: 'later' };
-    expect(renderLoginQrPayload(session)).toContain('unet://web-login');
-    expect(isApprovedLoginResult(session)).toBe(true);
+    const challenge = { protocolVersion: 2 as const, requestRef: 'r', serviceId: 'svc', origin: 'https://x.test', challenge: 'c', challengeUrl: 'https://x.test/api/unet/login/challenge/r', approvalUrl: 'https://x.test/api/unet/login/approval', expiresAtIso: 'later' };
+    expect(renderDirectLoginQrPayload(challenge)).toContain('unet://service-login');
+    expect(isDirectProviderLoginApproved({ state: 'approved', session: { sessionId: 's', requestRef: 'r', scopedUserId: 'u', expiresAtIso: 'later' } })).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { x25519 } from '@noble/curves/ed25519.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
@@ -12,9 +12,6 @@ export * from './providerBroadcast.js';
 export * from './providerEnvironment.js';
 export * from './serviceManifest.js';
 export * from './webAdapters.js';
-
-export interface WebLoginAssertionClaims { iss?: string; aud?: string; serviceId?: string; scopedUserId?: string; sessionId?: string; issuedAtIso?: string; expiresAtIso?: string; iat?: number; exp?: number; }
-export interface VerifyLoginAssertionOptions { secret: string; serviceId?: string; now?: Date; }
 
 export interface UnetProviderClaimOptions {
   serviceId: string;
@@ -61,22 +58,6 @@ export interface UnetMiniappManifest {
 
 const base64UrlToBuffer = (value: string): Buffer => Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 const normalizeOrigin = (origin: string): string => new URL(origin).origin;
-
-export function verifyLoginAssertion(assertionJws: string, options: VerifyLoginAssertionOptions): WebLoginAssertionClaims {
-  const [header, payload, signature] = assertionJws.split('.');
-  if (!header || !payload || !signature) throw new Error('invalid_login_assertion_format');
-  const expected = createHmac('sha256', options.secret).update(`${header}.${payload}`).digest('base64url');
-  const expectedBuffer = Buffer.from(expected);
-  const actualBuffer = Buffer.from(signature);
-  if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) throw new Error('invalid_login_assertion_signature');
-  const claims = JSON.parse(base64UrlToBuffer(payload).toString('utf8')) as WebLoginAssertionClaims;
-  if (options.serviceId && claims.serviceId !== options.serviceId) throw new Error('invalid_login_assertion_audience');
-  const now = options.now ?? new Date();
-  const expiresAt = typeof claims.expiresAtIso === 'string' ? Date.parse(claims.expiresAtIso) : Number.NaN;
-  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) throw new Error('login_assertion_expired');
-  if (!claims.scopedUserId || !claims.sessionId) throw new Error('invalid_login_assertion_claims');
-  return claims;
-}
 
 export function createUnetProviderClaim(options: UnetProviderClaimOptions): UnetProviderClaimResponse {
   const origin = normalizeOrigin(options.origin);
@@ -152,18 +133,15 @@ export interface EmitOfficialMessagingEventInput {
 }
 
 export interface OfficialMessagingClientOptions {
-  issuerBaseUrl: string;
-  /** Standalone U-net messaging transport. Required with recipientResolver. */
-  messagingBaseUrl?: string;
+  controlPlaneUrl: string;
+  messagingBaseUrl: string;
   serviceId: string;
-  automationKey?: string;
-  /** @deprecated Use automationKey. */
-  providerKey?: string;
+  automationKey: string;
   /**
    * Resolves provider-owned recipient state. This function runs only on the
    * provider server; scopedUserId is never sent to U-net infrastructure.
    */
-  recipientResolver?: (scopedUserId: string) => Promise<OfficialMessagingRecipient | undefined>;
+  recipientResolver: (scopedUserId: string) => Promise<OfficialMessagingRecipient | undefined>;
   fetch?: typeof globalThis.fetch;
 }
 
@@ -174,15 +152,6 @@ export interface OfficialMessagingRecipient {
   mailboxAddress: string;
   sendCapability: string;
 }
-
-type AutomationResolveResponse = {
-  success?: boolean;
-  errorCode?: string;
-  message?: string;
-  automation?: OfficialMessagingAutomation;
-  template?: OfficialMessagingTemplate;
-  recipientEncryptionPublicKey?: string;
-};
 
 type AutomationPrepareResponse = {
   success?: boolean;
@@ -248,11 +217,10 @@ const encryptOfficialPayload = (recipientPublicKey: string, payload: Record<stri
 export function createOfficialMessagingClient(options: OfficialMessagingClientOptions) {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   if (!fetchImpl) throw new Error('fetch_unavailable');
-  const automationKey = options.automationKey ?? options.providerKey;
-  if (!automationKey) throw new Error('messaging_automation_key_required');
-  const baseUrl = options.issuerBaseUrl.replace(/\/+$/, '');
-  const messagingBaseUrl = options.messagingBaseUrl?.replace(/\/+$/, '');
-  const headers = { 'content-type': 'application/json', 'x-unet-provider-key': automationKey };
+  if (!options.automationKey) throw new Error('messaging_automation_key_required');
+  const baseUrl = options.controlPlaneUrl.replace(/\/+$/, '');
+  const messagingBaseUrl = options.messagingBaseUrl.replace(/\/+$/, '');
+  const headers = { 'content-type': 'application/json', 'x-unet-provider-key': options.automationKey };
   const recordOutcome = async (dispatchRef: string, outcome: string): Promise<void> => {
     const response = await fetchImpl(`${baseUrl}/v2/official-account/automations/outcome`, {
       method: 'POST',
@@ -263,8 +231,6 @@ export function createOfficialMessagingClient(options: OfficialMessagingClientOp
   };
   return {
     async emitEvent(input: EmitOfficialMessagingEventInput) {
-      if (options.recipientResolver || messagingBaseUrl) {
-        if (!options.recipientResolver || !messagingBaseUrl) throw new Error('provider_owned_messaging_configuration_incomplete');
         const recipient = await options.recipientResolver(input.scopedUserId);
         if (!recipient) throw new Error('official_messaging_recipient_not_found');
         if (!/^[a-f0-9]{64}$/.test(recipient.recipientReference)) throw new Error('official_messaging_recipient_reference_invalid');
@@ -326,49 +292,6 @@ export function createOfficialMessagingClient(options: OfficialMessagingClientOp
           await recordOutcome(prepared.dispatchRef, 'failed').catch(() => undefined);
           throw error;
         }
-      }
-      const resolveResponse = await fetchImpl(`${baseUrl}/v1/official-account/automations/resolve`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ miniProgramId: options.serviceId, eventKey: input.eventKey, scopedUserId: input.scopedUserId }),
-      });
-      const resolved = await resolveResponse.json().catch(() => ({})) as AutomationResolveResponse;
-      if (!resolveResponse.ok || !resolved.automation || !resolved.template || !resolved.recipientEncryptionPublicKey) {
-        throw new Error(resolved.errorCode ?? resolved.message ?? 'automation_resolve_failed');
-      }
-      const variables = normalizeAutomationVariables(resolved.template.variables ?? [], input.variables ?? {});
-      const content = {
-        ...resolved.template.content,
-        title: interpolateTemplate(resolved.template.content.title, variables),
-        body: interpolateTemplate(resolved.template.content.body, variables),
-      };
-      const encryptedPayload = encryptOfficialPayload(resolved.recipientEncryptionPublicKey, {
-        version: 2,
-        kind: 'rich_official_message',
-        title: content.title,
-        text: content.body,
-        rich: {
-          ...content,
-          ...(resolved.template.kind === 'process' ? { currentStepIndex: resolved.automation.timelineStepIndex ?? 0 } : {}),
-        },
-        action: content.actions?.find((action) => action.type === 'open_mini_program'),
-      });
-      const dispatchResponse = await fetchImpl(`${baseUrl}/v1/official-account/automations/dispatch`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          miniProgramId: options.serviceId,
-          eventKey: input.eventKey,
-          eventId: input.eventId,
-          ...(input.processId ? { processId: input.processId } : {}),
-          scopedUserId: input.scopedUserId,
-          variableKeys: Object.keys(variables),
-          encryptedPayload,
-        }),
-      });
-      const result = await dispatchResponse.json().catch(() => ({})) as Record<string, unknown>;
-      if (!dispatchResponse.ok || result.success === false) throw new Error(String(result.errorCode ?? result.message ?? 'automation_dispatch_failed'));
-      return result;
     },
   };
 }

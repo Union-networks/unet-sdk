@@ -1,9 +1,22 @@
 import { defineConfig } from 'vitepress';
+import { readFileSync } from 'node:fs';
+
+const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string };
 export default defineConfig({
-  title: 'U-net SDK',
-  description: 'Developer docs for U-net web login and verification SDKs',
+  base: process.env.DOCS_BASE ?? '/',
+  title: `U-net SDK ${packageJson.version}`,
+  description: 'Sovereign Core V2 developer documentation for U-net',
+  cleanUrls: true,
   themeConfig: {
-    nav: [{ text: 'Quickstarts', link: '/quickstarts/sign-in-with-unet' }, { text: 'API', link: '/api' }],
+    search: { provider: 'local' },
+    nav: [
+      { text: 'Guides', link: '/quickstarts/sign-in-with-unet' },
+      { text: 'API', link: '/api/generated/README' },
+      { text: packageJson.version.includes('-') ? `${packageJson.version} · next` : `${packageJson.version} · stable`, items: [
+        { text: 'Changelog', link: '/changelog' },
+        { text: 'GitHub releases', link: 'https://github.com/Union-networks/unet-sdk/releases' },
+      ] },
+    ],
     sidebar: [
       { text: 'Quickstarts', items: [
         { text: 'Sign in with U-net', link: '/quickstarts/sign-in-with-unet' },
@@ -16,8 +29,18 @@ export default defineConfig({
       ]},
       { text: 'Guides', items: [
         { text: 'Make your web app miniapp-ready', link: '/guides/miniapp-ready' },
+        { text: 'Migrate to @u-net', link: '/migration/from-union-networks' },
       ]},
-      { text: 'Reference', items: [{ text: 'API Reference', link: '/api' }]},
+      { text: 'Reference', items: [
+        { text: 'Packages', link: '/packages/client' },
+        { text: 'API Reference', link: '/api/generated/README' },
+        { text: 'Provider environment', link: '/provider-environment' },
+        { text: 'Changelog', link: '/changelog' },
+      ]},
+    ],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/Union-networks/unet-sdk' },
+      { icon: 'github', link: 'https://github.com/orgs/Union-networks/discussions' },
     ],
   },
 });

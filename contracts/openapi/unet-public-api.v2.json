@@ -1,0 +1,90 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "U-net Sovereign Core V2 Public API",
+    "version": "1.0.0-rc.1",
+    "description": "Public discovery, hosted verification, and exact Ledger V2 interfaces. Provider-owned login and issuance routes are described by each verified service manifest."
+  },
+  "paths": {
+    "/v2/services/resolve": {
+      "get": {
+        "operationId": "resolveService",
+        "parameters": [
+          { "name": "serviceId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "origin", "in": "query", "required": true, "schema": { "type": "string", "format": "uri" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified service metadata",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ServiceResolution" } } }
+          }
+        }
+      }
+    },
+    "/v1/mini-programs": {
+      "get": {
+        "operationId": "listMiniPrograms",
+        "responses": { "200": { "description": "Catalog page", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "programs"], "properties": { "success": { "const": true }, "programs": { "type": "array", "items": { "$ref": "#/components/schemas/MiniProgram" } } } } } } } }
+      }
+    },
+    "/v1/verification-checks": {
+      "get": {
+        "operationId": "listVerificationChecks",
+        "responses": { "200": { "description": "Verification check catalog", "content": { "application/json": { "schema": { "type": "object", "required": ["checks"], "properties": { "checks": { "type": "array", "items": { "$ref": "#/components/schemas/VerificationCheck" } } } } } } } }
+      }
+    },
+    "/v1/verification-sessions": {
+      "post": {
+        "operationId": "createVerificationSession",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["verifierId", "verifierDisplayName"], "properties": { "verifierId": { "type": "string" }, "verifierDisplayName": { "type": "string" }, "requestType": { "type": "string" }, "requestedChecks": { "type": "array", "items": { "$ref": "#/components/schemas/VerificationCheck" } } } } } } },
+        "responses": { "201": { "description": "Hosted verifier session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerificationSession" } } } } }
+      }
+    },
+    "/v1/verification-sessions/{sessionId}": {
+      "get": {
+        "operationId": "getVerificationSession",
+        "parameters": [{ "name": "sessionId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Verifier result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerificationSession" } } } } }
+      }
+    },
+    "/v2/attestations/{commitment}": {
+      "get": {
+        "operationId": "resolveLedgerV2Attestation",
+        "parameters": [{ "name": "commitment", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" } }],
+        "responses": { "200": { "description": "Exact on-chain lifecycle status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LedgerAttestation" } } } } }
+      }
+    },
+    "/v2/operations/revoke/holder": {
+      "post": {
+        "operationId": "submitHolderRevocation",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["operation", "signature"], "properties": { "operation": { "type": "object", "additionalProperties": true }, "signature": { "type": "string" } } } } } },
+        "responses": { "202": { "description": "Signed operation accepted by relayer" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ServiceResolution": {
+        "type": "object",
+        "required": ["success", "registryRevision", "service"],
+        "properties": {
+          "success": { "const": true },
+          "registryRevision": { "type": "string" },
+          "service": {
+            "type": "object",
+            "required": ["serviceId", "origin", "status", "accountPolicy", "endpoints"],
+            "properties": {
+              "serviceId": { "type": "string" }, "name": { "type": "string" }, "provider": { "type": "string" }, "origin": { "type": "string", "format": "uri" }, "status": { "const": "active" },
+              "accountPolicy": { "type": "object", "required": ["mode", "maxAccounts", "policyVersion"], "properties": { "mode": { "enum": ["single", "multiple"] }, "maxAccounts": { "type": "integer" }, "policyVersion": { "const": 2 } } },
+              "endpoints": { "type": "object", "required": ["challenge", "approval", "status", "exchange", "retirement"], "additionalProperties": { "type": "string", "format": "uri" } }
+            }
+          }
+        }
+      },
+      "MiniProgram": { "type": "object", "required": ["id", "name", "origin", "launchUrl", "permissions"], "properties": { "id": { "type": "string" }, "serviceId": { "type": "string" }, "name": { "type": "string" }, "origin": { "type": "string", "format": "uri" }, "launchUrl": { "type": "string", "format": "uri" }, "permissions": { "type": "array", "items": { "type": "string" } } } },
+      "VerificationCheck": { "type": "object", "required": ["requestType"], "properties": { "requestType": { "type": "string" }, "label": { "type": "string" }, "circuitId": { "type": "string" }, "vkId": { "type": "string" } } },
+      "VerificationSession": { "type": "object", "required": ["sessionId", "status", "expiresAt"], "properties": { "sessionId": { "type": "string" }, "sessionRef": { "type": "string" }, "status": { "type": "string" }, "expiresAt": { "type": "string", "format": "date-time" }, "qrPayload": { "type": "string" }, "aggregateOutcome": { "enum": ["passed", "warning", "failed"] } } },
+      "LedgerAttestation": { "type": "object", "required": ["success", "status", "attestationHash"], "properties": { "success": { "const": true }, "status": { "enum": ["active", "revoked", "unknown"] }, "attestationHash": { "type": "string" }, "issuerIdHash": { "type": "string" }, "anchorBlockNumber": { "type": "integer" }, "revokeBlockNumber": { "type": "integer" } } }
+    }
+  }
+}

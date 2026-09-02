@@ -1,11 +1,11 @@
 # Request an over-18 verification
 
 ```bash
-pnpm add @union-networks/verification
+pnpm add @u-net/verification
 ```
 
 ```ts
-import { createVerificationSession, pollVerificationResult } from '@union-networks/verification';
+import { createVerificationSession, pollVerificationResult } from '@u-net/verification';
 
 const session = await createVerificationSession({
   verifierId: 'my-shop',

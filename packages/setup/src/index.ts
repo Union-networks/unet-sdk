@@ -1,5 +1,5 @@
 import { createECDH, createHash, createPrivateKey, createPublicKey, randomBytes, sign } from 'node:crypto';
-import { generateAttestationIssuerEnv, generateDomainAdminSignerEnv } from '@union-networks/issuer';
+import { generateAttestationIssuerEnv, generateDomainAdminSignerEnv } from '@u-net/issuer';
 
 export const PROVIDER_SETUP_SCHEMA_VERSION = 1 as const;
 

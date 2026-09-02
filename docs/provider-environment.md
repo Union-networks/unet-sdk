@@ -1,6 +1,6 @@
 # Provider environment V1
 
-This reference is generated from the canonical schema exported by `@union-networks/server`. The dashboard uses these exact names.
+This reference is generated from the canonical schema exported by `@u-net/server`. The dashboard uses these exact names.
 
 ## base
 
@@ -24,6 +24,40 @@ This reference is generated from the canonical schema exported by `@union-networ
 | --- | --- | --- |
 | `UNET_PROVIDER_DATABASE_URL` | Yes | secret |
 | `UNET_PROVIDER_SESSION_SECRET` | Yes | secret |
+
+## issuer
+
+| Variable | Required | Sensitivity |
+| --- | --- | --- |
+| `UNET_ISSUER_ID` | Capability-dependent | public |
+| `UNET_ISSUER_KEY_ID` | Capability-dependent | public |
+| `UNET_ISSUER_PRIVATE_KEY_PEM` | Capability-dependent | secret |
+| `UNET_ISSUER_PUBLIC_KEY_PEM` | Capability-dependent | public |
+| `UNET_ISSUER_CREDENTIAL_KEY_ID` | Capability-dependent | public |
+| `UNET_ISSUER_CREDENTIAL_PRIVATE_KEY_PEM` | Capability-dependent | secret |
+| `UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_PEM` | Capability-dependent | public |
+| `UNET_ISSUER_CREDENTIAL_PUBLIC_KEY_HASH` | Capability-dependent | public |
+| `UNET_ISSUER_LEDGER_KEY_ID` | Capability-dependent | public |
+| `UNET_ISSUER_LEDGER_PRIVATE_KEY` | Capability-dependent | secret |
+| `UNET_ISSUER_LEDGER_ADDRESS` | Capability-dependent | public |
+| `UNET_ISSUER_LEDGER_KEY_EPOCH` | Capability-dependent | public |
+
+## domain_admin
+
+| Variable | Required | Sensitivity |
+| --- | --- | --- |
+| `UNET_DOMAIN_ADMIN_ISSUER_ID` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_KEY_ID` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_PRIVATE_KEY_PEM` | Capability-dependent | secret |
+| `UNET_DOMAIN_ADMIN_PUBLIC_KEY_PEM` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_CREDENTIAL_KEY_ID` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_CREDENTIAL_PRIVATE_KEY_PEM` | Capability-dependent | secret |
+| `UNET_DOMAIN_ADMIN_CREDENTIAL_PUBLIC_KEY_PEM` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_CREDENTIAL_PUBLIC_KEY_HASH` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_LEDGER_KEY_ID` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_LEDGER_PRIVATE_KEY` | Capability-dependent | secret |
+| `UNET_DOMAIN_ADMIN_LEDGER_ADDRESS` | Capability-dependent | public |
+| `UNET_DOMAIN_ADMIN_LEDGER_KEY_EPOCH` | Capability-dependent | public |
 
 ## ledger
 

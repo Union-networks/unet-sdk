@@ -10,3 +10,8 @@ docs/.vitepress/cache
 
 *.tsbuildinfo
 artifacts/
+.npm-cache/
+.pnpm-store/
+.tooling/
+docs/api/generated/
+packages/*/temp/

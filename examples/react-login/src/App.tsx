@@ -1,7 +1,7 @@
 import React from 'react';
-import { UnetLoginQr, useUnetLogin } from '@union-networks/react';
+import { UnetLoginQr, useUnetLogin } from '@u-net/react';
 
 export function App() {
-  const login = useUnetLogin({ serviceId: 'demo-supermarket', origin: window.location.origin });
-  return <main><button onClick={() => void login.start()}>Sign in with U-net</button>{login.session ? <UnetLoginQr session={login.session} /> : null}</main>;
+  const login = useUnetLogin(window.location.origin);
+  return <main><button onClick={() => void login.start()}>Sign in with U-net</button>{login.challenge ? <UnetLoginQr challenge={login.challenge} /> : null}</main>;
 }

@@ -7,6 +7,9 @@ on:
 
 jobs:
   validate:
+    strategy:
+      matrix:
+        node-version: [20, 22]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +18,17 @@ jobs:
           version: 10.33.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check
       - run: pnpm contracts:generate
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm api:check
+      - run: pnpm pack:dry
+      - run: pnpm publint
+      - run: pnpm attw
       - run: pnpm docs:build
+        if: matrix.node-version == 22

@@ -1,0 +1,40 @@
+{
+  "name": "@union-networks/verification",
+  "version": "0.2.0",
+  "description": "Compatibility bridge from @union-networks/verification to @u-net/verification.",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "compat/verification"
+  },
+  "homepage": "https://docs.egress.live/v1/migration/from-union-networks",
+  "deprecated": "This package moved to @u-net/verification. Install @u-net/verification instead.",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@u-net/verification": "workspace:^"
+  },
+  "license": "Apache-2.0"
+}

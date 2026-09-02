@@ -1,14 +1,7 @@
-# Login assertion verification
+# Direct Login proofs
 
-Server integrations should verify the `assertionJws` before creating a web session.
+Sovereign Core V2 does not issue central login assertions.
 
-```ts
-import { verifyLoginAssertion } from '@union-networks/server';
+The provider creates a short-lived challenge. The wallet submits a scoped ID, the matching service-account public key, and a signature directly to that provider. First login binds the account key; later logins must prove the same key. Challenges are same-origin, expiring, and single-use.
 
-const claims = verifyLoginAssertion(assertionJws, {
-  secret: process.env.WEB_LOGIN_ASSERTION_SECRET!,
-  serviceId: 'demo-supermarket',
-});
-```
-
-The assertion contains the service ID, scoped user ID, session ID, and expiry. It does not contain personal profile data.
+The control plane is used only to resolve signed public service metadata before the wallet contacts the provider. It never receives the scoped ID, account key, challenge approval, or provider session.

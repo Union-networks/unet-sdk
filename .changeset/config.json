@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [[
+    "@u-net/client",
+    "@u-net/contracts",
+    "@u-net/issuer",
+    "@u-net/react",
+    "@u-net/server",
+    "@u-net/setup",
+    "@u-net/verification",
+    "@u-net/web-login"
+  ]],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

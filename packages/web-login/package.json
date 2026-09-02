@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/web-login",
-  "version": "0.2.0-alpha.10",
+  "name": "@u-net/web-login",
+  "version": "1.0.0-rc.1",
   "description": "High-level Sign in with U-net browser helpers.",
   "type": "module",
-  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/web-login"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/web-login",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "login",
+    "scoped-identity",
+    "miniapp"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -19,6 +44,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@union-networks/client": "0.2.0-alpha.8"
-  }
+    "@u-net/client": "workspace:^"
+  },
+  "license": "Apache-2.0"
 }

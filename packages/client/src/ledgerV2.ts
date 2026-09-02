@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
@@ -21,9 +20,18 @@ export interface LedgerV2Domain {
 }
 
 const utf8 = new TextEncoder();
-const fromHex = (value: string) => Uint8Array.from(Buffer.from(value.replace(/^0x/, ''), 'hex'));
-const toHex = (value: Uint8Array) => `0x${Buffer.from(value).toString('hex')}`;
-const concat = (...values: Uint8Array[]) => Uint8Array.from(Buffer.concat(values.map((value) => Buffer.from(value))));
+const fromHex = (value: string) => {
+  const normalized = value.replace(/^0x/, '');
+  if (normalized.length % 2 !== 0 || !/^[a-fA-F0-9]*$/.test(normalized)) throw new Error('ledger_v2_hex_invalid');
+  return Uint8Array.from({ length: normalized.length / 2 }, (_, index) => Number.parseInt(normalized.slice(index * 2, index * 2 + 2), 16));
+};
+const toHex = (value: Uint8Array) => `0x${Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+const concat = (...values: Uint8Array[]) => {
+  const result = new Uint8Array(values.reduce((size, value) => size + value.length, 0));
+  let offset = 0;
+  for (const value of values) { result.set(value, offset); offset += value.length; }
+  return result;
+};
 const uint256 = (value: string | number | bigint) => fromHex(BigInt(value).toString(16).padStart(64, '0'));
 const bytes32 = (value: string) => {
   const result = fromHex(value);
@@ -54,7 +62,9 @@ export const ledgerV2RequestHash = (requestId: string): string => toHex(hashText
 export const ledgerV2ReasonHash = (reason: string): string => toHex(hashText(reason));
 
 export function generateLedgerV2HolderRevocationKey(): LedgerV2HolderRevocationKey {
-  const privateKey = secp256k1.utils.randomSecretKey(randomBytes(48));
+  const entropy = new Uint8Array(48);
+  globalThis.crypto.getRandomValues(entropy);
+  const privateKey = secp256k1.utils.randomSecretKey(entropy);
   const publicKey = secp256k1.getPublicKey(privateKey, false);
   return { privateKeyHex: toHex(privateKey), address: toHex(keccak_256(publicKey.slice(1)).slice(-20)) };
 }

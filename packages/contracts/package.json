@@ -1,13 +1,38 @@
 {
-  "name": "@union-networks/contracts",
-  "version": "0.2.0-alpha.7",
+  "name": "@u-net/contracts",
+  "version": "1.0.0-rc.1",
   "description": "Generated U-net public API contract types.",
   "type": "module",
-  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": null
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Union-networks/unet-sdk.git",
+    "directory": "packages/contracts"
+  },
+  "homepage": "https://docs.egress.live/v1/packages/contracts",
+  "bugs": {
+    "url": "https://github.com/Union-networks/unet-sdk/issues"
+  },
+  "keywords": [
+    "u-net",
+    "openapi",
+    "contracts",
+    "ledger-v2"
+  ],
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -17,5 +42,6 @@
     "build": "tsc -p tsconfig.json && mkdir -p dist/generated && cp src/generated/*.d.ts dist/generated/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
-  }
+  },
+  "license": "Apache-2.0"
 }
