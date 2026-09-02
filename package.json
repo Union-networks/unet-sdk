@@ -20,8 +20,8 @@
     "docs:build": "pnpm docs:api && node scripts/build-docs.mjs",
     "docs:preview": "vitepress preview docs",
     "clean": "node scripts/clean.mjs",
-    "pack:dry": "pnpm run build && pnpm -r --filter ./packages/* pack --pack-destination ./artifacts",
-    "compat:pack": "pnpm -r --filter ./compat/* pack --pack-destination ./artifacts/compat",
+    "pack:dry": "pnpm run build && pnpm -r --filter \"./packages/*\" pack --pack-destination ./artifacts",
+    "compat:pack": "pnpm -r --filter \"./compat/*\" pack --pack-destination ./artifacts/compat",
     "publint": "node scripts/run-publint.mjs",
     "attw": "node scripts/check-tarball-types.mjs",
     "release:check": "node scripts/verify-release.mjs"
