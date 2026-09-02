@@ -21,10 +21,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v1
+      - uses: changesets/action@v2
         with:
-          version: pnpm version-packages
-          title: Release U-net SDK
-          commit: Release U-net SDK
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: pnpm version-packages
+          pr-title: Release U-net SDK
+          commit-message: Release U-net SDK
+          github-token: ${{ secrets.GITHUB_TOKEN }}
