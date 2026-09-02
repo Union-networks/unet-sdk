@@ -1,7 +1,7 @@
 {
   "name": "unet-sdk",
   "private": true,
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Canonical Sovereign Core V2 SDK, documentation, and examples for U-net.",
   "packageManager": "pnpm@10.33.0",
   "type": "module",

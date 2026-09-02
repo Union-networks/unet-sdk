@@ -1,6 +1,6 @@
 {
   "name": "@u-net/web-login",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "High-level Sign in with U-net browser helpers.",
   "type": "module",
   "types": "dist/index.d.ts",

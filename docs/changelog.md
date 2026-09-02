@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0-rc.2
+
+- Published all eight Apache-2.0 SDK packages through npm Trusted Publishing with provenance.
+
 ## 1.0.0-rc.1
 
 - Moved the public SDK to `@u-net/*`.
