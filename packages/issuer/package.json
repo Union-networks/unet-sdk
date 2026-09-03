@@ -1,6 +1,6 @@
 {
   "name": "@u-net/issuer",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "Issuer-side helpers for U-net attestation providers.",
   "type": "module",
   "types": "dist/public.d.ts",

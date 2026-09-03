@@ -1,6 +1,6 @@
 {
   "name": "@u-net/server",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "Server-side U-net assertion verification helpers.",
   "type": "module",
   "types": "dist/public.d.ts",
