@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/client",
-  "version": "0.2.0",
+  "version": "0.2.1-rc.0",
   "description": "Compatibility bridge from @union-networks/client to @u-net/client.",
   "type": "module",
   "types": "dist/index.d.ts",

@@ -25,11 +25,13 @@ const failure = (error: unknown): Response => {
   return json({ success: false, error: code }, statusFor(code));
 };
 
+/** @public */
 export interface DirectIssuerWebAdapterOptions {
   service: DirectIssuerService;
   authorizeManagement: (request: Request) => Promise<boolean>;
 }
 
+/** @public */
 export function createDirectIssuerWebHandlers(options: DirectIssuerWebAdapterOptions) {
   const requireManagement = async (request: Request): Promise<void> => {
     if (!(await options.authorizeManagement(request))) throw new Error('issuer_management_authorization_required');

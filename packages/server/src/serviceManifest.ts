@@ -1,7 +1,9 @@
 import type { DirectLoginServiceOptions } from './directLogin.js';
 
+/** @public */
 export type ServiceAccountMode = 'single' | 'multiple';
 
+/** @public */
 export interface UnetServiceManifestV2 {
   protocolVersion: 2;
   serviceId: string;
@@ -32,6 +34,7 @@ export interface UnetServiceManifestV2 {
   };
 }
 
+/** @public */
 export interface UnetServiceManifestOptions {
   serviceId: string;
   origin: string;
@@ -43,6 +46,7 @@ export interface UnetServiceManifestOptions {
 
 const sameOriginUrl = (origin: string, path: string): string => new URL(path, origin).toString();
 
+/** @public */
 export function createUnetServiceManifest(options: UnetServiceManifestOptions): UnetServiceManifestV2 {
   const origin = new URL(options.origin).origin;
   const maxAccounts = options.accountMode === 'multiple'
@@ -87,6 +91,7 @@ export function createUnetServiceManifest(options: UnetServiceManifestOptions): 
   };
 }
 
+/** @public */
 export function createUnetServiceManifestHandler(options: UnetServiceManifestOptions) {
   const manifest = createUnetServiceManifest(options);
   return async (): Promise<Response> => new Response(JSON.stringify(manifest), {
@@ -98,4 +103,5 @@ export function createUnetServiceManifestHandler(options: UnetServiceManifestOpt
   });
 }
 
+/** @public */
 export type DirectLoginServiceConfiguration = Pick<DirectLoginServiceOptions, 'serviceId' | 'origin'>;

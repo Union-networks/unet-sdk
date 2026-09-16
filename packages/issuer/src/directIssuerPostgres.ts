@@ -1,9 +1,11 @@
 import type { DirectIssuerRequestRecord, DirectIssuerRequestStore } from './directIssuer.js';
 
+/** @public */
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[]; rowCount?: number | null }>;
 }
 
+/** @public */
 export async function ensureDirectIssuerSchema(db: SqlClient): Promise<void> {
   await db.query(`
     CREATE TABLE IF NOT EXISTS unet_attestation_requests_v2 (
@@ -28,6 +30,7 @@ export async function ensureDirectIssuerSchema(db: SqlClient): Promise<void> {
   `);
 }
 
+/** @public */
 export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStore {
   public constructor(private readonly db: SqlClient) {}
 

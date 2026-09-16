@@ -2,6 +2,7 @@ import { verify } from 'node:crypto';
 import type { DirectLoginAccountStore } from './directLogin.js';
 import type { SqlClient } from './directLoginPostgres.js';
 
+/** @public */
 export interface OfficialMessagingInboxRegistration {
   protocolVersion: 2;
   serviceId: string;
@@ -15,6 +16,7 @@ export interface OfficialMessagingInboxRegistration {
   signature: string;
 }
 
+/** @public */
 export interface ProviderOfficialMessagingRecipient {
   recipientReference: string;
   recipientEncryptionPublicKey: string;
@@ -22,6 +24,7 @@ export interface ProviderOfficialMessagingRecipient {
   sendCapability: string;
 }
 
+/** @public */
 export interface OfficialMessagingInboxStore {
   register(registration: OfficialMessagingInboxRegistration): Promise<void>;
   resolve(scopedUserId: string): Promise<ProviderOfficialMessagingRecipient | undefined>;
@@ -30,6 +33,7 @@ export interface OfficialMessagingInboxStore {
 
 const normalizeOrigin = (value: string): string => new URL(value).origin;
 
+/** @public */
 export function canonicalOfficialInboxRegistration(
   registration: Omit<OfficialMessagingInboxRegistration, 'signature'>,
 ): string {
@@ -46,6 +50,7 @@ export function canonicalOfficialInboxRegistration(
   ].join('\n');
 }
 
+/** @public */
 export async function registerOfficialMessagingInbox(input: {
   serviceId: string;
   origin: string;
@@ -80,6 +85,7 @@ export async function registerOfficialMessagingInbox(input: {
   await input.inboxStore.register(registration);
 }
 
+/** @public */
 export async function ensureOfficialMessagingInboxSchema(db: SqlClient): Promise<void> {
   await db.query(`
     CREATE TABLE IF NOT EXISTS unet_official_inboxes_v2 (
@@ -98,6 +104,7 @@ export async function ensureOfficialMessagingInboxSchema(db: SqlClient): Promise
   `);
 }
 
+/** @public */
 export class PostgresOfficialMessagingInboxStore implements OfficialMessagingInboxStore {
   public constructor(private readonly db: SqlClient) {}
 

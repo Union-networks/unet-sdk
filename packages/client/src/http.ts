@@ -22,6 +22,7 @@ const withQuery = (path: string, params: object): string => {
 };
 
 
+/** @public */
 export class UnetClient {
   private readonly controlPlaneUrl: string;
   private readonly verifierBaseUrl: string;
@@ -91,4 +92,5 @@ export class UnetClient {
   }
 }
 
+/** @public */
 export const createUnetClient = (options?: UnetClientOptions): UnetClient => new UnetClient(options);

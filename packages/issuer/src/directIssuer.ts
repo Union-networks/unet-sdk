@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 
+/** @public */
 export type DirectIssuerRequestState = 'pending' | 'anchoring' | 'ready' | 'delivered' | 'denied' | 'failed' | 'revoked';
+/** @public */
 export type CredentialReplacementMode = 'deny' | 'replace_after_delivery' | 'parallel';
 
+/** @public */
 export interface DirectIssuerRequestInput {
   serviceAccountRef: string;
   checkId: string;
@@ -14,6 +17,7 @@ export interface DirectIssuerRequestInput {
   idempotencyKey: string;
 }
 
+/** @public */
 export interface DirectIssuerRequestRecord extends DirectIssuerRequestInput {
   requestId: string;
   deliveryCapabilityHash: string;
@@ -27,6 +31,7 @@ export interface DirectIssuerRequestRecord extends DirectIssuerRequestInput {
   failureCategory?: string;
 }
 
+/** @public */
 export interface DirectIssuerRequestStore {
   create(record: DirectIssuerRequestRecord): Promise<void>;
   get(requestId: string): Promise<DirectIssuerRequestRecord | undefined>;
@@ -37,6 +42,7 @@ export interface DirectIssuerRequestStore {
   update(record: DirectIssuerRequestRecord): Promise<void>;
 }
 
+/** @public */
 export interface DirectIssuerServiceOptions {
   store: DirectIssuerRequestStore;
   replacementModeFor: (checkId: string) => Promise<CredentialReplacementMode>;
@@ -54,6 +60,7 @@ export interface DirectIssuerServiceOptions {
   now?: () => Date;
 }
 
+/** @public */
 export interface DirectIssuerRenewalInput {
   requestId: string;
   deliveryCapability: string;
@@ -67,6 +74,7 @@ const hashCapability = (value: string) => createHash('sha256').update(value).dig
 const randomId = (prefix: string) => `${prefix}_${randomBytes(18).toString('base64url')}`;
 const isHolderRevocationAddress = (value: string) => /^0x[a-fA-F0-9]{40}$/.test(value);
 
+/** @public */
 export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
   const now = options.now ?? (() => new Date());
 
@@ -251,8 +259,10 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
   };
 }
 
+/** @public */
 export type DirectIssuerService = ReturnType<typeof createDirectIssuerService>;
 
+/** @public */
 export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStore {
   private readonly records = new Map<string, DirectIssuerRequestRecord>();
 

@@ -4,6 +4,12 @@
 
 ```ts
 
+// @public
+export function assertDirectLoginBrowserOrigin(request: Request, origin: string, mutation: boolean): void;
+
+// @public
+export function authorizeDirectLoginBrowser(record: DirectLoginChallengeRecord | undefined, challenge: string, nowIso: string, consume: boolean): DirectLoginBrowserResult;
+
 // @public (undocumented)
 export function canonicalOfficialInboxRegistration(registration: Omit<OfficialMessagingInboxRegistration, 'signature'>): string;
 
@@ -40,26 +46,31 @@ export interface CanonicalProviderEnvironment {
 }
 
 // @public (undocumented)
+export const createDirectLoginRedemptionSecret: () => string;
+
+// @public (undocumented)
 export function createDirectLoginService(options: DirectLoginServiceOptions): {
     createChallenge(input: {
         challengeUrl: string;
         approvalUrl: string;
+        redemptionSecret: string;
     }): Promise<DirectLoginChallenge>;
     getChallenge(requestRef: string): Promise<DirectLoginChallenge>;
     approve(approval: DirectLoginApproval): Promise<void>;
-    poll(requestRef: string): Promise<{
+    poll(requestRef: string, redemptionSecret: string): Promise<{
         state: DirectLoginChallengeRecord["state"];
-        session?: DirectLoginSession;
     }>;
-    prepareSessionExchange(sessionId: string): Promise<DirectLoginSession>;
-    completeSessionExchange(sessionId: string): Promise<void>;
-    exchangeSession(sessionId: string): Promise<DirectLoginSession>;
+    exchangeSession(requestRef: string, redemptionSecret: string): Promise<DirectLoginSession>;
     retire(retirement: ServiceAccountRetirement): Promise<void>;
+    retryRetirementCleanup(): Promise<{
+        completed: number;
+        pending: number;
+    }>;
 };
 
 // @public (undocumented)
 export function createDirectLoginWebHandlers(options: DirectLoginWebAdapterOptions): {
-    challenge: (_request: Request) => Promise<Response>;
+    challenge: (request: Request) => Promise<Response>;
     challengeStatus: (request: Request) => Promise<Response>;
     challengeDetails: (request: Request) => Promise<Response>;
     approve: (request: Request) => Promise<Response>;
@@ -162,6 +173,20 @@ export interface DirectLoginApproval {
 }
 
 // @public (undocumented)
+export function directLoginBrowserCookie(requestRef: string, secret: string, maxAge?: number): string;
+
+// @public (undocumented)
+export function directLoginBrowserCookieName(requestRef: string): string;
+
+// @public (undocumented)
+export type DirectLoginBrowserResult = {
+    error: 'direct_login_browser_unauthorized' | 'direct_login_not_approved' | 'protocol_upgrade_required';
+} | {
+    state: DirectLoginChallengeRecord['state'];
+    session?: DirectLoginSession;
+};
+
+// @public (undocumented)
 export interface DirectLoginChallenge {
     // (undocumented)
     approvalUrl: string;
@@ -191,6 +216,10 @@ export interface DirectLoginChallengeRecord extends DirectLoginChallenge {
     // (undocumented)
     challengeHash: string;
     // (undocumented)
+    exchangeAttempts: number;
+    // (undocumented)
+    redemptionChallenge: string;
+    // (undocumented)
     session?: DirectLoginSession;
     // (undocumented)
     state: 'pending' | 'approved' | 'consumed' | 'expired';
@@ -198,20 +227,41 @@ export interface DirectLoginChallengeRecord extends DirectLoginChallenge {
 
 // @public (undocumented)
 export interface DirectLoginChallengeStore {
-    // (undocumented)
-    consume(requestRef: string): Promise<boolean>;
+    approve(record: DirectLoginChallengeRecord, nowIso: string): Promise<void>;
+    browserAccess(requestRef: string, redemptionChallenge: string, nowIso: string, consume: boolean): Promise<DirectLoginBrowserResult>;
     // (undocumented)
     create(record: DirectLoginChallengeRecord): Promise<void>;
     // (undocumented)
     get(requestRef: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    getBySessionId(sessionId: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    update(record: DirectLoginChallengeRecord): Promise<void>;
 }
 
 // @public (undocumented)
 export function directLoginQrPayload(challenge: DirectLoginChallenge): string;
+
+// @public (undocumented)
+export const directLoginRedemptionChallenge: (secret: string) => string;
+
+// @public (undocumented)
+export interface DirectLoginRetirementStore extends DirectLoginAccountStore {
+    // (undocumented)
+    claimRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+        leaseToken: string;
+    }>>;
+    // (undocumented)
+    completeRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
+    failRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
+    getRetirementPublicKey(scopedUserId: string): Promise<string | undefined>;
+    // (undocumented)
+    pendingRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+    }>>;
+    retireWithCleanup(retirement: ServiceAccountRetirement): Promise<void>;
+}
 
 // @public (undocumented)
 export type DirectLoginService = ReturnType<typeof createDirectLoginService>;
@@ -222,7 +272,7 @@ export type DirectLoginServiceConfiguration = Pick<DirectLoginServiceOptions, 's
 // @public (undocumented)
 export interface DirectLoginServiceOptions {
     // (undocumented)
-    accountStore: DirectLoginAccountStore;
+    accountStore: DirectLoginRetirementStore;
     // (undocumented)
     challengeStore: DirectLoginChallengeStore;
     // (undocumented)
@@ -230,7 +280,7 @@ export interface DirectLoginServiceOptions {
     // (undocumented)
     now?: () => Date;
     // (undocumented)
-    onAccountRetired?: (scopedUserId: string) => Promise<void>;
+    onAccountRetired?: (scopedUserId: string, operationId: string, signal: AbortSignal) => Promise<void>;
     // (undocumented)
     origin: string;
     // (undocumented)
@@ -252,11 +302,19 @@ export interface DirectLoginSession {
 }
 
 // @public (undocumented)
+export interface DirectLoginSqlPool extends SqlClient {
+    // (undocumented)
+    connect(): Promise<SqlClient & {
+        release(): void;
+    }>;
+}
+
+// @public (undocumented)
 export interface DirectLoginWebAdapterOptions {
     // (undocumented)
     accountStore: DirectLoginAccountStore;
     // (undocumented)
-    exchange?: (session: {
+    exchange: (session: {
         sessionId: string;
         requestRef: string;
         scopedUserId: string;
@@ -293,27 +351,45 @@ export function ensureDirectLoginSchema(db: SqlClient): Promise<void>;
 export function ensureOfficialMessagingInboxSchema(db: SqlClient): Promise<void>;
 
 // @public (undocumented)
-export class InMemoryDirectLoginAccountStore implements DirectLoginAccountStore {
+export class InMemoryDirectLoginAccountStore implements DirectLoginRetirementStore {
     // (undocumented)
     bindPublicKey(scopedUserId: string, publicKeyPem: string): Promise<'created' | 'existing'>;
     // (undocumented)
+    claimRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+        leaseToken: string;
+    }>>;
+    // (undocumented)
+    completeRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
+    failRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
     getPublicKey(scopedUserId: string): Promise<string | undefined>;
     // (undocumented)
+    getRetirementPublicKey(scopedUserId: string): Promise<string | undefined>;
+    // (undocumented)
+    pendingRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+    }>>;
+    // (undocumented)
     retire(scopedUserId: string): Promise<void>;
+    // (undocumented)
+    retireWithCleanup(retirement: ServiceAccountRetirement): Promise<void>;
 }
 
 // @public (undocumented)
 export class InMemoryDirectLoginChallengeStore implements DirectLoginChallengeStore {
+    constructor(accounts: InMemoryDirectLoginAccountStore);
     // (undocumented)
-    consume(requestRef: string): Promise<boolean>;
+    approve(record: DirectLoginChallengeRecord, nowIso: string): Promise<void>;
+    // (undocumented)
+    browserAccess(requestRef: string, challenge: string, nowIso: string, consume: boolean): Promise<DirectLoginBrowserResult>;
     // (undocumented)
     create(record: DirectLoginChallengeRecord): Promise<void>;
     // (undocumented)
     get(requestRef: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    getBySessionId(sessionId: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    update(record: DirectLoginChallengeRecord): Promise<void>;
 }
 
 // @public (undocumented)
@@ -454,29 +530,46 @@ export interface OperationalMetricInput {
 }
 
 // @public (undocumented)
-export class PostgresDirectLoginAccountStore implements DirectLoginAccountStore {
-    constructor(db: SqlClient);
+export class PostgresDirectLoginAccountStore implements DirectLoginRetirementStore {
+    constructor(db: DirectLoginSqlPool);
     // (undocumented)
     bindPublicKey(scopedUserId: string, publicKeyPem: string): Promise<'created' | 'existing'>;
     // (undocumented)
+    claimRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+        leaseToken: string;
+    }>>;
+    // (undocumented)
+    completeRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
+    failRetirementCleanup(operationId: string, leaseToken: string): Promise<void>;
+    // (undocumented)
     getPublicKey(scopedUserId: string): Promise<string | undefined>;
     // (undocumented)
+    getRetirementPublicKey(scopedUserId: string): Promise<string | undefined>;
+    // (undocumented)
+    pendingRetirements(limit: number): Promise<Array<{
+        operationId: string;
+        scopedUserId: string;
+    }>>;
+    // (undocumented)
     retire(scopedUserId: string): Promise<void>;
+    // (undocumented)
+    retireWithCleanup(retirement: ServiceAccountRetirement): Promise<void>;
 }
 
 // @public (undocumented)
 export class PostgresDirectLoginChallengeStore implements DirectLoginChallengeStore {
-    constructor(db: SqlClient);
+    constructor(db: DirectLoginSqlPool);
     // (undocumented)
-    consume(requestRef: string): Promise<boolean>;
+    approve(record: DirectLoginChallengeRecord, _nowIso: string): Promise<void>;
+    // (undocumented)
+    browserAccess(requestRef: string, challenge: string, _nowIso: string, consume: boolean): Promise<DirectLoginBrowserResult>;
     // (undocumented)
     create(record: DirectLoginChallengeRecord): Promise<void>;
     // (undocumented)
     get(requestRef: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    getBySessionId(sessionId: string): Promise<DirectLoginChallengeRecord | undefined>;
-    // (undocumented)
-    update(record: DirectLoginChallengeRecord): Promise<void>;
 }
 
 // @public (undocumented)
@@ -745,6 +838,9 @@ export type ProviderSelfTestName = "database" | "replay" | "direct_login" | "iss
 
 // @public (undocumented)
 export function readCanonicalProviderEnvironment(env?: Record<string, string | undefined>): CanonicalProviderEnvironment;
+
+// @public (undocumented)
+export function readDirectLoginBrowserSecret(request: Request, requestRef: string): string;
 
 // @public (undocumented)
 export function registerOfficialMessagingInbox(input: {

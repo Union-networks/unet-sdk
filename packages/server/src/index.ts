@@ -5,6 +5,7 @@ import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 
 export * from './directLogin.js';
+export * from './directLoginBrowser.js';
 export * from './directLoginPostgres.js';
 export * from './officialMessagingInbox.js';
 export * from './operationalMetrics.js';
@@ -13,6 +14,7 @@ export * from './providerEnvironment.js';
 export * from './serviceManifest.js';
 export * from './webAdapters.js';
 
+/** @public */
 export interface UnetProviderClaimOptions {
   serviceId: string;
   origin: string;
@@ -21,6 +23,7 @@ export interface UnetProviderClaimOptions {
   claimToken: string;
 }
 
+/** @public */
 export interface UnetProviderClaimResponse {
   serviceId: string;
   origin: string;
@@ -29,6 +32,7 @@ export interface UnetProviderClaimResponse {
   proof: string;
 }
 
+/** @public */
 export interface UnetMiniappManifestOptions {
   serviceId: string;
   name: string;
@@ -43,6 +47,7 @@ export interface UnetMiniappManifestOptions {
   domainClaim?: UnetProviderClaimOptions;
 }
 
+/** @public */
 export interface UnetMiniappManifest {
   serviceId: string;
   name: string;
@@ -59,6 +64,7 @@ export interface UnetMiniappManifest {
 const base64UrlToBuffer = (value: string): Buffer => Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 const normalizeOrigin = (origin: string): string => new URL(origin).origin;
 
+/** @public */
 export function createUnetProviderClaim(options: UnetProviderClaimOptions): UnetProviderClaimResponse {
   const origin = normalizeOrigin(options.origin);
   const tokenHash = createHash('sha256').update(options.claimToken).digest('hex');
@@ -73,10 +79,12 @@ export function createUnetProviderClaim(options: UnetProviderClaimOptions): Unet
   };
 }
 
+/** @public */
 export function createUnetProviderClaimHandler(options: UnetProviderClaimOptions): () => UnetProviderClaimResponse {
   return () => createUnetProviderClaim(options);
 }
 
+/** @public */
 export function createUnetMiniappManifest(options: UnetMiniappManifestOptions): UnetMiniappManifest {
   const origin = normalizeOrigin(options.origin);
   const launchUrl = new URL(options.launchUrl, origin);
@@ -95,12 +103,14 @@ export function createUnetMiniappManifest(options: UnetMiniappManifestOptions): 
   };
 }
 
+/** @public */
 export interface OfficialMessagingVariableDefinition {
   key: string;
   type: 'text' | 'number' | 'date';
   required: boolean;
 }
 
+/** @public */
 export interface OfficialMessagingTemplate {
   templateId: string;
   version: number;
@@ -117,6 +127,7 @@ export interface OfficialMessagingTemplate {
   };
 }
 
+/** @public */
 export interface OfficialMessagingAutomation {
   automationId: string;
   eventKey: string;
@@ -124,6 +135,7 @@ export interface OfficialMessagingAutomation {
   timelineStepIndex?: number;
 }
 
+/** @public */
 export interface EmitOfficialMessagingEventInput {
   eventKey: string;
   scopedUserId: string;
@@ -132,6 +144,7 @@ export interface EmitOfficialMessagingEventInput {
   variables?: Record<string, string | number | Date>;
 }
 
+/** @public */
 export interface OfficialMessagingClientOptions {
   controlPlaneUrl: string;
   messagingBaseUrl: string;
@@ -145,6 +158,7 @@ export interface OfficialMessagingClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+/** @public */
 export interface OfficialMessagingRecipient {
   /** Random, provider-stored 32-byte reference encoded as 64 lowercase hex characters. */
   recipientReference: string;
@@ -214,6 +228,7 @@ const encryptOfficialPayload = (recipientPublicKey: string, payload: Record<stri
   };
 };
 
+/** @public */
 export function createOfficialMessagingClient(options: OfficialMessagingClientOptions) {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   if (!fetchImpl) throw new Error('fetch_unavailable');
@@ -296,6 +311,7 @@ export function createOfficialMessagingClient(options: OfficialMessagingClientOp
   };
 }
 
+/** @public */
 export function createUnetServerClient(options: OfficialMessagingClientOptions) {
   return { officialMessaging: createOfficialMessagingClient(options) };
 }

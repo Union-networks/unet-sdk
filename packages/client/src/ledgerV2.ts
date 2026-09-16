@@ -1,11 +1,13 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
+/** @public */
 export interface LedgerV2HolderRevocationKey {
   privateKeyHex: string;
   address: string;
 }
 
+/** @public */
 export interface LedgerV2HolderRevokeOperation {
   attestationHash: string;
   requestIdHash: string;
@@ -14,6 +16,7 @@ export interface LedgerV2HolderRevokeOperation {
   deadline: number;
 }
 
+/** @public */
 export interface LedgerV2Domain {
   chainId: number | bigint;
   ledgerAddress: string;
@@ -58,9 +61,12 @@ const typedDigest = (domain: LedgerV2Domain, structHash: Uint8Array) => keccak_2
   structHash,
 ));
 
+/** @public */
 export const ledgerV2RequestHash = (requestId: string): string => toHex(hashText(requestId));
+/** @public */
 export const ledgerV2ReasonHash = (reason: string): string => toHex(hashText(reason));
 
+/** @public */
 export function generateLedgerV2HolderRevocationKey(): LedgerV2HolderRevocationKey {
   const entropy = new Uint8Array(48);
   globalThis.crypto.getRandomValues(entropy);
@@ -69,6 +75,7 @@ export function generateLedgerV2HolderRevocationKey(): LedgerV2HolderRevocationK
   return { privateKeyHex: toHex(privateKey), address: toHex(keccak_256(publicKey.slice(1)).slice(-20)) };
 }
 
+/** @public */
 export function signLedgerV2HolderRevoke(input: {
   domain: LedgerV2Domain;
   key: LedgerV2HolderRevocationKey;
@@ -100,6 +107,7 @@ export function signLedgerV2HolderRevoke(input: {
   return { operation, signature: toHex(concat(signature.toCompactRawBytes(), Uint8Array.from([signature.recovery + 27]))) };
 }
 
+/** @public */
 export async function resolveLedgerV2Attestation(readGatewayUrl: string, attestationHash: string, fetchImpl: typeof globalThis.fetch = globalThis.fetch) {
   const response = await fetchImpl(`${readGatewayUrl.replace(/\/+$/, '')}/v2/attestations/${encodeURIComponent(attestationHash)}`, { headers: { accept: 'application/json' } });
   const result = await response.json().catch(() => ({})) as Record<string, unknown>;
@@ -107,6 +115,7 @@ export async function resolveLedgerV2Attestation(readGatewayUrl: string, attesta
   return result;
 }
 
+/** @public */
 export async function submitLedgerV2HolderRevoke(input: {
   relayerUrls: string[];
   payload: { operation: LedgerV2HolderRevokeOperation; signature: string };

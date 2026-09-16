@@ -16,8 +16,10 @@ export * from './webAdapters.js';
 
 const DEFAULT_ISSUER = 'https://issuer.egress.live';
 
+/** @public */
 export type IssuerAction = 'attestation.approve' | 'attestation.deny' | 'attestation.revoke' | 'issuer.key.register' | 'issuer.http_request';
 
+/** @public */
 export interface IssuerSigner {
   issuerId: string;
   keyId: string;
@@ -29,8 +31,11 @@ export interface IssuerSigner {
   credentialSignatureScheme?: 'ecdsa_secp256k1_compact_low_s';
 }
 
+/** @public */
 export type CredentialValidityMode = 'none' | 'fixed' | 'issuer_capped';
+/** @public */
 export type CredentialRenewalMode = 'none' | 'holder_reissue' | 'silent_reissue';
+/** @public */
 export interface AttestationCredentialPolicy {
   validityMode: CredentialValidityMode;
   defaultValidityDays?: number;
@@ -39,11 +44,13 @@ export interface AttestationCredentialPolicy {
   renewalWindowDays?: number;
 }
 
+/** @public */
 export interface CredentialValidityWindow {
   validFromEpoch: number;
   validUntilEpoch: number;
 }
 
+/** @public */
 export function resolveCredentialValidity(input: {
   policy: AttestationCredentialPolicy;
   nowEpoch?: number;
@@ -70,12 +77,14 @@ export function resolveCredentialValidity(input: {
   return { validFromEpoch: nowEpoch, validUntilEpoch: requestedUntil };
 }
 
+/** @public */
 export interface CredentialClaimV2 {
   path: string;
   type: 'field' | 'u64' | 'string' | 'boolean';
   value: string | number | boolean;
 }
 
+/** @public */
 export interface CredentialClaimProofV2 extends CredentialClaimV2 {
   pathField: string;
   typeField: string;
@@ -85,6 +94,7 @@ export interface CredentialClaimProofV2 extends CredentialClaimV2 {
   pathBits: boolean[];
 }
 
+/** @public */
 export interface CredentialEnvelopeV2 {
   version: 2;
   requestType: string;
@@ -109,6 +119,7 @@ export interface CredentialEnvelopeV2 {
   claims: CredentialClaimProofV2[];
 }
 
+/** @public */
 export interface EncryptedCredentialEnvelopeV2 {
   version: 2;
   algorithm: 'x25519-xchacha20poly1305';
@@ -117,6 +128,7 @@ export interface EncryptedCredentialEnvelopeV2 {
   ciphertext: string;
 }
 
+/** @public */
 export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   v: 1;
   issuerId: string;
@@ -136,11 +148,17 @@ export interface ListAttestationRequestsInput { serviceId: string; status?: stri
 export interface ApproveAttestationRequestInput { serviceId: string; requestId: string; signer: IssuerSigner; claims?: Record<string, unknown>; credential: { requestType: string; schemaId: string; holderBinding: string; deliveryPublicKey: string; credentialPolicy: AttestationCredentialPolicy; validFromEpoch?: number; validUntilEpoch?: number; requestedValidityDays?: number; statusEpoch?: number; serviceAccountGenerationCommitment?: string; }; providerToken?: string; }
 export interface DenyAttestationRequestInput { serviceId: string; requestId: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
 export interface RevokeAttestationInput { serviceId: string; attestationHash: string; reason?: string; signer: IssuerSigner; providerToken?: string; }
+/** @public */
 export interface IssuerMiniappManifestInput { serviceId: string; name: string; provider: string; launchUrl: string; description?: string; icon?: string; permissions?: string[]; notificationCategories?: string[]; }
+/** @public */
 export type DomainAdminRole = 'owner' | 'admin';
+/** @public */
 export interface DomainAdminCallbackRequest { version: 1 | 2; action: 'domain-admin.issue'; invitationId: string; serviceId: string; origin: string; role: DomainAdminRole; requestType: string; schemaId: 'unet.provider.domain-admin.v1'; claims: { domain_role: string; service_id: string; role: DomainAdminRole }; holderBinding: string; deliveryPublicKey: string; clientRequestId?: string; holderRevocationSigner?: string; challenge: string; expiresAt: string; }
+/** @public */
 export interface DomainAdminCredentialIssueResult { attestationCommitment: string; encryptedCredentialEnvelope: Record<string, unknown>; credentialPublicMetadata: Record<string, unknown>; expiresAt?: string; ledgerV2TransactionHash?: string; ledgerV2IssuerIdHash?: string; holderRevocationSigner?: string; }
+/** @public */
 export interface SignedDomainAdminCredentialResponse { keyId: string; payload: DomainAdminCredentialIssueResult & Pick<DomainAdminCallbackRequest, 'challenge' | 'invitationId' | 'serviceId' | 'role' | 'requestType'>; signature: string; }
+/** @public */
 export interface HolderRelinquishmentCallbackRequest { version: 1; action: 'attestation.relinquish'; actionId: string; serviceId: string; issuerId: string; requestType: string; attestationHash: string; challenge: string; issuedAtIso: string; }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -174,10 +192,12 @@ const claimValueField = (claim: CredentialClaimV2): bigint => {
 };
 const randomField = (): bigint => field(bytesToBigInt(randomBytes(32)));
 
+/** @public */
 export async function deriveHolderBindingV2(holderSecret: string): Promise<string> {
   return fieldString(await pedersen([field(BigInt(holderSecret))]));
 }
 
+/** @public */
 export async function derivePredicateV2(input: {
   proofProfileId: string;
   schemaId: string;
@@ -221,6 +241,7 @@ export async function derivePredicateV2(input: {
   return fieldString(await pedersen([tag, schema, claimPath, a, b]));
 }
 
+/** @public */
 export async function deriveNullifierV2(input: { holderSecret: string; attestationCommitment: string; nonce: string; predicate: string }): Promise<string> {
   return fieldString(await pedersen([
     field(BigInt(input.holderSecret)),
@@ -230,6 +251,7 @@ export async function deriveNullifierV2(input: { holderSecret: string; attestati
   ]));
 }
 
+/** @public */
 export function generateCredentialSigningKeyPair() {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
   return {
@@ -238,6 +260,7 @@ export function generateCredentialSigningKeyPair() {
   };
 }
 
+/** @public */
 export async function deriveCredentialPublicKeyHash(publicKeyPem: string): Promise<string> {
   const jwk = createPublicKey(publicKeyPem).export({ format: 'jwk' });
   if (jwk.crv !== 'secp256k1' || !jwk.x || !jwk.y) throw new Error('credential_key_must_be_secp256k1');
@@ -249,6 +272,7 @@ export async function deriveCredentialPublicKeyHash(publicKeyPem: string): Promi
   ]));
 }
 
+/** @public */
 export async function generateDomainAdminSignerEnv(input: { serviceId: string; keyVersion?: string }): Promise<{ env: string; keyId: string; publicKeyPem: string; credentialKeyId: string; credentialPublicKeyPem: string; credentialPublicKeyHash: string; ledgerKeyId: string; ledgerAddress: string }> {
   const version = input.keyVersion?.trim() || '1';
   const callback = generateIssuerKeyPair();
@@ -284,6 +308,7 @@ export async function generateDomainAdminSignerEnv(input: { serviceId: string; k
 
 const merkleParent = (left: bigint, right: bigint): Promise<bigint> => pedersen([left, right]);
 
+/** @public */
 export async function buildFieldMerkleProofV2(input: { leaves: string[]; selectedIndex: number }): Promise<{
   root: string;
   siblings: string[];
@@ -310,6 +335,7 @@ export async function buildFieldMerkleProofV2(input: { leaves: string[]; selecte
   return { root: fieldString(levels[CLAIM_TREE_DEPTH]![0]!), siblings, pathBits };
 }
 
+/** @public */
 export async function deriveClaimLeafV2(claim: CredentialClaimV2, salt: string): Promise<string> {
   return fieldString(await pedersen([
     hashToField(claim.path),
@@ -366,6 +392,7 @@ const credentialKeyMaterial = (privateKeyPem: string) => {
   return { privateKey: base64urlBytes(jwk.d), x: base64urlBytes(jwk.x), y: base64urlBytes(jwk.y) };
 };
 
+/** @public */
 export async function createCredentialEnvelopeV2(input: {
   requestType: string;
   schemaId: string;
@@ -433,6 +460,7 @@ export async function createCredentialEnvelopeV2(input: {
   };
 }
 
+/** @public */
 export function encryptCredentialEnvelopeV2(envelope: CredentialEnvelopeV2, recipientPublicKey: string): EncryptedCredentialEnvelopeV2 {
   const ephemeral = x25519.keygen(randomBytes(32));
   const shared = x25519.getSharedSecret(ephemeral.secretKey, base64urlBytes(recipientPublicKey));
@@ -487,6 +515,7 @@ async function request<T>(path: string, options: { method?: string; body?: unkno
   return payload as T;
 }
 
+/** @public */
 export function generateIssuerKeyPair() {
   const { privateKey, publicKey } = generateKeyPairSync('ed25519');
   return {
@@ -495,6 +524,7 @@ export function generateIssuerKeyPair() {
   };
 }
 
+/** @public */
 export function generateIssuerKeyPairEnv(input: { issuerId?: string; keyId?: string } = {}): string {
   const keys = generateIssuerKeyPair();
   return [
@@ -505,6 +535,7 @@ export function generateIssuerKeyPairEnv(input: { issuerId?: string; keyId?: str
   ].join('\n');
 }
 
+/** @public */
 export function createIssuerSignerFromEnv(env: Record<string, string | undefined> = process.env): IssuerSigner {
   const issuerId = env.UNET_ISSUER_ID;
   const keyId = env.UNET_ISSUER_KEY_ID;
@@ -524,6 +555,7 @@ export function createIssuerSignerFromEnv(env: Record<string, string | undefined
   };
 }
 
+/** @public */
 export function createDomainAdminSignerFromEnv(env: Record<string, string | undefined> = process.env): IssuerSigner {
   const issuerId = env.UNET_DOMAIN_ADMIN_ISSUER_ID ?? env.UNET_ISSUER_ID;
   const keyId = env.UNET_DOMAIN_ADMIN_KEY_ID ?? env.UNET_ISSUER_KEY_ID;
@@ -545,6 +577,7 @@ export function createDomainAdminSignerFromEnv(env: Record<string, string | unde
   };
 }
 
+/** @public */
 export function validateDomainAdminCallbackRequest(value: unknown, input: { serviceId: string; origin: string; challengeHeader?: string; now?: Date }): DomainAdminCallbackRequest {
   if (!isObject(value)) throw new Error('domain_admin_callback_invalid');
   if ((value.version !== 1 && value.version !== 2) || value.action !== 'domain-admin.issue') throw new Error('domain_admin_callback_action_invalid');
@@ -559,12 +592,14 @@ export function validateDomainAdminCallbackRequest(value: unknown, input: { serv
   return value as unknown as DomainAdminCallbackRequest;
 }
 
+/** @public */
 export function signDomainAdminCredentialResponse(input: { request: DomainAdminCallbackRequest; credential: DomainAdminCredentialIssueResult; signer: IssuerSigner }): SignedDomainAdminCredentialResponse {
   if (!/^[a-f0-9]{64}$/i.test(input.credential.attestationCommitment)) throw new Error('attestation_commitment_invalid');
   const payload = { challenge: input.request.challenge, invitationId: input.request.invitationId, serviceId: input.request.serviceId, role: input.request.role, requestType: input.request.requestType, ...input.credential };
   return { keyId: input.signer.keyId, payload, signature: b64url(sign(null, Buffer.from(canonicalize(payload), 'utf8'), input.signer.privateKeyPem)) };
 }
 
+/** @public */
 export async function generateAttestationIssuerEnv(input: { serviceId: string; issuerId?: string; keyVersion?: string }): Promise<{
   env: string;
   issuerId: string;
@@ -623,6 +658,7 @@ export function verifyDomainAdminControlAuthorization(body: unknown, authorizati
   return expectedBytes.length === actualBytes.length && timingSafeEqual(expectedBytes, actualBytes);
 }
 
+/** @public */
 export interface DomainAdminControlAuthorizationPayload {
   version: 2;
   keyId: string;
@@ -634,6 +670,7 @@ export interface DomainAdminControlAuthorizationPayload {
   nonce: string;
 }
 
+/** @public */
 export function createDomainAdminControlAuthorizationV2(input: {
   body: unknown;
   privateKeyPem: string;
@@ -659,6 +696,7 @@ export function createDomainAdminControlAuthorizationV2(input: {
   return `v2.${encoded}.${signature}`;
 }
 
+/** @public */
 export function verifyDomainAdminControlAuthorizationV2(input: {
   body: unknown;
   authorization: string | undefined;
@@ -685,6 +723,7 @@ export function verifyDomainAdminControlAuthorizationV2(input: {
   }
 }
 
+/** @public */
 export async function fetchUnetControlPublicKeys(input: {
   controlPlaneUrl?: string;
   fetch?: typeof globalThis.fetch;
@@ -723,6 +762,7 @@ export function createDomainAdminCallbackHandler(input: { serviceId: string; ori
   };
 }
 
+/** @public */
 export function createDomainAdminCallbackHandlerV2(input: {
   serviceId: string;
   origin: string;
@@ -739,6 +779,7 @@ export function createDomainAdminCallbackHandlerV2(input: {
   });
 }
 
+/** @public */
 export function createHolderRelinquishmentCallbackHandler(input: {
   serviceId: string;
   signer: IssuerSigner;
@@ -785,6 +826,7 @@ export function verifyIssuerEnvelopeSignature(envelope: IssuerActionEnvelope, pu
   }
 }
 
+/** @public */
 export function createIssuerMiniappManifest(input: IssuerMiniappManifestInput): UnetMiniAppManifest {
   const permissions = Array.from(new Set(['identity.scoped', 'attestations.request', 'attestations.refresh', ...(input.permissions ?? [])]));
   return { serviceId: input.serviceId, name: input.name, provider: input.provider, description: input.description ?? `Request attestations from ${input.provider}.`, ...(input.icon ? { icon: input.icon } : {}), launchUrl: input.launchUrl, permissions, ...(input.notificationCategories ? { notificationCategories: input.notificationCategories } : {}) };

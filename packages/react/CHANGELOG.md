@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.0.0-rc.1
+
+### Patch Changes
+
+- Prepare the coordinated SDK 2 release candidate with refreshed API reports,
+  browser-bound exchange examples, and lease-token-fenced retirement cleanup
+  migration guidance. Update the PostgreSQL regression test to use claimed leases.
+  No session-ID redemption or legacy store compatibility is restored.
+
+  This candidate is packed for provider integration testing only. Publication,
+  deployment, session invalidation, and the maintained-provider integration matrix
+  remain separate coordinated release gates.
+- Updated dependencies
+  - @u-net/web-login@2.0.0-rc.1
+  - @u-net/client@2.0.0-rc.1
+  - @u-net/verification@2.0.0-rc.1
+
+## 2.0.0-rc.0
+
+### Major Changes
+
+- Bind Direct Login redemption to a per-attempt HTTP-only browser cookie. Status
+  returns lifecycle state only; exchange accepts requestRef, never sessionId.
+  Approval/account binding and exchange are transactional in the PostgreSQL adapter.
+  Retirement accepts delayed signed operations and persists provider cleanup jobs.
+
+  This change belongs to the coordinated 2.0.0 release-candidate train. Do not
+  promote or deploy without updated providers, dashboard proxies, mobile miniapp
+  bridge, session invalidation, and maintained-provider integration tests.
+
+### Patch Changes
+
+- Updated dependencies
+  - @u-net/web-login@2.0.0-rc.0
+  - @u-net/client@2.0.0-rc.0
+  - @u-net/verification@2.0.0-rc.0
+
 ## 1.0.0
 
 ### Major Changes

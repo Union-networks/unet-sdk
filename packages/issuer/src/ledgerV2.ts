@@ -2,9 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
+/** @public */
 export const LEDGER_V2_EIP712_NAME = 'U-net Attestation Ledger';
+/** @public */
 export const LEDGER_V2_EIP712_VERSION = '2';
 
+/** @public */
 export interface LedgerV2Signer {
   issuerId: string;
   keyId: string;
@@ -13,11 +16,13 @@ export interface LedgerV2Signer {
   keyEpoch: number;
 }
 
+/** @public */
 export interface LedgerV2Domain {
   chainId: number | bigint;
   ledgerAddress: string;
 }
 
+/** @public */
 export interface LedgerV2AnchorOperation {
   attestationHash: string;
   issuerIdHash: string;
@@ -28,6 +33,7 @@ export interface LedgerV2AnchorOperation {
   deadline: number;
 }
 
+/** @public */
 export interface LedgerV2IssuerRevokeOperation {
   attestationHash: string;
   issuerIdHash: string;
@@ -38,6 +44,7 @@ export interface LedgerV2IssuerRevokeOperation {
   deadline: number;
 }
 
+/** @public */
 export interface LedgerV2IssuerRotateOperation {
   issuerIdHash: string;
   newSigner: string;
@@ -45,6 +52,7 @@ export interface LedgerV2IssuerRotateOperation {
   deadline: number;
 }
 
+/** @public */
 export interface LedgerV2IssuerRetireOperation {
   issuerIdHash: string;
   nonce: string;
@@ -103,10 +111,14 @@ const signDigest = (digestBytes: Uint8Array, privateKeyHex: string): string => {
   return hex(concat(signature.toCompactRawBytes(), Uint8Array.from([signature.recovery + 27])));
 };
 
+/** @public */
 export const ledgerV2IssuerIdHash = (issuerId: string): string => hex(hashText(issuerId));
+/** @public */
 export const ledgerV2RequestHash = (requestId: string): string => hex(hashText(requestId));
+/** @public */
 export const ledgerV2ReasonHash = (reason: string): string => hex(hashText(reason));
 
+/** @public */
 export function generateLedgerV2Signer(input: { issuerId: string; keyId?: string; keyEpoch?: number }): LedgerV2Signer {
   const privateKey = secp256k1.utils.randomSecretKey(randomBytes(48));
   const publicKey = secp256k1.getPublicKey(privateKey, false);
@@ -120,6 +132,7 @@ export function generateLedgerV2Signer(input: { issuerId: string; keyId?: string
   };
 }
 
+/** @public */
 export function generateLedgerV2SignerEnv(input: { issuerId: string; keyId?: string }): string {
   const signer = generateLedgerV2Signer(input);
   return [
@@ -130,6 +143,7 @@ export function generateLedgerV2SignerEnv(input: { issuerId: string; keyId?: str
   ].join('\n');
 }
 
+/** @public */
 export function createLedgerV2SignerFromEnv(
   issuerId: string,
   env: Record<string, string | undefined> = process.env,
@@ -150,6 +164,7 @@ export function createLedgerV2SignerFromEnv(
   return { issuerId, keyId, privateKeyHex: hex(privateKey), address: derivedAddress, keyEpoch };
 }
 
+/** @public */
 export function signLedgerV2Anchor(input: {
   domain: LedgerV2Domain;
   signer: LedgerV2Signer;
@@ -181,6 +196,7 @@ export function signLedgerV2Anchor(input: {
   return { operation, signature: signDigest(digest(input.domain, structHash), input.signer.privateKeyHex) };
 }
 
+/** @public */
 export function signLedgerV2IssuerRevoke(input: {
   domain: LedgerV2Domain;
   signer: LedgerV2Signer;
@@ -212,6 +228,7 @@ export function signLedgerV2IssuerRevoke(input: {
   return { operation, signature: signDigest(digest(input.domain, structHash), input.signer.privateKeyHex) };
 }
 
+/** @public */
 export function signLedgerV2IssuerRotate(input: {
   domain: LedgerV2Domain;
   signer: LedgerV2Signer;
@@ -236,6 +253,7 @@ export function signLedgerV2IssuerRotate(input: {
   return { operation, signature: signDigest(registryDigest(input.domain, structHash), input.signer.privateKeyHex) };
 }
 
+/** @public */
 export function signLedgerV2IssuerRetire(input: {
   domain: LedgerV2Domain;
   signer: LedgerV2Signer;
@@ -257,6 +275,7 @@ export function signLedgerV2IssuerRetire(input: {
   return { operation, signature: signDigest(registryDigest(input.domain, structHash), input.signer.privateKeyHex) };
 }
 
+/** @public */
 export async function submitLedgerV2Operation(input: {
   relayerUrls: string[];
   path: '/v2/operations/anchor' | '/v2/operations/revoke/issuer' | '/v2/operations/issuer/rotate' | '/v2/operations/issuer/retire';
@@ -283,6 +302,7 @@ export async function submitLedgerV2Operation(input: {
   throw new Error(`ledger_v2_relayers_unavailable:${failures.join(',')}`);
 }
 
+/** @public */
 export async function anchorLedgerV2CredentialFromEnv(input: {
   issuerId: string;
   attestationHash: string;
@@ -327,6 +347,7 @@ export async function anchorLedgerV2CredentialFromEnv(input: {
   return { transactionHash, issuerIdHash };
 }
 
+/** @public */
 export async function revokeLedgerV2CredentialFromEnv(input: {
   issuerId: string;
   attestationHash: string;

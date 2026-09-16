@@ -25,16 +25,20 @@ export default defineConfig({
       { text: 'Concepts', items: [
         { text: 'Scoped IDs', link: '/concepts/scoped-ids' },
         { text: 'Login assertions', link: '/concepts/login-assertions' },
+        { text: 'Security and privacy boundaries', link: '/concepts/security-threat-model' },
+        { text: 'Privacy research proposal', link: '/concepts/privacy-design-follow-up' },
         { text: 'Checkout-bound verification', link: '/concepts/checkout-bound-verification' },
       ]},
       { text: 'Guides', items: [
         { text: 'Make your web app miniapp-ready', link: '/guides/miniapp-ready' },
         { text: 'Migrate to @u-net', link: '/migration/from-union-networks' },
+        { text: 'Security 2 migration (RC)', link: '/migration/security-2' },
       ]},
       { text: 'Reference', items: [
         { text: 'Packages', link: '/packages/client' },
         { text: 'API Reference', link: '/api/generated/README' },
         { text: 'Provider environment', link: '/provider-environment' },
+        { text: '2.0.0-rc.1 preparation', link: '/releases/2.0.0-rc.1' },
         { text: 'Changelog', link: '/changelog' },
       ]},
     ],

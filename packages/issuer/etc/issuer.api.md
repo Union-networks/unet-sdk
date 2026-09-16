@@ -617,9 +617,10 @@ export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStor
 }
 
 // @public (undocumented)
+export type IssuerAction = 'attestation.approve' | 'attestation.deny' | 'attestation.revoke' | 'issuer.key.register' | 'issuer.http_request';
+
+// @public (undocumented)
 export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {
-    // Warning: (ae-forgotten-export) The symbol "IssuerAction" needs to be exported by the entry point public.d.ts
-    //
     // (undocumented)
     action: IssuerAction;
     // (undocumented)

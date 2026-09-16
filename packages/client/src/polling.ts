@@ -1,6 +1,7 @@
 import { UnetTimeoutError } from './errors.js';
 import type { PollOptions } from './types.js';
 
+/** @public */
 export async function pollUntil<T>(load: () => Promise<T>, done: (value: T) => boolean, options: PollOptions = {}): Promise<T> {
   const intervalMs = options.intervalMs ?? 1500;
   const timeoutMs = options.timeoutMs ?? 120000;

@@ -2,6 +2,7 @@ import type { DirectLoginApproval, DirectLoginService, ServiceAccountRetirement 
 import type { OfficialMessagingInboxRegistration, OfficialMessagingInboxStore } from './officialMessagingInbox.js';
 import { registerOfficialMessagingInbox } from './officialMessagingInbox.js';
 import type { DirectLoginAccountStore } from './directLogin.js';
+import { assertDirectLoginBrowserOrigin, createDirectLoginRedemptionSecret, directLoginBrowserCookie, readDirectLoginBrowserSecret } from './directLoginBrowser.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -11,6 +12,7 @@ const json = (body: unknown, status = 200): Response => new Response(JSON.string
 });
 
 const errorStatus = (message: string): number => {
+  if (/unauthorized|origin_mismatch/.test(message)) return 403;
   if (/not_found|invalid/.test(message)) return 404;
   if (/expired|stale/.test(message)) return 410;
   if (/mismatch|bad_signature|retired|already/.test(message)) return 409;
@@ -18,7 +20,8 @@ const errorStatus = (message: string): number => {
 };
 
 const safeError = (error: unknown): Response => {
-  const code = error instanceof Error ? error.message : 'unet_provider_request_failed';
+  const code = error instanceof Error && /^(direct_login|service_account_retirement|protocol_upgrade|required|request_body)_[a-z_]+$/.test(error.message)
+    ? error.message : 'unet_provider_request_failed';
   return json({ success: false, error: code }, errorStatus(code));
 };
 
@@ -28,15 +31,17 @@ const body = async <T extends JsonObject>(request: Request): Promise<T> => {
   return value as T;
 };
 
+/** @public */
 export interface DirectLoginWebAdapterOptions {
   serviceId: string;
   origin: string;
   service: DirectLoginService;
   accountStore: DirectLoginAccountStore;
   inboxStore?: OfficialMessagingInboxStore;
-  exchange?: (session: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string }) => Promise<Response | Record<string, unknown>>;
+  exchange: (session: { sessionId: string; requestRef: string; scopedUserId: string; expiresAtIso: string }) => Promise<Response | Record<string, unknown>>;
 }
 
+/** @public */
 export function createUnetProtocolOptionsHandler(input: { methods: string[]; capabilities: string[] }) {
   const methods = Array.from(new Set(["OPTIONS", ...input.methods.map((method) => method.toUpperCase())]));
   return async (): Promise<Response> => new Response(null, {
@@ -50,8 +55,10 @@ export function createUnetProtocolOptionsHandler(input: { methods: string[]; cap
   });
 }
 
+/** @public */
 export type ProviderSelfTestName = "database" | "replay" | "direct_login" | "issuer_storage" | "delivery" | "revocation" | "official_messaging";
 
+/** @public */
 export function createProviderSelfTestHandler(input: {
   serviceId: string;
   authorize: (request: Request, body: Record<string, unknown>) => Promise<boolean>;
@@ -74,15 +81,21 @@ export function createProviderSelfTestHandler(input: {
   };
 }
 
+/** @public */
 export function createDirectLoginWebHandlers(options: DirectLoginWebAdapterOptions) {
   return {
-    challenge: async (_request: Request): Promise<Response> => {
+    challenge: async (request: Request): Promise<Response> => {
       try {
+        assertDirectLoginBrowserOrigin(request, options.origin, true);
+        const redemptionSecret = createDirectLoginRedemptionSecret();
         const challenge = await options.service.createChallenge({
           challengeUrl: '/api/unet/login/challenge',
           approvalUrl: '/api/unet/login/approve',
+          redemptionSecret,
         });
-        return json({ success: true, challenge });
+        const response = json({ success: true, challenge });
+        response.headers.append('set-cookie', directLoginBrowserCookie(challenge.requestRef, redemptionSecret, (Date.parse(challenge.expiresAtIso) - Date.now()) / 1000));
+        return response;
       } catch (error) {
         return safeError(error);
       }
@@ -90,9 +103,10 @@ export function createDirectLoginWebHandlers(options: DirectLoginWebAdapterOptio
 
     challengeStatus: async (request: Request): Promise<Response> => {
       try {
+        assertDirectLoginBrowserOrigin(request, options.origin, false);
         const requestRef = new URL(request.url).searchParams.get('requestRef');
         if (!requestRef) throw new Error('direct_login_request_ref_invalid');
-        return json({ success: true, ...(await options.service.poll(requestRef)) });
+        return json({ success: true, ...(await options.service.poll(requestRef, readDirectLoginBrowserSecret(request, requestRef))) });
       } catch (error) {
         return safeError(error);
       }
@@ -119,12 +133,17 @@ export function createDirectLoginWebHandlers(options: DirectLoginWebAdapterOptio
 
     exchange: async (request: Request): Promise<Response> => {
       try {
-        const input = await body<{ sessionId?: unknown } & JsonObject>(request);
-        if (typeof input.sessionId !== 'string') throw new Error('direct_login_session_invalid');
-        const session = await options.service.prepareSessionExchange(input.sessionId);
-        const result = options.exchange ? await options.exchange(session) : { success: true, session };
-        await options.service.completeSessionExchange(input.sessionId);
-        return result instanceof Response ? result : json(result);
+        assertDirectLoginBrowserOrigin(request, options.origin, true);
+        const input = await body<{ requestRef?: unknown; sessionId?: unknown } & JsonObject>(request);
+        if (input.sessionId !== undefined) throw new Error('protocol_upgrade_required');
+        if (typeof input.requestRef !== 'string') throw new Error('direct_login_request_ref_invalid');
+        const secret = readDirectLoginBrowserSecret(request, input.requestRef);
+        const session = await options.service.exchangeSession(input.requestRef, secret);
+        const result = await options.exchange(session);
+        const response = result instanceof Response ? result : json(result);
+        response.headers.append('set-cookie', directLoginBrowserCookie(input.requestRef, secret, 0));
+        response.headers.set('cache-control', 'no-store');
+        return response;
       } catch (error) {
         return safeError(error);
       }
