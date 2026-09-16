@@ -12,6 +12,18 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-tests
+          POSTGRES_DB: unet_security_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d unet_security_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      UNET_SECURITY_TEST_POSTGRES_URL: postgresql://postgres:ephemeral-ci-tests@127.0.0.1:5432/unet_security_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,20 +42,34 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
       - run: pnpm run docs:build
-      - run: pnpm run api:check
+      - run: pnpm run api:report
+      - name: Check generated API and documentation drift
+        run: git diff --exit-code
       - name: Pack packages
         run: |
           mkdir -p artifacts
           pnpm -r --filter './packages/*' pack --pack-destination artifacts
+          node scripts/write-release-manifest.mjs
+          sha256sum artifacts/*.tgz > artifacts/SHA256SUMS
+      - run: pnpm publint
+      - run: pnpm attw
+      - name: Publish npm packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" == *-rc.* ]]; then TAG=next; else TAG=latest; fi
+          VERSION="${GITHUB_REF_NAME#sdk-v}"
+          sha256sum --check artifacts/SHA256SUMS
+          for PACKAGE in contracts client server issuer verification web-login react setup; do
+            npm publish "artifacts/u-net-${PACKAGE}-${VERSION}.tgz" --access public --tag "$TAG" --provenance
+          done
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           prerelease: ${{ contains(github.ref_name, '-rc.') }}
           generate_release_notes: true
-          files: artifacts/*.tgz
-      - name: Publish npm packages
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF_NAME" == *-rc.* ]]; then TAG=next; else TAG=latest; fi
-          pnpm -r --filter './packages/*' publish --access public --tag "$TAG" --provenance --no-git-checks
+          files: |
+            artifacts/*.tgz
+            artifacts/*-manifest.json
+            artifacts/SHA256SUMS
