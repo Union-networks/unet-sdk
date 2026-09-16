@@ -61,7 +61,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#sdk-v}"
           sha256sum --check artifacts/SHA256SUMS
           for PACKAGE in contracts client server issuer verification web-login react setup; do
-            npm publish "artifacts/u-net-${PACKAGE}-${VERSION}.tgz" --access public --tag "$TAG" --provenance
+            npm publish "./artifacts/u-net-${PACKAGE}-${VERSION}.tgz" --access public --tag "$TAG" --provenance
           done
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

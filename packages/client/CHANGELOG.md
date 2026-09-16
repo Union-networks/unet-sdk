@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- @u-net/contracts@2.0.0-rc.2
+
 ## 2.0.0-rc.1
 
 ### Patch Changes
