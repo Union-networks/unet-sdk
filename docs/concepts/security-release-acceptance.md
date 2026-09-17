@@ -540,6 +540,60 @@ No production push, deployment, reset, SDK promotion, epoch activation or new
 phone APK occurred. Private evidence: `audit-2026-09-17/invitation-bridge/` and
 `audit-2026-09-17/messaging-pipeline/mobile-mailbox-scan-tests.txt`.
 
+## September 17 Incoming Message Recovery Checkpoint
+
+Mobile checkpoint `3b96c41a4d3830da7d2f0750bc4432729bada3f3` is committed locally,
+not pushed, deployed or activated. Author and committer are
+`Xevorius <tim.is@live.nl>`.
+
+The validated incoming payload, exact envelope and next ratchet now share one
+encrypted pending-receipt record. Recovery applies local effects idempotently,
+records cache completion, and requires explicit successful acknowledgement
+before removing the receipt. An ACK reporting zero removals supports a lost
+previous response. Disconnect retirement confirmation persists before its
+authorization keys are erased. Receipt phases cannot regress.
+
+Normal pairwise secret updates now use native exact-snapshot compare-and-swap,
+including tombstone and reset checks. Stale writes cannot overwrite newer
+ratchets or recreate deleted keys. There is no JavaScript fallback for older
+native binaries or iOS. Per-channel failures retain receipts and permit other
+channels to synchronize; native/reset fence failures stop the entire pass.
+
+Verification: mobile TypeScript and all 984 Jest tests / 88 suites passed in
+98.007 seconds. Tests cover lost responses, persistence and ACK failures,
+competing state updates, replay, blocked-disconnect recovery, malformed input,
+size boundaries and per-channel isolation. Fresh-module recovery tests are
+JavaScript simulations, not native process-death evidence.
+
+Three native CAS cases were added to the isolated Android harness, bringing its
+intended total to eleven tests. Their build and execution are pending. At the
+user's request, all APK builds are user-run on U-net/app-plane. The staged
+source archive comes from the exact mobile commit; no installed wallet changes
+are included in that build command. Prior native results do not cover this new
+CAS implementation or its React Native bridge method.
+
+Direct-chat limits are now 32 KiB serialized plaintext UTF-8 and 96 Ki transport
+envelope characters, checked before outgoing ratchet commit and submission.
+The native secret-state cap is 262144 characters. These bounds do not prove
+arbitrary ratchet/metadata state fits.
+
+Messaging checkpoint `eb293f0ff89d63624afe1417fd27eddcc9921bff` adds the matching
+pairwise envelope limit before delivery persistence, receipt lookup and hints.
+Official-account ciphertext retains its 1,500,000-character ceiling. TypeScript
+and 323 tests / 21 suites passed with disposable PostgreSQL; two optional
+proof-vector tests were skipped. The new integration cases cover the exact
+boundary, rejected writes, unchanged receipts/hints, ACK-before-retry and the
+separate official limit. Proof, ledger and policy success remain injected in
+these route tests. The owned PostgreSQL container and tunnel were removed.
+This server commit also remains local, authored and committed as Xevorius.
+
+Open gates: native instrumentation and full RN bridge compilation/runtime,
+SQLite lifecycle effects racing secret updates, ordinary outgoing-send crash
+recovery, full-app two-wallet/device tests, reset/rotation, maintained-provider
+acceptance, immutable release manifest and cutover. iOS remains unapproved.
+No SDK promotion, production reset or security-epoch activation occurred.
+Private evidence: `audit-2026-09-17/receive-recovery/`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
