@@ -496,6 +496,50 @@ No production reset, SDK promotion, epoch activation or standards adoption occur
 Private evidence and reproducible runners remain under
 `audit-2026-09-17/messaging-pipeline/`.
 
+## September 17 Mailbox Scan And Bridge Checkpoint
+
+Mobile source checkpoint `402b501e5a4ef98995e7119f2398a6e1d63f54ba` is local only,
+with both author and committer `Xevorius <tim.is@live.nl>`.
+
+The wallet now follows server continuation cursors for at most four pages per
+channel per refresh. Undecryptable ciphertext is not acknowledged; reaching the
+tail restarts the next sweep at the head. Separate encrypted progress records
+avoid rewriting channel secrets. Missing keys in one chat do not block others,
+and concurrent refreshes within one runtime share one registered promise.
+Payload shape, content commitment and contact identity are checked before a
+decrypted result advances the ratchet. No server or protocol changes were needed.
+
+Verification: mobile TypeScript, 911 Jest tests / 88 suites (91.167 seconds), and
+the focused 70-test delivery/scan run passed. Synthetic signed envelopes and
+mocked native decryption cover 200 unreadable head rows, bounded continuation,
+transient failure, malformed input, reset/readability changes during fetch,
+missing local keys, and retirement/deletion racing with cursor persistence.
+Review caught and corrected both a cursor write that could recreate erased
+secrets and a coercive message-kind validation check before this checkpoint.
+
+Separately, production secure-store Kotlin files from
+`80aa66347bb7d6291b41f05f2bd759ab50f8a95c` passed `:app:compileReleaseKotlin` on the
+app plane: 201 tasks executed, 1m 32s. Fresh bytecode contains all four invitation
+methods with `@ReactMethod`. Source digests match the pinned Git blobs, including
+the provider previously exercised by eight instrumentation tests. Compiled class
+JAR SHA-256: `6879d3417f92a0a06d22d3ea939c0b842d9383c5552b6fc0c46fe6b571838e97`.
+This copied configured acceptance-app build is not a fresh full-HEAD APK and
+does not establish runtime bridge, DEX/R8, or physical-device acceptance.
+
+The incoming-message crash boundary is still open: ratchet state commits before
+SQLite message persistence, and ACK recovery must not depend on decrypting the
+same ratchet message again. Ordinary channel locking remains runtime-local;
+cross-process writes and retirement during decrypt/cache require transactional
+fencing and full-activity tests. The cursor's separate record removes its new
+secret-restoration hazard, not these older receive-path gaps. See the app-plane
+`docs/security/mailbox-scan-recovery.md` for exact boundaries.
+
+Full-app two-wallet and physical messaging, reset/rotation, final provider
+acceptance, deployment-manifest freeze and cutover remain open. iOS is unapproved.
+No production push, deployment, reset, SDK promotion, epoch activation or new
+phone APK occurred. Private evidence: `audit-2026-09-17/invitation-bridge/` and
+`audit-2026-09-17/messaging-pipeline/mobile-mailbox-scan-tests.txt`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
