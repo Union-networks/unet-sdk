@@ -442,6 +442,60 @@ freeze and cutover remain open; iOS remains unapproved.
 Private evidence: `audit-2026-09-17/messaging-pipeline/EVIDENCE.md` and its
 ownership-checked disposable PostgreSQL runner.
 
+## September 17 Invitation Recovery Checkpoint
+
+The previously planned invitation journal is now implemented locally, not yet
+deployed or accepted as a full Android flow. Source checkpoints:
+
+- Mobile: `80aa66347bb7d6291b41f05f2bd759ab50f8a95c`.
+- Messaging: `4b3e4de5b67476dda8030f15d681c7e1e4b15f9b`, following initial recovery
+  commit `ae88d919385f6cb9415bba951db6905d80bb36a0`.
+- Author and committer: `Xevorius <tim.is@live.nl>`; all remain local.
+
+The Android broker stores an encrypted invitation journal and pending index
+atomically under a dedicated cross-process lease. Stable sender keys/capabilities
+precede allocation; the exact signed envelope and post-encryption ratchet precede
+consumption. Rescans and startup resume the same operation. Generation retirement
+and reset prevent resurrection; terminal cleanup distinguishes unconfirmed remote
+cleanup from local erasure. Older native builds fail closed, requiring a rebuild.
+
+The server permits fixed-window recovery only by the original consumer. Allocation
+reuses the original capabilities, ACK-safe receipts prevent duplicate ciphertext,
+and changed or expired operations are rejected. Delivery hints now commit with
+messages and receipts. Invitation deadlines are checked again after row-lock waits.
+Minimal hashed replay metadata remains until mailbox deletion; signed receipt
+payloads expire. No public sender discovery or identity graph API was added.
+
+Final verification:
+
+- Mobile TypeScript and 886 Jest tests / 87 suites passed.
+- Messaging TypeScript and 312 Vitest tests / 20 suites passed using disposable
+  PostgreSQL. Two opt-in existing-proof-vector tests remained skipped.
+- Eleven pipeline cases include actual competing transactions, observed row-lock
+  waits across deadlines, hint-insert failures, lost responses, ACK-before-retry,
+  expired recovery and current authorization. Proof/ledger/policy are fixtures.
+- Eight isolated Android instrumentation tests passed on the app-plane emulator,
+  using `com.egress.unet.securitytests`: atomic CAS, independent capability lease,
+  process-death recovery, reset inventory and stale-writer exclusion.
+
+Native provider SHA-256:
+`f3e1486fffe100bdff896c1f4bdef5a8a3e617d4fcf05a50ad887831d06556cc`.
+Test application SHA-256:
+`2cd720d6c2dd034587b40a6d0afecd5ee4e2f01d6f323b8f70f2d1f278f20ebc`.
+This harness compiles the provider, not the React Native bridge or complete wallet.
+The disposable database was removed and the isolated test app stopped; U-net's
+installed wallet and production services were not modified.
+
+Remaining gates: full-app rebuild and bridge verification, native two-wallet
+crash/recovery rehearsal, physical messaging tests, full-activity reset/rotation,
+queue starvation from undecryptable head messages, release-manifest freeze and
+cutover. iOS remains unapproved. The new retirement-hook regression initially
+failed; lazy Metro module resolution corrected it and the final suite passed.
+No production reset, SDK promotion, epoch activation or standards adoption occurred.
+
+Private evidence and reproducible runners remain under
+`audit-2026-09-17/messaging-pipeline/`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
