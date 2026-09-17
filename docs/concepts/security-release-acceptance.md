@@ -631,6 +631,46 @@ compiles the provider, not the React Native module; full bridge/runtime and
 full-app/device gates remain open. Evidence and the original failed run are in
 `audit-2026-09-17/receive-recovery/`, with passing outputs under `binder-fix/`.
 
+## September 17 Outgoing Recovery And Bridge Checkpoint
+
+Mobile `164a2fed569589b6eb46932e85e182f797044627` is committed locally as
+`Xevorius <tim.is@live.nl>`, not pushed, deployed or activated. Normal outgoing
+messages now atomically persist the exact envelope and next ratchet through
+native CAS. Lost responses reuse that envelope; confirmed operations finish
+encrypted local caching without retransmission. Durable backoff, paused delivery
+and Stop retrying keep failed operations bounded without falsely claiming receipt.
+
+All completed-ID checks use an exact SQLite key-and-conversation lookup, not the
+display history window. Storage/decryption errors fail closed. Submission checks
+the current prepared operation after both initial and refreshed permit acquisition.
+Cancellation while a permit was loading prevents a later POST; it cannot unsend
+an in-flight request or make cross-process storage/network operations atomic.
+
+Mobile TypeScript passed. Focused tests: 149 / 3 suites, 9.312 seconds. Full Jest:
+1029 / 88 suites, 65.179 seconds. Synthetic tests cover lost network/broker
+responses, persistence interruption, confirmation/cache recovery, malformed 2xx,
+competing completions, successor operations, cancellation, backoff and display-
+window-independent deduplication. Review findings were corrected and retested.
+These tests mock native encryption and do not establish real two-wallet behavior.
+
+Separately, the three secure-store Kotlin files pinned to
+`0ed442929340dcd899c19a599b0b69398118af43` passed `:app:compileReleaseKotlin` in a
+copied configured RN application on U-net: 201 tasks, 1m 33s. Source hashes match
+the pinned Git blobs. Fresh bytecode exposes CAS as `@ReactMethod` and calls
+bounded UTF-8 packing before resolver access. Compiled class artifact SHA-256:
+`0dc962844f71e1c66230bfba96550de4fd681090bd192f938ce8b2e38b7569d0`.
+This was neither APK assembly nor a full-HEAD app build, and does not prove
+runtime JS/Binder or DEX/R8 behavior. Owned build processes were cleaned up.
+
+Open gates remain SQLite lifecycle coordination with retirement/deletion,
+contact-accept lost-response recovery, actual bridge/runtime and two-wallet
+process-death testing, queued-state UI and physical Android, full reset/rotation,
+maintained-provider acceptance, manifest freeze and production cutover. iOS is
+unapproved. No SDK promotion, reset, epoch activation or new phone APK occurred.
+Private evidence: `audit-2026-09-17/outgoing-recovery/` and
+`audit-2026-09-17/receive-bridge/`. The app's outgoing-recovery document describes
+implementation limits separately from release approval.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
