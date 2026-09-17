@@ -594,6 +594,29 @@ acceptance, immutable release manifest and cutover. iOS remains unapproved.
 No SDK promotion, production reset or security-epoch activation occurred.
 Private evidence: `audit-2026-09-17/receive-recovery/`.
 
+## September 17 Native Snapshot Boundary Follow-Up
+
+The user-built isolated APK for mobile `3b96c41` compiled, but instrumentation
+failed one of eleven cases. Its oversized malformed snapshot exceeded the test
+Messenger IPC limit before provider validation. Review also found that the
+production CAS's two allowed raw-string snapshots could exceed Binder's budget.
+This is a failed acceptance run, not a native pass.
+
+Local correction `0ed442929340dcd899c19a599b0b69398118af43` bounds each snapshot to
+192 KiB UTF-8 and sends byte arrays rather than UTF-16 parcel strings. Shared
+native packing validates before resolver calls; the provider strictly decodes
+and retains exact snapshot comparison, reset fences and tombstones. Malformed
+Unicode is rejected, not normalized. Older oversized experimental records remain
+fail-closed; there is no truncation, blind overwrite or compatibility fallback.
+
+Mobile TypeScript and 987 Jest tests / 88 suites passed (73.649 seconds). The
+revised native harness adds explicit full-boundary/Unicode tests and checks
+validation errors instead of treating any transport failure as rejection success.
+Its twelve cases await a new user-run build and execution. The original test
+package was stopped; the installed wallet and production were not changed.
+Native/RN bridge and full-app/device gates remain open. Evidence, initial failure
+output, artifact hashes and staged user build: `audit-2026-09-17/receive-recovery/`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
