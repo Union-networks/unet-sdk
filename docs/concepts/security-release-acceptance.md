@@ -612,10 +612,24 @@ fail-closed; there is no truncation, blind overwrite or compatibility fallback.
 Mobile TypeScript and 987 Jest tests / 88 suites passed (73.649 seconds). The
 revised native harness adds explicit full-boundary/Unicode tests and checks
 validation errors instead of treating any transport failure as rejection success.
-Its twelve cases await a new user-run build and execution. The original test
-package was stopped; the installed wallet and production were not changed.
-Native/RN bridge and full-app/device gates remain open. Evidence, initial failure
-output, artifact hashes and staged user build: `audit-2026-09-17/receive-recovery/`.
+The user rebuilt the isolated APKs from `0ed4429`; source and artifact hashes and
+application IDs were verified before installation. All twelve native cases passed
+on app-plane `emulator-5554` in 2.485 seconds. This includes maximum-size snapshots
+and Unicode round trips, malformed input, cross-process CAS, deleted records,
+reset fencing and the existing invitation/capability recovery cases.
+
+Provider SHA-256:
+`721e0b9507e02f08dbc713bc6a39596b1361abfff8716a106a42543dd35ef578`.
+Test APK SHA-256:
+`129a42eb6533c66ae0a6117a38dd03d419e22175a27fadf82dcc933059496ef9`.
+Instrumentation APK SHA-256:
+`7667b38db30ac2139a8ab1f68caf956d69b79ee2c7e650b246bc90e230b15411`.
+
+Only the isolated `com.egress.unet.securitytests` application was installed and
+then stopped. The installed wallet and production were not changed. This harness
+compiles the provider, not the React Native module; full bridge/runtime and
+full-app/device gates remain open. Evidence and the original failed run are in
+`audit-2026-09-17/receive-recovery/`, with passing outputs under `binder-fix/`.
 
 ## Standards Evaluation Boundary
 
