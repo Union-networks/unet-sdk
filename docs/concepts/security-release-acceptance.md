@@ -391,6 +391,57 @@ tests, and the fixture adds 12 tests plus TypeScript. A second fresh-wallet run
 also completed all stages. Temporary services and the disposable database were
 removed; no source checkpoint was pushed or deployed.
 
+## September 17 Messaging Delivery Follow-Up
+
+Local checkpoints (not pushed, deployed or activated):
+
+- Mobile: `b6e0670b8a066a648cf7eecd373ccc96c3f9a7fe`.
+- Messaging: `35e5764e0840ccac6f91732c5ddc8f55a42e869d`.
+- Both author and committer are `Xevorius <tim.is@live.nl>`.
+
+Recipient inactivity is now distinct from the caller's credential lifecycle,
+including transaction-time binding and policy checks. Mobile preserves its own
+credential and unrelated chats for peer failures, but reconciles genuine local
+expiry, suspension and revocation during permit, send, fetch and acknowledgement.
+Storage cleanup failures cannot replace the original operation error. Mailbox
+pagination now retains PostgreSQL microsecond precision and a message-ID tie
+breaker; existing timestamp checkpoints include their boundary when upgrading.
+
+Verification passed: 850 mobile Jest tests / 85 suites, a focused 38-test delivery
+rerun, mobile and messaging TypeScript, 305 messaging tests / 20 suites with real
+disposable PostgreSQL, and 12 separate Node fixture tests. Two opt-in existing
+proof-vector tests were skipped in the messaging run. An earlier all-suite attempt
+passed 269 tests but failed two suite-discovery checks because Vitest collected
+Node-runner fixtures; test discovery is now explicitly separated.
+
+The route integration obtains authorizations through signed challenge/authorize
+requests rather than SQL-seeded grants. It covers two-way invitations, permits,
+send/read/ack, duplicate delivery, mailbox isolation, terminal retirement,
+recipient suspension/revocation, dependency failure and recovery. Proof success,
+ledger HTTP responses and policy are injected: these results do not close the
+native two-wallet or production-chain acceptance gaps. Real-PG pagination tests
+cover 201 equal-timestamp rows, submillisecond timestamps, checkpoint progress,
+malformed inputs and retained Bearer-capability requirements.
+
+Separately, all 10 deployed EVM tests passed on a disposable Besu 25.11.0 QBFT
+chain against ledger source `ecead7bf931c132dda8cfbb3c599850073d7567c`: governance,
+replay/domain/expiry rejection, issuer rotation/suspension/recovery/retirement
+and holder revocation. There were 89 successful and 42 reverted transaction
+receipts. This single-validator test chain is not the production network or
+evidence of four-validator fault tolerance. All temporary containers/networks
+were removed; no production reset, transaction or activation occurred.
+
+Newly identified open release work: durable same-consumer invitation recovery
+after a lost consume/send response, and bounded recovery from a queue whose first
+200 envelopes cannot be decrypted. The mobile recovery design is explicitly
+unimplemented in `docs/security/pending-invitation-recovery.md` in the app-plane
+repository. No new APK or physical-device messaging result accompanies these
+checkpoints. Full-activity reset/rotation, physical messaging, release-manifest
+freeze and cutover remain open; iOS remains unapproved.
+
+Private evidence: `audit-2026-09-17/messaging-pipeline/EVIDENCE.md` and its
+ownership-checked disposable PostgreSQL runner.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
