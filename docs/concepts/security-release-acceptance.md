@@ -671,6 +671,44 @@ Private evidence: `audit-2026-09-17/outgoing-recovery/` and
 `audit-2026-09-17/receive-bridge/`. The app's outgoing-recovery document describes
 implementation limits separately from release approval.
 
+## September 17 Contact Acceptance Checkpoint
+
+Mobile `2b44f10dff05b6b1691e4717dfc482c21b115705` is committed locally with
+Xevorius as author and committer. No push, deployment, APK build, reset or
+security-epoch activation occurred.
+
+Contact acceptance now journals the exact confirmation and next ratchet in the
+encrypted native CAS record. Prepared delivery retries reuse the envelope;
+confirmed delivery completes local activation without retransmission. Atomic
+journal removal retains a completion marker. Recovery does not reread the
+profile, and success paths reread channel lifecycle after asynchronous work.
+Backoff and thirty-day retry expiry are durable; decline remains available.
+
+Direct conversation projections no longer populate the chat list. Only current
+pairwise rows provide direct conversations. Live refresh rereads them after
+official-account network work. Successful official results, including empty
+results, replace the returned official set; thrown failures retain cached rows.
+This removes one resurrection path, not all cross-store races.
+
+Verification: TypeScript passed; 164 focused tests / 2 suites passed in 8.592
+seconds; final full Jest run passed 1059 tests / 88 suites in 58.67 seconds.
+Review prompted fixes for stale acceptance-success snapshots, an unnecessary
+profile dependency, and empty official results. A failing race-test fixture
+initially mutated the caller's captured object; replacing the stored snapshot
+correctly reproduced database behavior. Both corrected race cases pass in the
+final full run. The earlier failed output is retained, not counted as a pass.
+
+These are synthetic JavaScript tests with mocked native encryption. Full Android
+activity/process-death and physical-device acceptance remain open. The app's
+`docs/security/pairwise-lifecycle-fencing.md` records the remaining transactional
+SQLite gate: revision/reset/generation fences, atomic terminal transitions,
+message writes and deletion, and real two-connection crash/race tests. The journal
+still uses the current unfenced local promotion path and is not release approval.
+Provider acceptance, complete reset/rotation, manifest freeze and cutover remain
+open; iOS remains unapproved. Private evidence:
+`audit-2026-09-17/contact-acceptance-tests.txt` and
+`audit-2026-09-17/contact-acceptance-tests.failed-fixture.txt`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
