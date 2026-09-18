@@ -709,6 +709,40 @@ open; iOS remains unapproved. Private evidence:
 `audit-2026-09-17/contact-acceptance-tests.txt` and
 `audit-2026-09-17/contact-acceptance-tests.failed-fixture.txt`.
 
+## September 18 Staged SQLite Lifecycle Store
+
+Mobile `b4b37bdd468dfc008b22c57c8ae73b3c4be1fd9b` is committed locally with
+`Xevorius <tim.is@live.nl>` as both author and committer. The new module is not
+imported by existing application writers. No schema migration, push, deployment,
+APK build, production reset, SDK promotion or epoch activation occurred.
+
+The staged store requires an exclusive transaction connection for channel and
+encrypted-message writes. It adds revision checks, durable reset/generation
+fences, insert-only creation, purpose-specific updates, atomic terminal actions,
+idempotent reset records and exact message-parent ownership checks. Existing
+encrypted local payloads survive duplicate delivery; a missing payload may be
+filled only when immutable transport metadata matches. Plaintext and malformed
+optional fields are rejected. Native secret cleanup remains outside SQL.
+
+Final verification: 43 real SQLite tests passed, zero failures or skips, in
+6.838 seconds on Node 24.18.0 / SQLite 3.53.1. Independent WAL connections,
+deferred transactions, injected write failures and a child-process restart cover
+stale writers, terminal races, rollback, generation retirement, repeated reset,
+message conflicts and preservation of official/unrelated rows. Independent
+review found three message-validation/enrichment issues, all corrected with
+regression tests. Mobile TypeScript passed; the separate existing Jest suite
+passed 1059 tests / 88 suites in 78.221 seconds.
+
+These results prove only the staged desktop storage boundary. Every app writer,
+snapshot import/restore path and reset must still be integrated; legacy bypasses
+must be removed. Durable native cleanup, actual Expo SQLite behavior, concurrent
+Android activities and physical-device acceptance remain open. The application
+lifecycle finding is not closed. The app's
+`docs/security/pairwise-lifecycle-store.md` lists the integration gates; the
+reproducible tests are `apps/mobile-web/scripts/security/pairwise-lifecycle-sqlite.test.cjs`.
+Maintained-provider acceptance, full reset/rotation, manifest freeze and cutover
+remain open. iOS remains unapproved.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
