@@ -743,6 +743,44 @@ reproducible tests are `apps/mobile-web/scripts/security/pairwise-lifecycle-sqli
 Maintained-provider acceptance, full reset/rotation, manifest freeze and cutover
 remain open. iOS remains unapproved.
 
+## September 18 SQLite Application Integration Checkpoint
+
+Mobile `b58b15b160ea1dd8f3c948301a2432a853cc5c73` is committed locally with
+`Xevorius <tim.is@live.nl>` as author and committer. Schema/snapshot version 13
+connects application writers to the staged lifecycle store. No push, deployment,
+APK build, device reset, SDK promotion or security-epoch activation occurred.
+
+Application writes now carry captured revision, reset and generation fences,
+including invitation recovery and cache encryption. Generic direct-chat writes
+reject. Terminal SQL transitions persist cleanup work before native erasure;
+server retirement confirmation is persisted before its independent management
+key is erased. Reset inventory survives SQL/native interruption and includes
+cleanup records for channels already deleted locally. Import does not restore
+direct-chat records or secrets, and retains official data and local fences.
+
+Final verification: 1137 mobile Jest tests / 89 suites passed in 40.557 seconds;
+58 real SQLite tests passed with zero failures or skips in 3.112 seconds.
+TypeScript and diff checks passed. CI uses Node 24 and runs the SQLite tests.
+The Jest suite includes actual data-store SQL under Node SQLite; client tests
+use a stateful lifecycle adapter and mocked native storage, not Android Expo.
+
+Independent review identified historical-chat deletion by an unfinished
+invitation journal and cleanup starvation after a local erasure error. Both
+were corrected with focused regressions. Sender/generation identity is checked
+inside the history-preserving retirement transaction. Reset/import tests cover
+saved inventory validation, cleanup-only sender keys, and legacy official rows.
+Earlier failed runs are retained and are not counted as passes. Private evidence:
+`audit-2026-09-18-integration-verified.txt` and
+`audit-2026-09-18-integration-sqlite-verified.txt`.
+
+The lifecycle finding remains open pending real Android acceptance. QR
+allocation still needs durable recovery across remote/native/SQL boundaries;
+new cleanup jobs need durable backoff/expiry. Actual Expo transactions,
+main/miniapp process death, native admission during reset/import, physical
+Android, maintained-provider acceptance, full reset/rotation, manifest freeze
+and production cutover remain gates. iOS remains unapproved. No new phone build
+is requested at this checkpoint; the user continues to own APK assembly.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
