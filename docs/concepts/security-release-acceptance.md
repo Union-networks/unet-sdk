@@ -913,6 +913,90 @@ contention, network messaging, ledger acceptance or physical-phone pass is claim
 Full maintained-provider acceptance, complete reset/rotation, final release
 manifest, physical Android and cutover remain open. iOS remains unapproved.
 
+## Provider and chain integration continuation: 2026-09-24
+
+Candidate commits, local only and not deployed:
+
+- Safety Center `f2cf60f5661507793bda61c83b37003991bc79d6`: mandatory database
+  certificate/hostname verification, guarded URL parsing, and database-clock
+  policy heartbeat timestamps.
+- Supermarket `a9792793a8e79b0b6cd6509167dc830edda57d5d`: equivalent database
+  transport verification. Optional provider-owned public CA is configured through
+  `UNET_PROVIDER_DATABASE_CA`; no TLS bypass is accepted in production.
+- Dashboard `35c69a307d0f86927f1e1acea6d94a8d38765bce`: retirement uses the same
+  configured authority as login, rejects redirects, bounds upstream requests and
+  sanitizes responses. Author and committer are Xevorius for all three.
+
+The disposable PostgreSQL rerun passed 57 checks without skips: SDK 16, Safety
+20, supermarket 1, and dashboard backend 20. The dashboard runner required a
+30-second test budget for SSH round trips; endpoint deadlines were not changed.
+An additional Safety run passed 21 checks, including a regression with the worker
+clock artificially 60 seconds ahead. Its aggregate receipt is
+`audit-2026-09-24/provider-postgres-results/18bb6653df4911f16938.json`.
+Owned tmpfs database containers were stopped after each run.
+
+Each provider passed ten configuration and real TLS-handshake checks, including
+rejection before PostgreSQL startup credentials are sent for an unknown CA and
+a trusted certificate with the wrong hostname. This is transport acceptance,
+not a real production database connectivity check. Dashboard route tests passed
+13 checks. Safety and dashboard TypeScript passed. Existing provider privacy
+wrappers remain separately staged and are not part of these commits.
+
+A separate unchanged-contract Besu/gateway/messaging/PostgreSQL rehearsal passed
+active two-way transport and fail-closed gateway outage/recovery. One run's
+revocation phase failed with temporary unavailability instead of the expected
+authoritative revoked response. The later unchanged-source `run-wNzgzC` passed:
+sender, recipient, fetch and ACK enforcement measured 11.3-12.0 seconds after
+revocation; healthy credentials remained usable. This does not erase the earlier
+failure or establish its cause. A near-expiry positive-cache lease can separately
+expire during SQL work; early refresh and transaction rollback regressions are
+under test without extending the 20-second deadline. Proof verification in this
+rehearsal is synthetic; no Android or production proof pass is inferred.
+All failed evidence and owned-resource cleanup receipts are retained in
+`audit-2026-09-24/evm-messaging/cache`.
+
+Messaging candidate `ebec86d51cfc5519021d5272f3125e8f38de3e1c` refreshes positive
+credential leases when two seconds or less remain, before acquiring SQL locks.
+It never extends an existing lease or accepts stale results. The real-PostgreSQL
+run passed all 27 tests (9 gate, 18 pipeline), including post-write/pre-commit
+expiry rollback for sends and acknowledgements. Receipt:
+`audit-2026-09-24/provider-postgres-results/ae8f63472b903c91de9b.json`.
+The patched real-chain rehearsal `run-OmS78V` also passed, measuring fetch/ACK
+and sender/recipient rejection in 10.0-10.7 seconds. This is local candidate
+acceptance, not deployment, native proof acceptance, or a proven explanation for
+the earlier intermittent temporary-unavailability result.
+An identical patched repeat `run-vZIGoS` also passed. These timing results start
+at client-observed transaction confirmation, not measured block inclusion;
+post-20-second and negative-cache-expiry persistence probes remain to be added.
+
+The first current-source full-router Android reset APK passed compiled artifact
+checks but failed during synthetic fixture preparation, before any reset barrier.
+Run `full-activity-fpofst66` and its stopped disposable AVD are retained. A separate
+fresh diagnostic build adds bounded preparation checkpoints; it is not a claimed
+fix. Original emulator-5554, production wallets and production data are untouched.
+
+Diagnostic APK `4d52066bbe1550e0cded8d2992dcd5cc82cd49a77515cbaafa561e8f354f1990`
+in `full-activity-v_j9nhlg` completed seed, competing-reset rejection, force-stop
+recovery and repeated exact-preservation checks for the after-secret-deletion
+case. The screenshot nevertheless shows a System UI ANR dialog: storage predicate
+success is not UI/startup acceptance. The second fresh AVD exceeded the driver's
+60-second APK-install deadline before app execution. Both AVDs and evidence were
+retained. The earlier seed failure has not been reproduced or explained.
+
+Removed six explicitly checked inactive Rust/C++ cache directories from old
+app-plane runs `0c446d4`, `197d7c2` and `e3f1585`, reclaiming 7,142,023,168 bytes.
+Source, APKs, signing keys, static dependency inputs, evidence and emulator data
+were preserved. This cleanup was outside the production reset.
+
+Counts-only retained-journal inspection found 40 secret-query markers in the
+bounded trust journal sample (latest 2026-09-06) and 2349 scoped-ID markers
+(latest 2026-09-15). The separate 48-hour bounded sample contained neither.
+No raw rows were exported. Historical removal, unrecognized encodings, upstream
+proxy/tracing coverage and exposed-capability invalidation remain open.
+The app-plane legacy debug gateway is masked and inactive. The V1 ledger API
+container is exited with restart disabled; its old deployment source still needs
+guarding against recreation. No host log deletion or production reset occurred.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
