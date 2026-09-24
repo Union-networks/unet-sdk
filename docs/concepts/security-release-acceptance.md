@@ -1,6 +1,6 @@
 # Security-2 acceptance record
 
-Updated 2026-09-17. This is an evidence ledger, not release approval.
+Updated 2026-09-24. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
@@ -44,6 +44,7 @@ branches and the installed emulator APK were not changed by these pushes.
 | POLICY: expiry/suspension bypass | Exact chain and signed sanction freshness <=20 seconds across operations | 55 measured actual HTTP/PG checks: signed sanctions, expiry, send/fetch/ack, existing permits, lock waits and outages; 80 focused unit tests | Signed Safety refresh accepted; one fresh authority recorded; measured driver uses fixture ledger and prior authorization | Full Android/issuer/EVM integration and physical-device evidence |
 | RESET: selective deletion and process races | Signed epoch; Android broker leases; durable rotation journal and CAS | Seven isolated native tests; 24 reset/CLI tests; two full-activity crash boundaries and concurrent miniapp writer-fencing pass; real HTTP/PG capability rotation recovers two interrupted acknowledgements | Disposable AVD with matching checkpoint APK, real app root/SQLite/broker and signed test activation; production reset disabled | Actual push delivery, remaining preservation cases, old writers stopped, production dry run, physical Android and approved artifact |
 | PRIVACY: repeat presentations/chat correlation | Threat model documents stable commitments and delivery routing | No unlinkability proof or privacy fix claimed | Correlation remains | Separate measured prototype and reviewed privacy design |
+| RECOVERY: QR allocation and cleanup after process death | Durable QR journal, fenced SQLite promotion, native atomic journal deletion and leased cleanup; mobile `f4ead7e` | 1291 Jest tests, 77 desktop SQLite tests, TypeScript; 17 actual Android broker tests (test revision `9ceffc6`) | Isolated offline Release APK `e3af4067` passes allocation/promotion/cleanup force-stop sequence on Android 14; lease retry after 62 seconds; separate native client-only death keeps broker PID unchanged | Full wallet/main-miniapp workflow, remote allocator/issuer/EVM and physical Android remain open; this is not production activation |
 
 ## Execution evidence: 2026-09-17
 
@@ -854,6 +855,63 @@ Production, SDK versions, installed emulator apps, tester data and security epoc
 are unchanged. Full activity/process, provider, physical-device and cutover gates
 remain open; iOS remains unapproved. Test procedure and limits are in mobile
 `docs/security/android-recovery-runtime.md`.
+
+## September 24 Android Recovery Execution
+
+The user now authorizes agent-built temporary/test APKs; Play Store-ready builds
+remain user-operated. No production build, push, deployment, reset, SDK promotion
+or security-epoch activation was performed in this checkpoint.
+
+Mobile `f4ead7efb6d0b8c49debaada8c34ea504d7f2eb8` fixes a native contract mismatch:
+QR recovery uses null CAS values to remove completed secret-bearing journal rows,
+but Android previously rejected null. The broker now atomically tombstones the
+row and removes its encrypted name index alongside the journal-index update.
+Ownership, generation, expected-value and all-or-nothing checks remain enforced.
+Malformed JSON types cannot be coerced into accepted values. The probe also
+checks retained ratchets and official payloads, not merely key existence; a
+previously completed database reports `previously_completed`, not a fresh pass.
+
+The offline APK has SHA256
+`e3af40676d8bf698bc299120bc4906267c2c026422454edaa19db0980cf2dca4`.
+It passed the compiled manifest/signature/native-library/source-map isolation
+audit. It was installed only as `com.egress.unet.securityacceptance` in the new
+`unetRecovery20260924` app-plane AVD, not the existing user emulator. Recorded
+processes were 7507 (allocation), 7665 (promotion), 7858 (cleanup lease), and 8064
+(pass). Every stop verified the old process was absent. Cleanup remained stopped
+for 62.000 seconds; no app data was cleared. Another restart rechecked completed
+state and reported `previously_completed`.
+
+Seven invitation journal/ownership tests and ten existing storage/reset tests
+passed against the real broker in separate test-client processes. Test-only
+revision `9ceffc6bac3ff3bd60b27ad6d4766dee0df01bd8` adds precise rejection checks
+and asserts that the broker PID survives client-only death. The instrumentation
+APK SHA256 is `025518a16e3eeccd89f0453aefee6a0393ef9396f3cc56285e09fe08bcd86d31`.
+The target harness APK SHA256 is
+`c190c1166ec94946cdae370807f3182240aeb77c5142de265cc62616d8440c36`.
+An earlier malformed-input assertion incorrectly required an exception-shaped
+reply; the corrected test accepts a missing-field empty IPC rejection only while
+checking unchanged values and the complete committed broker file. Earlier failed
+results remain diagnostic evidence, not passes.
+
+Desktop verification passed 1291 Jest tests / 93 suites in 38.391 seconds,
+77 SQLite tests in 3.120 seconds, and TypeScript. An earlier native reuse guard
+rejected CRLF/LF-only differences; `e2abd11` allows only that normalization.
+The first device driver failed implicit intent resolution before any checkpoint;
+explicit launch of the audited MainActivity and installed-APK hash verification
+allowed retry without replacing the APK or clearing storage.
+
+Private evidence is retained under
+`audit-2026-09-24/recovery-device-evidence`, including checkpoint screenshots and
+structured process/elapsed-time results. The app-plane source/artifact run is
+`/home/u-net/unet-security-runs/recovery-runtime-UyIJfqk7`.
+No signing private keys or app-storage contents were exported.
+
+This closes only the isolated Expo SQLite/broker process-death subgate. Allocation
+and remote cleanup acknowledgement are synthetic; expiry uses an injected store
+clock. No biometric interaction, full-router behavior, production main/miniapp
+contention, network messaging, ledger acceptance or physical-phone pass is claimed.
+Full maintained-provider acceptance, complete reset/rotation, final release
+manifest, physical Android and cutover remain open. iOS remains unapproved.
 
 ## Standards Evaluation Boundary
 
