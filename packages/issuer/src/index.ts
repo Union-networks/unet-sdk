@@ -580,14 +580,15 @@ export function createDomainAdminSignerFromEnv(env: Record<string, string | unde
 /** @public */
 export function validateDomainAdminCallbackRequest(value: unknown, input: { serviceId: string; origin: string; challengeHeader?: string; now?: Date }): DomainAdminCallbackRequest {
   if (!isObject(value)) throw new Error('domain_admin_callback_invalid');
-  if ((value.version !== 1 && value.version !== 2) || value.action !== 'domain-admin.issue') throw new Error('domain_admin_callback_action_invalid');
+  if (value.version === 1) throw new Error('protocol_upgrade_required');
+  if (value.version !== 2 || value.action !== 'domain-admin.issue') throw new Error('domain_admin_callback_action_invalid');
   if (value.serviceId !== input.serviceId || value.origin !== input.origin.replace(/\/+$/, '')) throw new Error('domain_admin_callback_service_mismatch');
   if (value.role !== 'owner' && value.role !== 'admin') throw new Error('domain_admin_role_invalid');
   if (value.schemaId !== 'unet.provider.domain-admin.v1') throw new Error('domain_admin_schema_invalid');
   if (typeof value.challenge !== 'string' || value.challenge !== input.challengeHeader) throw new Error('domain_admin_challenge_invalid');
-  if (typeof value.expiresAt !== 'string' || Date.parse(value.expiresAt) <= (input.now ?? new Date()).getTime()) throw new Error('domain_admin_invitation_expired');
+  if (typeof value.expiresAt !== 'string' || !Number.isFinite(Date.parse(value.expiresAt)) || Date.parse(value.expiresAt) <= (input.now ?? new Date()).getTime()) throw new Error('domain_admin_invitation_expired');
   if (typeof value.invitationId !== 'string' || typeof value.requestType !== 'string' || typeof value.holderBinding !== 'string' || typeof value.deliveryPublicKey !== 'string') throw new Error('domain_admin_callback_invalid');
-  if (value.version === 2 && (typeof value.clientRequestId !== 'string' || !value.clientRequestId || typeof value.holderRevocationSigner !== 'string' || !/^0x[a-f0-9]{40}$/i.test(value.holderRevocationSigner))) throw new Error('domain_admin_holder_revocation_invalid');
+  if (typeof value.clientRequestId !== 'string' || !value.clientRequestId || typeof value.holderRevocationSigner !== 'string' || !/^0x[a-f0-9]{40}$/i.test(value.holderRevocationSigner)) throw new Error('domain_admin_holder_revocation_invalid');
   if (!isObject(value.claims) || value.claims.domain_role !== `${value.serviceId}:${value.role}` || value.claims.service_id !== value.serviceId || value.claims.role !== value.role) throw new Error('domain_admin_claims_invalid');
   return value as unknown as DomainAdminCallbackRequest;
 }
@@ -708,14 +709,15 @@ export function verifyDomainAdminControlAuthorizationV2(input: {
   maximumAgeSeconds?: number;
 }): { valid: boolean; payload?: DomainAdminControlAuthorizationPayload } {
   try {
-    const [version, encoded, encodedSignature] = input.authorization?.split('.') ?? [];
+    if (typeof input.authorization !== 'string' || !/^v2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(input.authorization)) return { valid: false };
+    const [version, encoded, encodedSignature] = input.authorization.split('.');
     if (version !== 'v2' || !encoded || !encodedSignature) return { valid: false };
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as DomainAdminControlAuthorizationPayload;
     const publicKeyPem = input.publicKeys[payload.keyId];
     if (!publicKeyPem || payload.version !== 2 || payload.method !== input.method.toUpperCase() || payload.path !== input.path || payload.audience !== input.audience) return { valid: false };
-    if (payload.bodySha256 !== createHash('sha256').update(canonicalize(input.body)).digest('hex') || !/^[A-Za-z0-9_-]{16,}$/.test(payload.nonce)) return { valid: false };
+    if (payload.bodySha256 !== createHash('sha256').update(canonicalize(input.body)).digest('hex') || typeof payload.nonce !== 'string' || !/^[A-Za-z0-9_-]{16,}$/.test(payload.nonce)) return { valid: false };
     const now = input.nowEpoch ?? Math.floor(Date.now() / 1_000);
-    if (Math.abs(now - payload.issuedAt) > (input.maximumAgeSeconds ?? 300)) return { valid: false };
+    if (!Number.isFinite(payload.issuedAt) || Math.abs(now - payload.issuedAt) > (input.maximumAgeSeconds ?? 300)) return { valid: false };
     if (!verify(null, Buffer.from(encoded), createPublicKey(publicKeyPem.replace(/\\n/g, '\n')), Buffer.from(encodedSignature, 'base64url'))) return { valid: false };
     return { valid: true, payload };
   } catch {
@@ -744,19 +746,17 @@ export async function fetchUnetControlPublicKeys(input: {
 export function createDomainAdminCallbackHandler(input: { serviceId: string; origin: string; signer: IssuerSigner; controlAuthorizationSecret?: string; controlPublicKeys?: Record<string, string>; controlAuthorizationPath?: string; consumeControlNonce?: (nonce: string) => Promise<boolean>; consumeChallenge: (challenge: string) => Promise<boolean>; issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>; }) {
   return async (body: unknown, headers: Record<string, string | string[] | undefined>): Promise<SignedDomainAdminCredentialResponse> => {
     const rawHeader = headers['x-unet-domain-admin-challenge'];
-    const challengeHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    const challengeHeader = Array.isArray(rawHeader) || rawHeader?.includes(',') ? undefined : rawHeader;
     const request = validateDomainAdminCallbackRequest(body, { serviceId: input.serviceId, origin: input.origin, challengeHeader });
     const rawAuthorization = headers['x-unet-control-authorization'];
-    const authorization = Array.isArray(rawAuthorization) ? rawAuthorization[0] : rawAuthorization;
-    if (request.version === 2) {
-      const asymmetric = input.controlPublicKeys ? verifyDomainAdminControlAuthorizationV2({
-        body, authorization, publicKeys: input.controlPublicKeys, method: 'POST',
-        path: input.controlAuthorizationPath ?? '/api/unet/domain-admin/issue', audience: input.serviceId,
-      }) : { valid: false as const };
-      const legacy = Boolean(input.controlAuthorizationSecret && verifyDomainAdminControlAuthorization(body, authorization, input.controlAuthorizationSecret));
-      if (!asymmetric.valid && !legacy) throw new Error('domain_admin_control_authorization_invalid');
-      if (asymmetric.payload && input.consumeControlNonce && !(await input.consumeControlNonce(asymmetric.payload.nonce))) throw new Error('domain_admin_control_authorization_replayed');
-    }
+    const authorization = Array.isArray(rawAuthorization) ? undefined : rawAuthorization;
+    // The legacy secret option is retained for source compatibility, not as an authentication fallback.
+    const asymmetric = input.controlPublicKeys ? verifyDomainAdminControlAuthorizationV2({
+      body, authorization, publicKeys: input.controlPublicKeys, method: 'POST',
+      path: input.controlAuthorizationPath ?? '/api/unet/domain-admin/issue', audience: input.serviceId,
+    }) : { valid: false as const };
+    if (!asymmetric.valid || !asymmetric.payload || !input.consumeControlNonce) throw new Error('domain_admin_control_authorization_invalid');
+    if (!(await input.consumeControlNonce(asymmetric.payload.nonce))) throw new Error('domain_admin_control_authorization_replayed');
     if (!(await input.consumeChallenge(request.challenge))) throw new Error('domain_admin_challenge_replayed');
     return signDomainAdminCredentialResponse({ request, credential: await input.issueCredential(request), signer: input.signer });
   };
@@ -773,10 +773,7 @@ export function createDomainAdminCallbackHandlerV2(input: {
   consumeChallenge: (challenge: string) => Promise<boolean>;
   issueCredential: (request: DomainAdminCallbackRequest) => Promise<DomainAdminCredentialIssueResult>;
 }) {
-  return createDomainAdminCallbackHandler({
-    ...input,
-    controlAuthorizationSecret: undefined,
-  });
+  return createDomainAdminCallbackHandler(input);
 }
 
 /** @public */
