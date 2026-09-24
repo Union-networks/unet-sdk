@@ -781,6 +781,45 @@ Android, maintained-provider acceptance, full reset/rotation, manifest freeze
 and production cutover remain gates. iOS remains unapproved. No new phone build
 is requested at this checkpoint; the user continues to own APK assembly.
 
+## September 24 QR Allocation And Cleanup Checkpoint
+
+Mobile `848b02585da495848b6d3a9828db3f14a594850b` is committed locally with
+`Xevorius <tim.is@live.nl>` as author and committer. Schema/snapshot 14 adds
+leased cleanup retries and outcomes. No push, deployment, APK build, device
+reset, SDK promotion or security-epoch activation occurred.
+
+Profile QR creation now journals stable sender/ratchet keys, capabilities and
+original lifecycle fences before remote allocation. Lost responses reuse that
+allocation; exact SQL promotion completes recovery without restoring old keys.
+Expiry and cancellation durably hand cleanup to SQL before dropping journal
+payloads. Scanned-invitation cleanup uses the same durable handoff, retaining
+management authority for remote retries rather than erasing it on network failure.
+
+Cleanup uses sixty-second atomic SQL leases, persisted exponential backoff and
+thirty-day retention. The unlocked Android worker wakes in the foreground only.
+Matching native journal secret copies are erased before completing or expiring a
+job. Expiry without remote confirmation records `revocation_unconfirmed`, never
+confirmed remote revocation. Retained chat history remains terminal, and repeated
+terminal actions cannot requeue completed jobs. One QR failure no longer skips
+unrelated scanned-invitation recovery.
+
+Final local verification: 1238 Jest tests / 91 suites passed in 36.037 seconds;
+77 real SQLite tests passed, zero failures or skips, in 6.403 seconds. Mobile
+TypeScript and diff checks passed. The SQLite suite covers leases, crash backoff,
+retention, outcomes, abandoned allocations and schema-13 upgrade. Client tests
+cover journal copies, lost responses, late key writes and recovery isolation.
+Review findings were fixed and regression-tested; earlier failed runs are retained
+as diagnostic evidence, not counted as passes. Private evidence:
+`audit-2026-09-24-recovery-full-final.txt` and
+`audit-2026-09-24-cleanup-sqlite.txt`.
+
+These are desktop SQLite and synthetic native-storage tests, not Expo/Binder or
+phone acceptance. Actual main/miniapp process death, full-activity reset and
+rotation, physical Android, maintained-provider acceptance, manifest freeze and
+production cutover remain open. iOS remains unapproved. The app's
+`docs/security/pairwise-lifecycle-store.md` records the implementation and remaining
+gates. No new APK build is requested here; the user continues to own assembly.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
