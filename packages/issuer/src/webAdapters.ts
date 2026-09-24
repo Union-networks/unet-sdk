@@ -13,16 +13,25 @@ const body = async <T extends JsonObject>(request: Request): Promise<T> => {
   return value as T;
 };
 
-const statusFor = (code: string): number => {
-  if (/not_found|unavailable/.test(code)) return 404;
-  if (/capability|authorization/.test(code)) return 401;
-  if (/exists|replayed|not_pending|not_renewable/.test(code)) return 409;
-  return 400;
-};
+// Only exact service/adapter codes are public. Store/provider exceptions may
+// contain credentials or request URLs and must never become response text.
+const publicErrors = new Map<string, number>([
+  ['request_body_invalid', 400], ['issuer_management_authorization_required', 401],
+  ['issuer_request_invalid', 400], ['holder_revocation_signer_invalid', 400],
+  ['issuer_request_idempotency_replayed', 409], ['active_credential_exists', 409],
+  ['renewal_capability_invalid', 401], ['credential_not_renewable', 409],
+  ['issuer_renewal_invalid', 400], ['issuer_request_not_pending', 409],
+  ['attestation_hash_invalid', 400], ['attestation_hash_missing_after_build', 503],
+  ['active_credential_not_found', 404], ['issuer_revocation_not_configured', 503],
+  ['revocation_capability_invalid', 401], ['revocation_commitment_mismatch', 400],
+  ['credential_not_revocable', 400], ['delivery_capability_invalid', 401],
+  ['delivery_acknowledgement_invalid', 400], ['issuer_request_duplicate', 400],
+  ['issuer_request_not_found', 404], ['delivery_reference_required', 400],
+]);
 
 const failure = (error: unknown): Response => {
-  const code = error instanceof Error ? error.message : 'direct_issuer_request_failed';
-  return json({ success: false, error: code }, statusFor(code));
+  const code = error instanceof Error && publicErrors.has(error.message) ? error.message : 'direct_issuer_request_failed';
+  return json({ success: false, error: code }, publicErrors.get(code) ?? 503);
 };
 
 /** @public */
@@ -49,9 +58,11 @@ export function createDirectIssuerWebHandlers(options: DirectIssuerWebAdapterOpt
     requestStatus: async (request: Request): Promise<Response> => {
       try {
         const url = new URL(request.url);
+        if (url.searchParams.has('deliveryCapability')) throw new Error('delivery_capability_invalid');
         const requestId = url.searchParams.get('requestId');
-        const deliveryCapability = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? url.searchParams.get('deliveryCapability');
-        if (!requestId || !deliveryCapability) throw new Error('delivery_capability_invalid');
+        if (!requestId || url.searchParams.getAll('requestId').length !== 1) throw new Error('delivery_reference_required');
+        const deliveryCapability = /^Bearer ([A-Za-z0-9._~+\/-]+=*)$/i.exec(request.headers.get('authorization') ?? '')?.[1];
+        if (!deliveryCapability) throw new Error('delivery_capability_invalid');
         return json({ success: true, ...(await options.service.getDelivery(requestId, deliveryCapability)) });
       } catch (error) {
         return failure(error);
