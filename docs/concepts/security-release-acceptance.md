@@ -1067,6 +1067,62 @@ The separate boot-race candidate marks this exact boot1 inventory race as unstab
 and restarts the quiet observation window within the original bounded deadline.
 Strict settled-boundary and boot2 checks still fail on inventory instability.
 Its 29 local guard tests passed; this is not a fix for the underlying Android ANRs.
+The OS-only `device-attempt-7xvo0dfv` then passed its bounded provisioned-OS gate:
+boot1 remained `infraFAIL`; boot2 had zero new ANRs and stable launcher focus.
+No APK was installed. A continuation invocation `device-attempt-8zlh7gjn` stopped
+before emulator creation on a busy port; it was not retried in place.
+On unused ports, `device-attempt-bso07ru6` reached MainActivity recovery with
+zero new boot2 ANRs, but failed the visible-navigation assertion. Parent screenshot
+review shows the Communications page and icon-only bottom tabs, not a blank shell
+or an ANR dialog. The locked navigator leaves icon-only Android tabs unnamed;
+mobile `df65f39` adds explicit accessibility labels without changing their
+appearance. This source fix does not retroactively pass the failed run or count
+as full recovery acceptance. All evidence and AVDs are retained.
+
+Mobile `956731e` replaces raw credential exception logging with fixed operation
+codes. Three privacy regressions prove failed revocation stays queued and ledger
+refresh failure preserves the cached lifecycle without logging injected secrets.
+All 17 focused credential tests and full mobile typecheck passed. This is a local
+source change, not an updated APK or proof of all device logs being secret-free.
+
+## September 25 Continuation
+
+Domain-admin callback review found a legacy protocol branch could bypass V2
+control authorization. SDK `9f97630`, Safety `cb62213` and Supermarket `5fd5d11`
+reject that branch, require asymmetric authorization and sanitize private route
+failures. Author and committer are Xevorius for all three. Focused provider tests
+passed 51 Safety and 35 Supermarket cases; both provider typechecks and issuer
+typecheck passed. SDK issuer tests passed 64 cases. Signatures and replay checks
+are real; database, ledger and credential side effects are mocked. See
+[callback scope and remaining durability gaps](./domain-admin-callback-security.md).
+These are local commits, not deployments. Existing login-only maintenance does
+not cover domain-admin routes. A matcher-only containment patch is prepared, but
+live commit verification and renewed Vercel CLI authorization remain required.
+
+The coverage1 Android test build `full-activity-4x2zcm61` was deliberately stopped
+after review found reusable CAS-probe keys and cancelled-observer races in the
+test harness. Its source and intermediates remain retained; no APK acceptance is
+claimed. Coverage2 fixes those harness defects and narrows post-unlock acceptance
+to MainActivity. All 24 Node and 31 Python checks passed. Its staged manifest is
+`f7838052e8493affd13da9f2988dd408e87d8048917efe40b5c866f65481d749`;
+Android execution is still pending.
+
+Fresh standalone native proof build `native-evm-build-ahh6_r86` completed. Receipt
+SHA256 `df521334e3e43ec4b988ac547ee5cdae370ed5e3027fc9c1995592ca287299bf`
+identifies source `df65f39`, separately hashed test overlays, fresh x86_64 and
+arm64-v8a JNI builds, and isolated package `com.egress.unet.securitytests`.
+Target APK SHA256 is
+`8efffdd516b2ed10666e0613208a4d1d1bb23d5dc021d7ceaedb3104f4a3daf6`;
+test APK SHA256 is
+`f2575ed2a46e054c5e2c07c04068db9d90091789d109e82aa0ae9165c4894140`.
+The receipt explicitly says runtime not accepted. The runtime harness passed
+35 offline checks including provenance continuity and negative-proof oracles;
+real JNI/WASM plus isolated-chain execution remains pending.
+
+Two completed diagnostic Rust-target directories were removed after exact-path
+and active-process guards, reclaiming 4,530,769,920 bytes. Their source, APKs,
+keys, static dependencies, test evidence and AVDs were preserved. No production
+reset, ledger change, SDK promotion or service reopening occurred.
 
 ## Standards Evaluation Boundary
 
