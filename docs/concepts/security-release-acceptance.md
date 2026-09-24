@@ -939,8 +939,26 @@ Each provider passed ten configuration and real TLS-handshake checks, including
 rejection before PostgreSQL startup credentials are sent for an unknown CA and
 a trusted certificate with the wrong hostname. This is transport acceptance,
 not a real production database connectivity check. Dashboard route tests passed
-13 checks. Safety and dashboard TypeScript passed. Existing provider privacy
-wrappers remain separately staged and are not part of these commits.
+13 checks. Safety and dashboard TypeScript passed. Provider privacy wrappers are
+not part of those three commits; subsequent candidates are recorded below.
+
+Actual Next dev/Chromium runs then passed ten browser cases each for Safety
+(`providers-next/results/safety-dev-ef4105929e38e951`) and supermarket
+(`providers-next/results/supermarket-dev-2cc2988c5a9a3e6b`), under the same private
+audit directory. These exercised actual provider route/proxy code, independent
+cookie contexts, copied-QR redemption denial, wrong cookie secrets and origins,
+single-winner approval/exchange, two tabs, wrong account keys, fixture-SQL expiry,
+and rejection of legacy session-ID redemption. Both disposable databases and
+browser/server runtimes were cleaned up. This uses reviewed Windows application
+guards, not OS isolation; it is neither Next production-build nor deployed/Android
+WebView acceptance. Wallet approval signatures are synthetic Ed25519 accounts.
+
+Privacy candidates Safety `7e59d6681a3e568687c5ef60aeef1cd01d9583f6` and supermarket
+`e5fb537` contain initialization exceptions and emit only fixed diagnostic fields.
+Safety acknowledgement failures now expose only four known lifecycle errors;
+unknown exceptions return a generic non-cacheable 503 rather than raw backend
+text. Route privacy tests passed 12 for Safety and 11 for supermarket; Safety
+typecheck passed. These commits are local, not deployed.
 
 A separate unchanged-contract Besu/gateway/messaging/PostgreSQL rehearsal passed
 active two-way transport and fail-closed gateway outage/recovery. One run's
@@ -969,6 +987,21 @@ An identical patched repeat `run-vZIGoS` also passed. These timing results start
 at client-observed transaction confirmation, not measured block inclusion;
 post-20-second and negative-cache-expiry persistence probes remain to be added.
 
+Extended rehearsal `run-3n2AS0` subsequently passed those persistence probes,
+including a required new gateway read after negative-cache expiry. Its
+conservative revocation submission-to-denial upper bound was 12.612 seconds
+(receipt delivery alone took 1.738 seconds). Real governance issuer suspension
+blocked send/fetch/ACK in 4.3-4.9 seconds from submission; an independent real
+credential gate observed `messaging_issuer_unavailable` within 18.173 seconds.
+Route denial can also result from expired policy heartbeat during suspension,
+so these observations are not attributed solely to one cache. Governance
+reactivation restored unchanged permits and retained ciphertext without
+reauthorization after existing negative leases expired. A separate 60-second
+proof-fixture expiry rejected sender/recipient traffic, fetch and ACK within
+0.9 seconds, with chain status still active and rows unchanged. V2 has no
+on-chain expiry field; native proof validation remains outside this rehearsal.
+Owned containers/network were removed; no production chain state changed.
+
 The first current-source full-router Android reset APK passed compiled artifact
 checks but failed during synthetic fixture preparation, before any reset barrier.
 Run `full-activity-fpofst66` and its stopped disposable AVD are retained. A separate
@@ -982,6 +1015,12 @@ case. The screenshot nevertheless shows a System UI ANR dialog: storage predicat
 success is not UI/startup acceptance. The second fresh AVD exceeded the driver's
 60-second APK-install deadline before app execution. Both AVDs and evidence were
 retained. The earlier seed failure has not been reproduced or explained.
+The explicit same-APK attempt `device-attempt-7o0d8igk` added pre-install system
+health checks and stopped on fresh-OS ANRs before installing the test APK. This
+establishes a separate emulator-provisioning problem, not a passing app test.
+It also exposed a driver focus-inspection mismatch: `dumpsys window windows`
+does not contain the expected focus fields on this image. Both need resolution
+before relying on UI-readiness evidence. No ANR dialog was dismissed.
 
 Removed six explicitly checked inactive Rust/C++ cache directories from old
 app-plane runs `0c446d4`, `197d7c2` and `e3f1585`, reclaiming 7,142,023,168 bytes.
@@ -996,6 +1035,38 @@ proxy/tracing coverage and exposed-capability invalidation remain open.
 The app-plane legacy debug gateway is masked and inactive. The V1 ledger API
 container is exited with restart disabled; its old deployment source still needs
 guarding against recreation. No host log deletion or production reset occurred.
+
+## Further September 24 Candidate Checks
+
+Supermarket production-mode Next build and Chromium route acceptance passed all
+ten cases with real disposable PostgreSQL over validated TLS. Receipt:
+`audit-2026-09-24/providers-next-production/results/supermarket-116603201c7c8b63776c`;
+browser evidence: `providers-next/results/supermarket-production-7961946fa2675467`.
+Plaintext, untrusted-CA and wrong-hostname connections were rejected. Cleanup
+completed. These are browser API-document tests using synthetic wallet signatures,
+not rendered login UI, Android WebViews, deployment or physical-phone acceptance.
+Windows restrictions are application-level, not OS network isolation.
+Safety production-mode acceptance then passed the same ten cases and TLS probes:
+`providers-next-production/results/safety-c3bff8da6503d85f4363` and
+`providers-next/results/safety-production-52ff33cc9623f5e5`. Cleanup completed.
+The same scope limitations apply; later callback patches require their own tests.
+
+Credential-delivery capabilities now use only Authorization Bearer headers in
+SDK `4060424`, mobile `190db87`, Safety `1b68ffe` and test fixture `7402224`.
+The SDK and Safety reject query capabilities even alongside a valid header,
+sanitize unknown exceptions, and mark responses non-cacheable. Focused tests
+passed 36 SDK, 2 Safety, 51 mobile and 12 fixture cases; SDK, Safety, mobile and
+fixture typechecks passed. All four commits use Xevorius as author and committer.
+No publication, deployment, old-capability invalidation or credential reset was
+performed. Historical delivery-capability exposure remains a release gate; see
+[the credential-preserving recovery boundary](./delivery-capability-transport.md).
+
+Android provisioning attempt `device-attempt-oj0gsuuf` stopped before any reboot
+or installation when a temporary ANR trace disappeared during inventory sampling.
+The separate boot-race candidate marks this exact boot1 inventory race as unstable
+and restarts the quiet observation window within the original bounded deadline.
+Strict settled-boundary and boot2 checks still fail on inventory instability.
+Its 29 local guard tests passed; this is not a fix for the underlying Android ANRs.
 
 ## Standards Evaluation Boundary
 
