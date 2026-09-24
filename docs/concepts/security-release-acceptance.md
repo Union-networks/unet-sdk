@@ -820,6 +820,41 @@ production cutover remain open. iOS remains unapproved. The app's
 `docs/security/pairwise-lifecycle-store.md` records the implementation and remaining
 gates. No new APK build is requested here; the user continues to own assembly.
 
+## September 24 Offline Android Recovery Build Handoff
+
+Mobile `086e4cad46f83c6d68fa9189acd94d5bb81995e8` is committed locally as
+Xevorius, including the recovery probe (`63c6cc8`) and pinned build tooling.
+Cleanup retention was corrected from an accidentally implemented thirty-one
+days to the specified thirty days; the earlier checkpoint was never deployed.
+
+The isolated offline probe uses production QR recovery and lifecycle modules,
+real Expo SQLite and the native broker, but a synthetic allocator and minimal
+React root. It pauses for process termination after allocation, SQL promotion
+and cleanup lease acquisition. It checks exact recovery without ratchet rewind,
+expired lease rejection, thirty-day unconfirmed expiry and unrelated fixture
+preservation. It does not exercise production background sync, real messaging,
+the ledger or the full wallet workflow.
+
+Desktop verification passed: 49 probe tests; full Jest 1287 tests / 93 suites in
+45.447 seconds; 77 SQLite tests in 3.641 seconds; TypeScript. Build preparation
+and source-map policy self-tests passed. Linux Bash syntax and archive validation
+passed on U-net. An initial archive failed script-byte validation because Windows
+Git applied CRLF conversion; explicit LF archive settings and a real Git archive
+regression fix this. The failed bundle remains diagnostic evidence, not a pass.
+
+The corrected source archive SHA256 is
+`850c36d6501705f056ef0e1fd130faf3e83ed3322971e21c9bd718ad4b061cad`.
+It is staged at
+`/home/u-net/unet-security-runs/recovery-runtime-input-086e4ca` on U-net.
+Only `--validate-only` was run. It did not extract source, install dependencies,
+generate native projects, compile, sign, install or launch an APK. The user owns
+APK assembly. Artifact audit and actual emulator/phone results are still pending.
+
+Production, SDK versions, installed emulator apps, tester data and security epoch
+are unchanged. Full activity/process, provider, physical-device and cutover gates
+remain open; iOS remains unapproved. Test procedure and limits are in mobile
+`docs/security/android-recovery-runtime.md`.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
