@@ -59,6 +59,30 @@ function confirmed(record = submitted()) {
   } };
 }
 
+function resubmitted(count = 2): RecoveryRecord {
+  let record = submitted();
+  for (let i = 1; i < count; i++) {
+    const submission = structuredClone(record.submission!);
+    submission.operation.nonce = String(17 + i);
+    submission.operation.deadline++;
+    submission.signature = `0x${i.toString(16).padStart(2, '0').repeat(64)}1b`;
+    record = transitionRecoveryRecord(record, 'owner', record.revision, { kind: 'resubmit', submission }, NOW);
+  }
+  return record;
+}
+
+function savedConfirmation(record = resubmitted()): RecoveryRecord {
+  const attempt = record.previousSubmissions![0];
+  const op = attempt.operation;
+  return transitionRecoveryRecord(record, 'owner', record.revision, { kind: 'confirm', receipt: {
+    chainId: record.input.context.chainId, ledgerAddress: record.input.context.ledgerAddress,
+    attestationHash: op.attestationHash, issuerIdHash: op.issuerIdHash,
+    holderRevocationSigner: op.holderRevocationSigner, requestIdHash: op.requestIdHash,
+    submissionDigest: recoveryDigest(attempt), transactionHash: hash('1'), blockHash: hash('2'),
+    blockNumber: 40, confirmations: 2,
+  } }, NOW);
+}
+
 function json(payload: unknown, status = 200, contentType = 'application/json'): Response {
   return new Response(JSON.stringify(payload), { status, headers: { 'content-type': contentType } });
 }
@@ -199,6 +223,156 @@ describe('private recovery gateway binding', () => {
   ])('rejects unsafe endpoint %s without fetching', async base => {
     expect(await reconcileRecoveryAnchor(submitted(), base)).toEqual(unavailable);
     expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('saved attempt reconciliation', () => {
+  it.each([0, 1, 2, 3, 4, 32])('rotates newest-first traversal by durable claim count %s and wraps', async claims => {
+    const record = resubmitted(3);
+    record.attempts = claims;
+    const newestFirst = [record.submission!, ...record.previousSubmissions!.slice().reverse()];
+    const offset = Math.max(0, claims - 1) % newestFirst.length;
+    const expected = [...newestFirst.slice(offset), ...newestFirst.slice(0, offset)];
+    // Reusing the same snapshot repeats the same ordering, not a worker retry.
+    for (let replay = 0; replay < 2; replay++) {
+      const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => json(pending, 202));
+      expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher })).toEqual({ kind: 'pending' });
+      expect(fetcher.mock.calls.map(call => {
+        const body = JSON.parse(call[1]!.body as string);
+        return { operation: body.operation, signature: body.signature };
+      })).toEqual(expected);
+    }
+  });
+
+  it('tries newest first, then exact older bytes, binding the receipt to the successful attempt', async () => {
+    const record = freezeDeep(resubmitted(3));
+    const before = structuredClone(record);
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json(pending, 202))
+      .mockResolvedValueOnce(json(pending, 202))
+      .mockResolvedValueOnce(json(confirmed(record)));
+    const result = await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher });
+    expect(result).toMatchObject({ kind: 'confirmed', receipt: {
+      submissionDigest: recoveryDigest(record.previousSubmissions![0]),
+    } });
+    const attempts = [record.submission, ...record.previousSubmissions!.slice().reverse()];
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    for (const [index, attempt] of attempts.entries()) {
+      expect(JSON.parse(fetcher.mock.calls[index][1]!.body as string)).toEqual({
+        chainId: 31337, ledgerAddress: address('D'), requiredConfirmations: 2,
+        operation: attempt!.operation, signature: attempt!.signature,
+      });
+    }
+    if (result.kind !== 'confirmed') throw new Error('expected confirmation');
+    expect(() => transitionRecoveryRecord(record, 'owner', record.revision, { kind: 'confirm', receipt: result.receipt }, NOW)).not.toThrow();
+    expect(record).toEqual(before);
+  });
+
+  it('stops on newest confirmation and snapshots history before the first await', async () => {
+    const record = resubmitted();
+    const saved = structuredClone(record);
+    const waiting = deferred<Response>();
+    const fetcher = vi.fn<typeof fetch>().mockReturnValueOnce(waiting.promise).mockResolvedValueOnce(json(confirmed(saved)));
+    const result = reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher });
+    record.previousSubmissions![0].signature = 'changed';
+    record.previousSubmissions!.push(record.submission!);
+    waiting.resolve(json(pending, 202));
+    expect(await result).toMatchObject({ kind: 'confirmed', receipt: { submissionDigest: recoveryDigest(saved.previousSubmissions![0]) } });
+    const newest = vi.fn<typeof fetch>().mockResolvedValueOnce(json(confirmed(saved)));
+    expect(await reconcileRecoveryAnchor(saved, URL_BASE, { fetch: newest }))
+      .toMatchObject({ kind: 'confirmed', receipt: { submissionDigest: recoveryDigest(saved.submission) } });
+    expect(newest).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['pending', 'unavailable', 'throw', 'active'] as const)('continues past %s without trusting it as confirmation', async first => {
+    const record = resubmitted();
+    const fetcher = vi.fn<typeof fetch>();
+    if (first === 'throw') fetcher.mockRejectedValueOnce(new Error('private dependency error'));
+    else fetcher.mockResolvedValueOnce(first === 'pending' ? json(pending, 202)
+      : first === 'active' ? json({ success: true, protocolVersion: 2, status: 'active' }) : json({}, 409));
+    fetcher.mockResolvedValueOnce(json(confirmed(record)));
+    expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher }))
+      .toMatchObject({ kind: 'confirmed', receipt: { submissionDigest: recoveryDigest(record.previousSubmissions![0]) } });
+  });
+
+  it.each([false, true])('returns pending only when every saved attempt is pending (unavailable: %s)', async failed => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(failed ? json({}, 409) : json(pending, 202))
+      .mockResolvedValueOnce(json(pending, 202));
+    expect(await reconcileRecoveryAnchor(resubmitted(), URL_BASE, { fetch: fetcher }))
+      .toEqual({ kind: failed ? 'unavailable' : 'pending' });
+  });
+
+  it('retains strict evidence validation for historical attempts and exact revocation semantics', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json(pending, 202));
+    const payload = confirmed();
+    payload.receipt.checkedHeadNumber++;
+    fetcher.mockResolvedValueOnce(json(payload));
+    expect(await reconcileRecoveryAnchor(resubmitted(), URL_BASE, { fetch: fetcher })).toEqual(unavailable);
+    const revokedFetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json(pending, 202)).mockResolvedValueOnce(json(revoked, 409));
+    expect(await reconcileRecoveryAnchor(resubmitted(3), URL_BASE, { fetch: revokedFetcher })).toEqual({ kind: 'revoked' });
+    expect(revokedFetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('validates every historical attempt before any transport', async () => {
+    for (const mutate of [
+      (r: RecoveryRecord) => { r.previousSubmissions![0].signature = 'invalid'; },
+      (r: RecoveryRecord) => { r.previousSubmissions![0].operation.requestIdHash = hash('1'); },
+      (r: RecoveryRecord) => { r.previousSubmissions!.push(r.submission!); },
+      (r: RecoveryRecord) => { r.previousSubmissions = Array(32).fill(r.submission); },
+    ]) {
+      const record = resubmitted();
+      mutate(record);
+      expect(await reconcileRecoveryAnchor(record, URL_BASE)).toEqual(unavailable);
+    }
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rechecks only the receipt-bound historical attempt, allowing confirmation depth to change', async () => {
+    const record = savedConfirmation(resubmitted(3));
+    record.attempts = 2;
+    record.receipt!.confirmations = 3;
+    freezeDeep(record);
+    for (const depth of [2, 3, 4]) {
+      const payload = confirmed(record);
+      payload.receipt.confirmations = depth;
+      payload.receipt.checkedHeadNumber = 40 + depth - 1;
+      const fetcher = fetchResponse(json(payload));
+      expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher })).toMatchObject({
+        kind: 'confirmed', receipt: { ...record.receipt, ledgerAddress: address('d'), confirmations: depth },
+      });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(fetcher.mock.calls[0][1]!.body as string).signature).toBe(record.previousSubmissions![0].signature);
+    }
+    expect(record.receipt!.confirmations).toBe(3);
+  });
+
+  it.each(['transactionHash', 'blockHash', 'blockNumber'] as const)('cannot change confirmed %s binding or fall back to another attempt', async field => {
+    const record = savedConfirmation();
+    const payload = confirmed(record);
+    if (field === 'blockNumber') {
+      payload.receipt.blockNumber++;
+      payload.receipt.checkedHeadNumber++;
+    } else payload.receipt[field] = hash('9');
+    const fetcher = fetchResponse(json(payload));
+    expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher })).toEqual(unavailable);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['insufficient_confirmations', 'reorg_detected'])('leaves a confirmed record unchanged on %s', async reason => {
+    const record = freezeDeep(savedConfirmation());
+    const fetcher = fetchResponse(json({ ...pending, reason }, 202));
+    expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher })).toEqual({ kind: 'pending' });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(record.phase).toBe('confirmed');
+  });
+
+  it('can reconcile all 32 saved attempts without dropping signatures', async () => {
+    const record = resubmitted(32);
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => json(pending, 202));
+    expect(await reconcileRecoveryAnchor(record, URL_BASE, { fetch: fetcher })).toEqual({ kind: 'pending' });
+    expect(fetcher).toHaveBeenCalledTimes(32);
+    expect(record.previousSubmissions).toHaveLength(31);
   });
 });
 
@@ -402,6 +576,84 @@ describe('bounded, privacy-safe transport', () => {
 
 describe('whole-request deadlines and cancellation cleanup', () => {
   beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] }); });
+
+  it('starts older on the next fresh claim after newest consumes the entire first 10s budget', async () => {
+    const record = freezeDeep(resubmitted());
+    const first = vi.fn<typeof fetch>().mockReturnValue(new Promise<Response>(() => undefined));
+    const stalled = reconcileRecoveryAnchor(record, URL_BASE, { fetch: first });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await stalled).toEqual(unavailable);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(first.mock.calls[0][1]!.body as string).signature).toBe(record.submission!.signature);
+    expect(first.mock.calls[0][1]!.signal!.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+
+    const deferredRecord = transitionRecoveryRecord(record, 'owner', record.revision,
+      { kind: 'defer', category: 'dependency_unavailable' }, NOW + 10_000);
+    const retry = claimRecoveryRecord(deferredRecord, 'retry-owner', deferredRecord.nextAttemptAtMs)!;
+    expect(retry.attempts).toBe(record.attempts + 1);
+    expect(retry.revision).toBe(record.revision + 2);
+    expect(retry.previousSubmissions).toEqual(record.previousSubmissions);
+    expect(retry.submission).toEqual(record.submission);
+    const waiting = deferred<Response>();
+    const second = vi.fn<typeof fetch>().mockReturnValueOnce(waiting.promise);
+    const recovered = reconcileRecoveryAnchor(retry, URL_BASE, { fetch: second });
+    expect(JSON.parse(second.mock.calls[0][1]!.body as string).signature).toBe(record.previousSubmissions![0].signature);
+    await vi.advanceTimersByTimeAsync(2_000);
+    waiting.resolve(json(confirmed(retry)));
+    const result = await recovered;
+    expect(result).toMatchObject({ kind: 'confirmed', receipt: {
+      submissionDigest: recoveryDigest(record.previousSubmissions![0]),
+    } });
+    expect(second).toHaveBeenCalledTimes(1);
+    if (result.kind !== 'confirmed') throw new Error('expected confirmation');
+    expect(transitionRecoveryRecord(retry, 'retry-owner', retry.revision,
+      { kind: 'confirm', receipt: result.receipt }, retry.updatedAtMs + 2_000).phase).toBe('confirmed');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['headers', 'body'] as const)('shares one total 10s across attempts including stalled older %s', async mode => {
+    const first = deferred<Response>();
+    const late = deferred<Response>();
+    const cancel = vi.fn(() => new Promise<void>(() => undefined));
+    const stream = new ReadableStream<Uint8Array>({ cancel });
+    const fetcher = vi.fn<typeof fetch>().mockReturnValueOnce(first.promise);
+    if (mode === 'headers') fetcher.mockReturnValueOnce(late.promise);
+    else fetcher.mockResolvedValueOnce(new Response(stream, { headers: { 'content-type': 'application/json' } }));
+    const controller = new AbortController();
+    const add = vi.spyOn(controller.signal, 'addEventListener');
+    const remove = vi.spyOn(controller.signal, 'removeEventListener');
+    const result = reconcileRecoveryAnchor(resubmitted(3), URL_BASE, { fetch: fetcher, signal: controller.signal });
+    await vi.advanceTimersByTimeAsync(9_000);
+    first.resolve(json(pending, 202));
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[1][1]!.signal!.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await result).toEqual(unavailable);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[1][1]!.signal!.aborted).toBe(true);
+    if (mode === 'headers') {
+      late.resolve(new Response(stream, { headers: { 'content-type': 'application/json' } }));
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(stream.locked).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(remove.mock.calls.map(call => call[1])).toEqual(add.mock.calls.map(call => call[1]));
+  });
+
+  it('does not start older attempts after caller cancellation', async () => {
+    const first = deferred<Response>();
+    const controller = new AbortController();
+    const fetcher = vi.fn<typeof fetch>().mockReturnValueOnce(first.promise);
+    const result = reconcileRecoveryAnchor(resubmitted(), URL_BASE, { fetch: fetcher, signal: controller.signal });
+    first.resolve(json(pending, 202));
+    controller.abort();
+    expect(await result).toEqual(unavailable);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it('does not call fetch for an already aborted signal', async () => {
     const controller = new AbortController();

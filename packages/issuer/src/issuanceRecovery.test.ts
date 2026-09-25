@@ -580,6 +580,150 @@ describe('private issuance recovery phases and artifact binding', () => {
   });
 });
 
+describe('append-only submission recovery', () => {
+  function replacement(record: RecoveryRecord, nonce = '1'): RecoverySubmission {
+    const candidate = structuredClone(record.submission!);
+    candidate.operation.nonce = nonce;
+    candidate.operation.deadline++;
+    candidate.signature = `0x${'AB'.repeat(64)}1C`;
+    return candidate;
+  }
+
+  it.each(['expired', 'nonce-conflicted'] as const)('resubmits %s attempts without replacing any durable context or bytes', reason => {
+    const original = freezeDeep(at('submitted'));
+    const now = reason === 'expired' ? original.submission!.operation.deadline * 1000 : NOW;
+    const current = reason === 'expired' ? claimRecoveryRecord(original, 'new-owner', now)! : original;
+    const candidate = replacement(current);
+    const saved = structuredClone(candidate);
+    let next = step(current, { kind: 'resubmit', submission: candidate }, now);
+    expect(next.previousSubmissions).toEqual([original.submission]);
+    expect(next.submission).toEqual(saved);
+    expect(next.phase).toBe('submitted');
+    expect(next.revision).toBe(current.revision + 1);
+    for (const key of ['input', 'inputDigest', 'preparation', 'createdAtMs', 'attempts'] as const) {
+      expect(next[key]).toEqual(current[key]);
+    }
+    candidate.operation.nonce = '99';
+    candidate.signature = 'changed';
+    expect(next.submission).toEqual(saved);
+    next = step(next, { kind: 'resubmit', submission: replacement(next, '2') }, now);
+    expect(next.previousSubmissions).toEqual([original.submission, saved]);
+    next.previousSubmissions![0].signature = 'caller mutation';
+    expect(original.submission!.signature).toBe(SIGNATURE);
+    expect(original.previousSubmissions).toBeUndefined();
+  });
+
+  it.each(['reserved', 'prepared', 'confirmed', 'completed', 'blocked'] as const)('cannot resubmit from %s', phase => {
+    expect(() => step(at(phase), { kind: 'resubmit', submission: replacement(at('submitted')) }))
+      .toThrow(['completed', 'blocked'].includes(phase) ? 'issuance_recovery_lease_lost' : 'issuance_recovery_phase_conflict');
+  });
+
+  it('fences resubmission by owner, revision and lease expiry', () => {
+    const record = freezeDeep(at('submitted'));
+    const action: RecoveryAction = { kind: 'resubmit', submission: replacement(record) };
+    for (const [token, revision, now] of [
+      ['wrong', record.revision, NOW], [OWNER, record.revision - 1, NOW], [OWNER, record.revision, NOW + LEASE_MS],
+    ] as const) {
+      expect(() => transitionRecoveryRecord(record, token, revision, action, now)).toThrow('issuance_recovery_lease_lost');
+    }
+  });
+
+  it('requires a fresh deadline even though persisted expired attempts remain valid', () => {
+    const record = at('submitted');
+    const candidate = replacement(record);
+    candidate.operation.deadline = (NOW + 1000) / 1000;
+    expect(step(record, { kind: 'resubmit', submission: candidate }, NOW + 999).phase).toBe('submitted');
+    expect(() => step(record, { kind: 'resubmit', submission: candidate }, NOW + 1000))
+      .toThrow('issuance_recovery_submission_expired');
+  });
+
+  it.each([
+    ['attestationHash', hash('1')], ['issuerIdHash', hash('1')], ['issuerKeyEpoch', 3],
+    ['holderRevocationSigner', address('1')], ['requestIdHash', ledgerV2RequestHash('other')],
+    ['chainId', 1], ['ledgerAddress', address('1')],
+  ])('rejects resubmission with changed or injected immutable %s', (field, value) => {
+    const record = freezeDeep(at('submitted'));
+    const candidate = replacement(record);
+    Reflect.set(candidate.operation, field as string, value);
+    expect(() => step(record, { kind: 'resubmit', submission: candidate })).toThrow();
+  });
+
+  it('rejects context/preparation replacement on the action and malformed new signatures', () => {
+    const record = at('submitted');
+    for (const field of ['input', 'context', 'preparation', 'previousSubmissions']) {
+      const action = { kind: 'resubmit', submission: replacement(record), [field]: {} } as RecoveryAction;
+      expect(() => step(record, action)).toThrow('issuance_recovery_data_invalid');
+    }
+    const candidate = replacement(record);
+    candidate.signature = 'invalid';
+    expect(() => step(record, { kind: 'resubmit', submission: candidate })).toThrow('issuance_recovery_submission_invalid');
+  });
+
+  it('rejects duplicates of latest or historical operations, even with other signatures or hex case', () => {
+    const original = at('submitted');
+    const next = step(original, { kind: 'resubmit', submission: replacement(original) });
+    for (const attempt of [next.submission!, original.submission!]) {
+      for (const changeSignature of [false, true]) {
+        const candidate = structuredClone(attempt);
+        candidate.operation.holderRevocationSigner = address('A');
+        if (changeSignature) candidate.signature = `0x${'CD'.repeat(64)}1b`;
+        expect(() => step(next, { kind: 'resubmit', submission: candidate })).toThrow('issuance_recovery_submission_duplicate');
+      }
+    }
+  });
+
+  it('accepts deadline-only replacement and binds confirmation to any exact saved attempt', () => {
+    const original = at('submitted');
+    const candidate = replacement(original, original.submission!.operation.nonce);
+    const next = step(original, { kind: 'resubmit', submission: candidate });
+    for (const evidence of [receipt(original), receipt(next)]) {
+      const confirmed = step(next, { kind: 'confirm', receipt: evidence });
+      expect(() => validateRecoveryRecord(confirmed)).not.toThrow();
+      expect(step(confirmed, { kind: 'complete' }).receipt).toEqual(evidence);
+    }
+    const unsaved = structuredClone(original.submission!);
+    unsaved.signature = `0x${'12'.repeat(64)}1B`;
+    expect(() => step(next, { kind: 'confirm', receipt: { ...receipt(original), submissionDigest: recoveryDigest(unsaved) } }))
+      .toThrow('issuance_recovery_receipt_invalid');
+  });
+
+  it('accepts legacy omitted/empty history and rejects malformed, orphaned, duplicate or unbound history', () => {
+    expect(() => validateRecoveryRecord(at('submitted'))).not.toThrow();
+    expect(() => validateRecoveryRecord({ ...at('submitted'), previousSubmissions: [] })).not.toThrow();
+    for (const history of [null, {}, 'history', [null], new Array(1), [at('submitted').submission]]) {
+      expect(() => validateRecoveryRecord({ ...at('submitted'), previousSubmissions: history } as RecoveryRecord)).toThrow();
+    }
+    for (const phase of ['reserved', 'prepared', 'blocked'] as const) {
+      expect(() => validateRecoveryRecord({ ...at(phase), previousSubmissions: [] })).toThrow('issuance_recovery_record_invalid');
+    }
+    const original = at('submitted');
+    const next = step(original, { kind: 'resubmit', submission: replacement(original) });
+    next.previousSubmissions![0].operation.requestIdHash = hash('1');
+    expect(() => validateRecoveryRecord(next)).toThrow('issuance_recovery_submission_invalid');
+  });
+
+  it('fails closed at 32 attempts, preserving all signatures and allowing pending/reconciliation/completion', () => {
+    const original = at('submitted');
+    let record = original;
+    for (let i = 1; i < 32; i++) record = step(record, { kind: 'resubmit', submission: replacement(record, String(i)) });
+    freezeDeep(record);
+    const before = structuredClone(record);
+    expect(record.previousSubmissions).toHaveLength(31);
+    expect(() => step(record, { kind: 'resubmit', submission: replacement(record, '32') }))
+      .toThrow('issuance_recovery_submission_limit');
+    expect(record).toEqual(before);
+    expect(() => validateRecoveryRecord({ ...record, previousSubmissions: [...record.previousSubmissions!, record.submission!] }))
+      .toThrow('issuance_recovery_record_invalid');
+    const deferred = step(record, { kind: 'defer', category: 'receipt_pending' });
+    const takeover = claimRecoveryRecord(deferred, 'new-owner', deferred.nextAttemptAtMs)!;
+    expect(takeover.previousSubmissions).toEqual(record.previousSubmissions);
+    const confirmed = step(takeover, { kind: 'confirm', receipt: receipt(original) }, deferred.nextAttemptAtMs);
+    const completed = step(confirmed, { kind: 'complete' }, deferred.nextAttemptAtMs);
+    expect(completed.previousSubmissions).toEqual(record.previousSubmissions);
+    expect(completed.receipt!.submissionDigest).toBe(recoveryDigest(original.submission));
+  });
+});
+
 describe('private issuance recovery ownership, retry, and terminal states', () => {
   it('claims a deep clone and rejects claims before the lease boundary', () => {
     const reserved = freezeDeep(createRecoveryRecord(input(), NOW));

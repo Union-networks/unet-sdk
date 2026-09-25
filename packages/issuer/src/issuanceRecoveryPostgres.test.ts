@@ -172,6 +172,62 @@ function confirmed(): RecoveryRecord {
 }
 
 describe('issuance recovery PostgreSQL SQL-shape fixtures', () => {
+  it.each([false, true])('persists append-only resubmission and confirms the older attempt (caller-owned: %s)', async callerOwned => {
+    const original = confirmed();
+    const submitted = structuredClone(original);
+    submitted.phase = 'submitted';
+    delete submitted.receipt;
+    const action: RecoveryAction = { kind: 'resubmit', submission: structuredClone(submitted.submission!) };
+    action.submission.operation.nonce = '2';
+    action.submission.signature = `0x${'99'.repeat(64)}1c`;
+    const expected = transitionRecoveryRecord(submitted, submitted.leaseToken!, submitted.revision, action, now);
+    const f = fixture([
+      ...(callerOwned ? [] : begin()), read(submitted), clock(),
+      update(submitted, next => {
+        expect(next).toEqual(expected);
+        expect(next.previousSubmissions).toEqual([submitted.submission]);
+      }, 'transition'), ...(callerOwned ? [] : [{ sql: 'COMMIT' }]),
+    ]);
+    const store = callerOwned ? new TransactionalIssuanceRecoveryStore(f.client) : new PostgresIssuanceRecoveryStore(f.pool);
+    const result = await store.transition(requestId, submitted.leaseToken!, submitted.revision, action);
+    expect(result).toEqual(expected);
+    f.done(!callerOwned);
+
+    const confirm: RecoveryAction = { kind: 'confirm', receipt: original.receipt! };
+    const confirmedRecord = transitionRecoveryRecord(result, result.leaseToken!, result.revision, confirm, now);
+    const confirmationFixture = fixture([
+      ...(callerOwned ? [] : begin()), read(result), clock(),
+      update(result, next => { expect(next).toEqual(confirmedRecord); }, 'transition'),
+      ...(callerOwned ? [] : [{ sql: 'COMMIT' }]),
+    ]);
+    const confirmationStore = callerOwned ? new TransactionalIssuanceRecoveryStore(confirmationFixture.client)
+      : new PostgresIssuanceRecoveryStore(confirmationFixture.pool);
+    expect(await confirmationStore.transition(requestId, result.leaseToken!, result.revision, confirm)).toEqual(confirmedRecord);
+    confirmationFixture.done(!callerOwned);
+  });
+
+  it.each([false, true])('does not issue an UPDATE at the attempt limit (caller-owned: %s)', async callerOwned => {
+    let record = confirmed();
+    record.phase = 'submitted';
+    delete record.receipt;
+    for (let i = 2; i <= 32; i++) {
+      const submission = structuredClone(record.submission!);
+      submission.operation.nonce = String(i);
+      record = transitionRecoveryRecord(record, record.leaseToken!, record.revision, { kind: 'resubmit', submission }, now);
+    }
+    const before = structuredClone(record);
+    const submission = structuredClone(record.submission!);
+    submission.operation.nonce = '33';
+    const f = fixture([
+      ...(callerOwned ? [] : begin()), read(record), clock(), ...(callerOwned ? [] : [{ sql: 'ROLLBACK' }]),
+    ]);
+    const store = callerOwned ? new TransactionalIssuanceRecoveryStore(f.client) : new PostgresIssuanceRecoveryStore(f.pool);
+    await expect(store.transition(requestId, record.leaseToken!, record.revision, { kind: 'resubmit', submission }))
+      .rejects.toThrow('issuance_recovery_submission_limit');
+    expect(record).toEqual(before);
+    f.done(!callerOwned);
+  });
+
   it('creates the private recovery table and scheduling index', async () => {
     const query = vi.fn(async (_sql: string) => ({ rows: [] }));
     await ensureIssuanceRecoverySchema({ query });

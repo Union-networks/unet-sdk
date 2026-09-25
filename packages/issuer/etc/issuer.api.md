@@ -850,6 +850,9 @@ export type RecoveryAction = {
     kind: 'submit';
     submission: RecoverySubmission;
 } | {
+    kind: 'resubmit';
+    submission: RecoverySubmission;
+} | {
     kind: 'confirm';
     receipt: RecoveryReceipt;
 } | {
@@ -964,6 +967,7 @@ export interface RecoveryRecord {
     phase: RecoveryPhase;
     // (undocumented)
     preparation?: RecoveryPreparation;
+    previousSubmissions?: RecoverySubmission[];
     // (undocumented)
     receipt?: RecoveryReceipt;
     // (undocumented)

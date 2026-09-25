@@ -1,6 +1,6 @@
 import {
-  recoveryDigest, validateRecoveryRecord,
-  type RecoveryReceipt, type RecoveryRecord,
+  recoveryDigest, recoverySubmissions, validateRecoveryRecord,
+  type RecoveryReceipt, type RecoveryRecord, type RecoverySubmission,
 } from './issuanceRecovery.js';
 
 /**
@@ -45,11 +45,11 @@ function endpoint(base: string): string {
 
 // Follow Safety's bounded streaming transport pattern, including an explicit
 // race for fetch implementations that ignore abort, and cleanup of late headers.
-async function requestJson(url: string, body: string, fetcher: typeof fetch, signal?: AbortSignal): Promise<{
+async function requestJson(url: string, body: string, fetcher: typeof fetch, deadline: number, signal?: AbortSignal): Promise<{
   status: number; payload: unknown;
 }> {
   if (signal?.aborted) throw new Error('request_aborted');
-  const deadline = performance.now() + REQUEST_MS;
+  if (performance.now() >= deadline) throw new Error('request_stopped');
   const controller = new AbortController();
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   let stopped = false;
@@ -83,7 +83,7 @@ async function requestJson(url: string, body: string, fetcher: typeof fetch, sig
     };
     onAbort = stop;
     signal?.addEventListener('abort', onAbort, { once: true });
-    timer = setTimeout(stop, REQUEST_MS);
+    timer = setTimeout(stop, Math.max(0, deadline - performance.now()));
   });
   const response = (async () => {
     checkDeadline();
@@ -136,7 +136,9 @@ async function requestJson(url: string, body: string, fetcher: typeof fetch, sig
   }
 }
 
-function reconcileResponse(status: number, payload: unknown, record: RecoveryRecord): RecoveryAnchorReconciliationResult {
+function reconcileResponse(
+  status: number, payload: unknown, record: RecoveryRecord, submission: RecoverySubmission,
+): RecoveryAnchorReconciliationResult {
   if (status === 409) {
     const result = exactObject(payload, ['success', 'error']);
     // Only the configured, request-specific reconciliation gateway is trusted to
@@ -159,7 +161,6 @@ function reconcileResponse(status: number, payload: unknown, record: RecoveryRec
     'transactionHash', 'blockHash', 'blockNumber', 'confirmations', 'requiredConfirmations',
     'checkedHeadHash', 'checkedHeadNumber', 'status']);
   const { context } = record.input;
-  const submission = record.submission!;
   const op = submission.operation;
   if (!integer(receipt.chainId, 1) || receipt.chainId !== context.chainId
     || !address(receipt.ledgerAddress) || receipt.ledgerAddress.toLowerCase() !== context.ledgerAddress.toLowerCase()
@@ -174,6 +175,12 @@ function reconcileResponse(status: number, payload: unknown, record: RecoveryRec
     || receipt.confirmations !== receipt.checkedHeadNumber - receipt.blockNumber + 1
     || (receipt.checkedHeadNumber === receipt.blockNumber && receipt.checkedHeadHash !== receipt.blockHash)
     || receipt.status !== 'active') return { kind: 'unavailable' };
+  // A confirmed journal can refresh depth, never switch its saved attempt or
+  // transaction/block binding on a later recovery check.
+  if (record.receipt && (record.receipt.submissionDigest !== recoveryDigest(submission)
+    || record.receipt.transactionHash !== receipt.transactionHash
+    || record.receipt.blockHash !== receipt.blockHash
+    || record.receipt.blockNumber !== receipt.blockNumber)) return { kind: 'unavailable' };
   return { kind: 'confirmed', receipt: {
     chainId: receipt.chainId, ledgerAddress: receipt.ledgerAddress,
     attestationHash: receipt.attestationHash, issuerIdHash: receipt.issuerIdHash,
@@ -197,15 +204,36 @@ export async function reconcileRecoveryAnchor(
 ): Promise<RecoveryAnchorReconciliationResult> {
   try {
     // Snapshot and validate synchronously, before fetch or the first await. Never
-    // refresh or re-sign an expired submission: these are its exact durable bytes.
+    // refresh or re-sign here: each request uses one attempt's exact durable bytes.
     const snapshot = structuredClone(record);
     validateRecoveryRecord(snapshot);
-    if (snapshot.phase !== 'submitted' || !snapshot.preparation || !snapshot.submission) return { kind: 'unavailable' };
+    if (!['submitted', 'confirmed'].includes(snapshot.phase) || !snapshot.preparation || !snapshot.submission) return { kind: 'unavailable' };
     const { chainId, ledgerAddress, requiredConfirmations } = snapshot.input.context;
-    const { operation, signature } = snapshot.submission;
-    const body = JSON.stringify({ chainId, ledgerAddress, requiredConfirmations, operation, signature });
-    const response = await requestJson(endpoint(readUrl), body, options.fetch ?? globalThis.fetch, options.signal);
-    return reconcileResponse(response.status, response.payload, snapshot);
+    const url = endpoint(readUrl);
+    const newestFirst = recoverySubmissions(snapshot).reverse();
+    const offset = Math.max(0, snapshot.attempts - 1) % newestFirst.length;
+    // Rotate by durable claim count so a stalled newest attempt cannot starve
+    // history across worker retries. Confirmed checks stay pinned to one attempt.
+    const attempts = snapshot.receipt
+      ? newestFirst.filter(attempt => recoveryDigest(attempt) === snapshot.receipt!.submissionDigest)
+      : [...newestFirst.slice(offset), ...newestFirst.slice(0, offset)];
+    const deadline = performance.now() + REQUEST_MS;
+    let unavailable = false;
+    for (const submission of attempts) {
+      if (options.signal?.aborted || performance.now() >= deadline) return { kind: 'unavailable' };
+      try {
+        const { operation, signature } = submission;
+        const body = JSON.stringify({ chainId, ledgerAddress, requiredConfirmations, operation, signature });
+        const response = await requestJson(url, body, options.fetch ?? globalThis.fetch, deadline, options.signal);
+        const result = reconcileResponse(response.status, response.payload, snapshot, submission);
+        if (options.signal?.aborted || performance.now() >= deadline) return { kind: 'unavailable' };
+        if (result.kind === 'confirmed' || result.kind === 'revoked') return result;
+        if (result.kind === 'unavailable') unavailable = true;
+      } catch {
+        unavailable = true;
+      }
+    }
+    return { kind: unavailable ? 'unavailable' : 'pending' };
   } catch {
     // No caller data, gateway bodies, or raw dependency errors leave this boundary.
     return { kind: 'unavailable' };

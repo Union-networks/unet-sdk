@@ -69,6 +69,8 @@ export interface RecoveryRecord {
   leaseUntilMs?: number;
   preparation?: RecoveryPreparation;
   submission?: RecoverySubmission;
+  /** Older attempts in append order; at most 32 attempts including submission. */
+  previousSubmissions?: RecoverySubmission[];
   receipt?: RecoveryReceipt;
   failureCategory?: RecoveryFailure | 'policy_denied' | 'artifact_invalid';
 }
@@ -77,6 +79,7 @@ export interface RecoveryRecord {
 export type RecoveryAction =
   | { kind: 'prepare'; preparation: RecoveryPreparation }
   | { kind: 'submit'; submission: RecoverySubmission }
+  | { kind: 'resubmit'; submission: RecoverySubmission }
   | { kind: 'confirm'; receipt: RecoveryReceipt }
   | { kind: 'complete' }
   | { kind: 'defer'; category: RecoveryFailure }
@@ -90,6 +93,18 @@ const text = (value: unknown): value is string => typeof value === 'string' && v
 const matches = (value: unknown, pattern: RegExp): value is string => typeof value === 'string' && pattern.test(value);
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const failures = ['dependency_unavailable', 'receipt_pending', 'policy_unavailable', 'policy_denied', 'artifact_invalid'];
+const MAX_SUBMISSIONS = 32;
+
+// Chronological order. Call only after checking the persisted history shape.
+export function recoverySubmissions(record: RecoveryRecord): RecoverySubmission[] {
+  return [...(record.previousSubmissions ?? []), ...(record.submission ? [record.submission] : [])];
+}
+
+function submissionIdentity(submission: RecoverySubmission): string {
+  // Re-signing the same operation or changing hex case is not a new attempt.
+  return recoveryDigest({ ...submission.operation,
+    holderRevocationSigner: submission.operation.holderRevocationSigner.toLowerCase() });
+}
 
 function keys(value: unknown, allowed: string[]): void {
   if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) throw new Error('issuance_recovery_data_invalid');
@@ -185,7 +200,8 @@ function validateSubmission(record: RecoveryRecord, submission: RecoverySubmissi
 function validateReceipt(record: RecoveryRecord, receipt: RecoveryReceipt): void {
   keys(receipt, ['chainId', 'ledgerAddress', 'attestationHash', 'issuerIdHash', 'holderRevocationSigner',
     'requestIdHash', 'submissionDigest', 'transactionHash', 'blockHash', 'blockNumber', 'confirmations']);
-  const op = record.submission?.operation;
+  const submission = recoverySubmissions(record).find(attempt => recoveryDigest(attempt) === receipt.submissionDigest);
+  const op = submission?.operation;
   const { context } = record.input;
   if (!op || !receipt || receipt.chainId !== context.chainId
     || typeof receipt.ledgerAddress !== 'string'
@@ -193,7 +209,7 @@ function validateReceipt(record: RecoveryRecord, receipt: RecoveryReceipt): void
     || receipt.attestationHash !== op.attestationHash || receipt.issuerIdHash !== op.issuerIdHash
     || typeof receipt.holderRevocationSigner !== 'string'
     || receipt.holderRevocationSigner.toLowerCase() !== op.holderRevocationSigner.toLowerCase()
-    || receipt.requestIdHash !== op.requestIdHash || receipt.submissionDigest !== recoveryDigest(record.submission)
+    || receipt.requestIdHash !== op.requestIdHash
     || !matches(receipt.transactionHash, hex32) || !matches(receipt.blockHash, hex32)
     || !nonnegativeInteger(receipt.blockNumber) || !positiveInteger(receipt.confirmations)
     || receipt.confirmations < context.requiredConfirmations) throw new Error('issuance_recovery_receipt_invalid');
@@ -201,7 +217,7 @@ function validateReceipt(record: RecoveryRecord, receipt: RecoveryReceipt): void
 
 export function validateRecoveryRecord(record: RecoveryRecord): void {
   keys(record, ['requestId', 'input', 'inputDigest', 'phase', 'revision', 'attempts', 'nextAttemptAtMs', 'createdAtMs',
-    'updatedAtMs', 'leaseToken', 'leaseUntilMs', 'preparation', 'submission', 'receipt', 'failureCategory']);
+    'updatedAtMs', 'leaseToken', 'leaseUntilMs', 'preparation', 'submission', 'previousSubmissions', 'receipt', 'failureCategory']);
   validateInput(record.input);
   if (record.requestId !== record.input.request.requestId || record.inputDigest !== recoveryDigest(record.input)
     || !positiveInteger(record.revision) || !nonnegativeInteger(record.attempts)
@@ -213,7 +229,17 @@ export function validateRecoveryRecord(record: RecoveryRecord): void {
     throw new Error('issuance_recovery_record_invalid');
   }
   if (record.preparation) validatePreparation(record.preparation);
-  if (record.submission) validateSubmission(record, record.submission);
+  if (record.previousSubmissions !== undefined && (!Array.isArray(record.previousSubmissions)
+    || !record.submission || record.previousSubmissions.length >= MAX_SUBMISSIONS)) {
+    throw new Error('issuance_recovery_record_invalid');
+  }
+  const identities = new Set<string>();
+  for (const attempt of recoverySubmissions(record)) {
+    validateSubmission(record, attempt);
+    const identity = submissionIdentity(attempt);
+    if (identities.has(identity)) throw new Error('issuance_recovery_submission_duplicate');
+    identities.add(identity);
+  }
   if (record.receipt) validateReceipt(record, record.receipt);
   if ((record.phase === 'reserved' && (record.preparation || record.submission || record.receipt))
     || (record.phase === 'prepared' && (!record.preparation || record.submission || record.receipt))
@@ -258,10 +284,16 @@ export function transitionRecoveryRecord(record: RecoveryRecord, token: string, 
       next.phase = 'prepared';
       break;
     case 'submit':
+    case 'resubmit':
       keys(action, ['kind', 'submission']);
-      if (record.phase !== 'prepared') throw new Error('issuance_recovery_phase_conflict');
+      if (record.phase !== (action.kind === 'submit' ? 'prepared' : 'submitted')) throw new Error('issuance_recovery_phase_conflict');
+      if (recoverySubmissions(record).length >= MAX_SUBMISSIONS) throw new Error('issuance_recovery_submission_limit');
       validateSubmission(record, action.submission);
       if (action.submission.operation.deadline * 1000 <= nowMs) throw new Error('issuance_recovery_submission_expired');
+      if (recoverySubmissions(record).some(attempt => submissionIdentity(attempt) === submissionIdentity(action.submission))) {
+        throw new Error('issuance_recovery_submission_duplicate');
+      }
+      if (action.kind === 'resubmit') next.previousSubmissions = recoverySubmissions(next);
       next.submission = copy(action.submission);
       next.phase = 'submitted';
       break;
