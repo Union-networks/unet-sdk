@@ -148,6 +148,7 @@ test('real PostgreSQL private issuance recovery acceptance', {
         deliveryPublicKey: Buffer.alloc(32, 1).toString('base64url'),
         holderRevocationSigner: '0x' + '1'.repeat(40), idempotencyKey: 'synthetic-' + id },
       context: { chainId: 31337, ledgerAddress: '0x' + '2'.repeat(40), issuerId: 'synthetic-issuer',
+        schemaId: 'synthetic-schema-v1',
         issuerIdHash: ledgerV2IssuerIdHash('synthetic-issuer'), issuerKeyEpoch: 1,
         credentialKeyId: 'synthetic-key', credentialKeyFingerprint: '0x' + '3'.repeat(64),
         validFromEpoch: 1, validUntilEpoch: 2, requiredConfirmations: 1 } };

@@ -58,7 +58,171 @@ function record(overrides: Partial<DirectIssuerRequestRecord> = {}): DirectIssue
   };
 }
 
+class PolicyStore extends PostgresDirectIssuerRequestStore {
+  public constructor(private readonly policyDb: SqlClient) { super(policyDb); }
+
+  protected override async beforeAccountTransaction(db: SqlClient, serviceAccountRef: string, checkId: string): Promise<void> {
+    await db.query('SELECT pg_advisory_xact_lock_shared($1::bigint)', ['42']);
+    await db.query('SELECT policy FROM provider_accounts WHERE account_ref=$1 AND check_id=$2 FOR SHARE', [serviceAccountRef, checkId]);
+  }
+
+  protected override createTransactionStore(db: SqlClient): PostgresDirectIssuerRequestStore {
+    return new PolicyStore(db);
+  }
+
+  public override async create(value: DirectIssuerRequestRecord): Promise<void> {
+    await super.create(value);
+    await this.policyDb.query('INSERT INTO provider_publications(request_id,operation) VALUES($1,$2)', [value.requestId, 'create']);
+  }
+
+  public override async update(value: DirectIssuerRequestRecord): Promise<void> {
+    await super.update(value);
+    await this.policyDb.query('INSERT INTO provider_publications(request_id,operation) VALUES($1,$2)', [value.requestId, 'update']);
+  }
+}
+
+function policyBegin(): Step[] {
+  return [
+    ...begin().slice(0, 3),
+    { sql: 'SELECT pg_advisory_xact_lock_shared($1::bigint)', values: ['42'] },
+    { sql: 'SELECT policy FROM provider_accounts WHERE account_ref=$1 AND check_id=$2 FOR SHARE', values: ['account-a', 'check-a'] },
+    begin()[3]!,
+  ];
+}
+
 describe('Postgres direct issuer account admission', () => {
+  it('runs provider policy locks before the SDK lock and retains bound publication hooks on the pinned connection', async () => {
+    const f = fixture([
+      ...policyBegin(),
+      { sql: /^INSERT INTO unet_attestation_requests_v2/ },
+      { sql: 'INSERT INTO provider_publications(request_id,operation) VALUES($1,$2)', values: ['request-a', 'create'] },
+      { sql: /UPDATE unet_attestation_requests_v2 .* AND service_account_ref=\$6 AND check_id=\$7 AND idempotency_key=\$8$/ },
+      { sql: 'INSERT INTO provider_publications(request_id,operation) VALUES($1,$2)', values: ['request-a', 'update'] },
+      { sql: 'COMMIT' },
+    ]);
+    const store = new PolicyStore(f.pool);
+    let escaped!: DirectIssuerRequestStore;
+    await store.withAccountTransaction('account-a', 'check-a', async (bound) => {
+      escaped = bound;
+      expect(bound).toBeInstanceOf(PolicyStore);
+      expect(bound).not.toBe(store);
+      await bound.create(record());
+      await bound.update(record());
+      await expect(bound.create(record({ serviceAccountRef: 'foreign' }))).rejects.toThrow('issuer_account_transaction_scope_mismatch');
+      await expect(bound.update(record({ checkId: 'foreign' }))).rejects.toThrow('issuer_account_transaction_scope_mismatch');
+      await expect(bound.withAccountTransaction('account-a', 'check-a', vi.fn())).rejects.toThrow('issuer_account_transaction_nested');
+    });
+    await expect(escaped.create(record())).rejects.toThrow('issuer_account_transaction_closed');
+    await expect(escaped.update(record())).rejects.toThrow('issuer_account_transaction_closed');
+    await expect(escaped.get('request-a')).rejects.toThrow('issuer_account_transaction_closed');
+    f.done();
+  });
+
+  it.each([3, 4])('rolls back provider policy failure at statement %i without the SDK lock or callback', async (index) => {
+    const error = new Error('policy_rejected');
+    const steps = policyBegin().slice(0, index + 1);
+    steps[index] = { ...steps[index]!, error };
+    const f = fixture([...steps, { sql: 'ROLLBACK' }]);
+    const work = vi.fn();
+    await expect(new PolicyStore(f.pool).withAccountTransaction('account-a', 'check-a', work)).rejects.toBe(error);
+    expect(work).not.toHaveBeenCalled();
+    expect(f.release).toHaveBeenCalledWith();
+    f.done();
+  });
+
+  it.each(['create', 'update'] as const)('rolls back failed bound %s publication and closes the specialized store', async (operation) => {
+    const error = new Error('publication_failed');
+    const f = fixture([
+      ...policyBegin(),
+      { sql: operation === 'create' ? /^INSERT INTO unet_attestation_requests_v2/ : /^UPDATE unet_attestation_requests_v2/ },
+      { sql: /^INSERT INTO provider_publications/, error },
+      { sql: 'ROLLBACK' },
+    ]);
+    let escaped!: DirectIssuerRequestStore;
+    await expect(new PolicyStore(f.pool).withAccountTransaction('account-a', 'check-a', async (bound) => {
+      escaped = bound;
+      await bound[operation](record());
+    })).rejects.toBe(error);
+    await expect(escaped[operation](record())).rejects.toThrow('issuer_account_transaction_closed');
+    f.done();
+  });
+
+  it.each(['root', 'other-root', 'wrong-client', 'incompatible', 'missing'] as const)('rejects a %s factory result without running the callback or mutating the root', async (kind) => {
+    const f = fixture([...begin(), { sql: 'ROLLBACK' }]);
+    const otherQuery = vi.fn(async () => ({ rows: [] }));
+    const other = new PostgresDirectIssuerRequestStore({ query: otherQuery });
+    class InvalidFactoryStore extends PostgresDirectIssuerRequestStore {
+      protected override createTransactionStore(db: SqlClient): PostgresDirectIssuerRequestStore {
+        if (kind === 'root') return this;
+        if (kind === 'other-root') return other;
+        if (kind === 'wrong-client') return new PostgresDirectIssuerRequestStore(f.client);
+        return (kind === 'missing' ? undefined : { db }) as unknown as PostgresDirectIssuerRequestStore;
+      }
+    }
+    const store = new InvalidFactoryStore(f.pool);
+    const work = vi.fn();
+    await expect(store.withAccountTransaction('account-a', 'check-a', work)).rejects.toThrow('issuer_account_transaction_store_invalid');
+    expect(work).not.toHaveBeenCalled();
+    expect(otherQuery).not.toHaveBeenCalled();
+    await expect(store.get('root')).rejects.toThrow('unexpected_pool_query');
+    expect(f.pool.query).toHaveBeenCalledWith('SELECT request_record FROM unet_attestation_requests_v2 WHERE request_id=$1', ['root']);
+    f.pool.query.mockClear();
+    f.done();
+  });
+
+  it.each(['hook', 'factory'] as const)('preserves a thrown %s error, discards failed rollback and closes retained clients', async (stage) => {
+    const error = new Error('provider_failed');
+    const f = fixture([
+      ...(stage === 'hook' ? begin().slice(0, 3) : begin()),
+      { sql: 'ROLLBACK', error: new Error('rollback_failed') },
+    ]);
+    let retained!: SqlClient;
+    class FailingStore extends PostgresDirectIssuerRequestStore {
+      protected override async beforeAccountTransaction(db: SqlClient): Promise<void> {
+        retained = db;
+        if (stage === 'hook') throw error;
+      }
+      protected override createTransactionStore(db: SqlClient): PostgresDirectIssuerRequestStore {
+        expect(db).toBe(retained);
+        throw error;
+      }
+    }
+    const work = vi.fn();
+    await expect(new FailingStore(f.pool).withAccountTransaction('account-a', 'check-a', work)).rejects.toBe(error);
+    expect(work).not.toHaveBeenCalled();
+    expect(() => retained.query('SELECT 1')).toThrow('issuer_account_transaction_closed');
+    expect(f.release).toHaveBeenCalledWith(true);
+    f.done();
+  });
+
+  it.each([false, true])('rejects reuse of a previously bound store (already closed: %s) without changing its scope', async (closed) => {
+    const first = fixture([
+      ...begin(),
+      { sql: /WHERE request_id=\$1 AND service_account_ref=\$2 AND check_id=\$3 FOR UPDATE$/, values: ['request-a', 'account-a', 'check-a'] },
+      { sql: 'COMMIT' },
+    ]);
+    const second = fixture([...begin(), { sql: 'ROLLBACK' }]);
+    let escaped!: PostgresDirectIssuerRequestStore;
+    class ReusingStore extends PostgresDirectIssuerRequestStore {
+      protected override createTransactionStore(): PostgresDirectIssuerRequestStore { return escaped; }
+    }
+    const work = vi.fn();
+    const reuse = async () => {
+      await expect(new ReusingStore(second.pool).withAccountTransaction('account-b', 'check-b', work))
+        .rejects.toThrow('issuer_account_transaction_store_invalid');
+      expect(work).not.toHaveBeenCalled();
+    };
+    await first.store.withAccountTransaction('account-a', 'check-a', async (bound) => {
+      escaped = bound as PostgresDirectIssuerRequestStore;
+      if (!closed) await reuse();
+      await bound.get('request-a');
+    });
+    if (closed) await reuse();
+    await expect(escaped.get('request-a')).rejects.toThrow('issuer_account_transaction_closed');
+    first.done();
+    second.done();
+  });
+
   it('pins all callback APIs to one connection, scopes reads and locks only targeted rows', async () => {
     const saved = record();
     const rows = [{ request_record: saved }];

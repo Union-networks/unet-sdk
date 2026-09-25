@@ -7,6 +7,7 @@ import { ledgerV2IssuerIdHash, ledgerV2RequestHash, type LedgerV2AnchorOperation
 export interface RecoveryInput {
   request: DirectIssuerRequestRecord;
   context: {
+    schemaId: string;
     chainId: number;
     ledgerAddress: string;
     issuerId: string;
@@ -125,7 +126,7 @@ function validateInput(input: RecoveryInput): void {
   keys(request, ['requestId', 'deliveryCapabilityHash', 'state', 'createdAtIso', 'updatedAtIso', 'serviceAccountRef',
     'checkId', 'holderBinding', 'deliveryPublicKey', 'holderRevocationSigner', 'claims', 'consent', 'idempotencyKey',
     'attestationHash', 'encryptedCredentialEnvelope', 'ledgerTransactionHash', 'replacedAttestationHash', 'renewalOfRequestId', 'failureCategory']);
-  keys(context, ['chainId', 'ledgerAddress', 'issuerId', 'issuerIdHash', 'issuerKeyEpoch', 'requiredConfirmations', 'credentialKeyId',
+  keys(context, ['schemaId', 'chainId', 'ledgerAddress', 'issuerId', 'issuerIdHash', 'issuerKeyEpoch', 'requiredConfirmations', 'credentialKeyId',
     'credentialKeyFingerprint', 'validFromEpoch', 'validUntilEpoch']);
   if (!request || !context || request.state !== 'pending'
     || ![request.requestId, request.serviceAccountRef, request.checkId, request.holderBinding,
@@ -135,6 +136,7 @@ function validateInput(input: RecoveryInput): void {
     || (request.renewalOfRequestId !== undefined && (!text(request.renewalOfRequestId) || request.renewalOfRequestId.length > 512))
     || request.attestationHash !== undefined || request.encryptedCredentialEnvelope !== undefined
     || request.ledgerTransactionHash !== undefined || request.failureCategory !== undefined
+    || !text(context.schemaId) || context.schemaId.length > 512 || context.schemaId.includes('\0')
     || !positiveInteger(context.chainId) || !matches(context.ledgerAddress, address)
     || !text(context.issuerId) || context.issuerIdHash !== ledgerV2IssuerIdHash(context.issuerId)
     || !positiveInteger(context.issuerKeyEpoch) || !positiveInteger(context.requiredConfirmations) || !text(context.credentialKeyId)

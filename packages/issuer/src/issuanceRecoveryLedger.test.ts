@@ -26,6 +26,7 @@ function submitted(): RecoveryRecord {
       createdAtIso: '2026-09-25T00:00:00.000Z', updatedAtIso: '2026-09-25T00:00:00.000Z',
     },
     context: {
+      schemaId: 'age-schema-v1',
       chainId: 31337, ledgerAddress: address('D'), issuerId: 'issuer-1',
       issuerIdHash: ledgerV2IssuerIdHash('issuer-1'), issuerKeyEpoch: 2, requiredConfirmations: 2,
       credentialKeyId: 'credential-private', credentialKeyFingerprint: hash('e'),

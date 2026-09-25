@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { SqlClient } from './directIssuerPostgres.js';
+import { TransactionalIssuanceRecoveryStore } from './issuanceRecoveryPostgres.js';
 import {
   claimRecoveryRecord, createRecoveryRecord, recoveryDigest,
   transitionRecoveryRecord, validateRecoveryRecord,
@@ -30,6 +32,7 @@ function input(): RecoveryInput {
       replacedAttestationHash: 'c'.repeat(64),
     },
     context: {
+      schemaId: 'age-schema-v1',
       chainId: 31337, ledgerAddress: address('d'), issuerId: 'issuer-1',
       issuerIdHash: ledgerV2IssuerIdHash('issuer-1'), issuerKeyEpoch: 2, requiredConfirmations: 1,
       credentialKeyId: 'credential-key-1', credentialKeyFingerprint: hash('e'),
@@ -180,6 +183,7 @@ describe('private issuance recovery canonical input', () => {
     ['claims array order', value => { (value.request.claims!.ordered as string[]).reverse(); }],
     ['consent text', value => { value.request.consent!.text += ' changed'; }],
     ['consent time', value => { value.request.consent!.acceptedAtIso = '2026-09-26T00:00:00.000Z'; }],
+    ['schemaId', value => { value.context.schemaId = 'age-schema-v2'; }],
     ['chainId', value => { value.context.chainId++; }],
     ['ledgerAddress', value => { value.context.ledgerAddress = address('2'); }],
     ['issuer identity', value => {
@@ -210,6 +214,68 @@ describe('private issuance recovery canonical input', () => {
     expect(record.input).toEqual(snapshot);
     (record.input.request.claims!.ordered as string[]).push('third');
     expect(original.request.claims!.ordered).toEqual(['first', 'second']);
+  });
+
+  it('rejects a missing schema on reservation and persisted record validation', () => {
+    const record = createRecoveryRecord(input(), NOW);
+    Reflect.deleteProperty(record.input.context, 'schemaId');
+    record.inputDigest = recoveryDigest(record.input);
+    expect(() => createRecoveryRecord(record.input, NOW)).toThrow('issuance_recovery_input_invalid');
+    expect(() => validateRecoveryRecord(record)).toThrow('issuance_recovery_input_invalid');
+  });
+
+  it.each([
+    { name: 'undefined', schemaId: undefined }, { name: 'null', schemaId: null },
+    { name: 'empty', schemaId: '' }, { name: 'overlong', schemaId: 's'.repeat(513) },
+    { name: 'NUL-containing', schemaId: 'schema\0v1' }, { name: 'number', schemaId: 1 },
+    { name: 'boolean', schemaId: true }, { name: 'array', schemaId: ['schema-v1'] },
+    { name: 'object', schemaId: { id: 'schema-v1' } },
+  ])('rejects $name schema on reservation and persisted record validation', ({ schemaId }) => {
+    const record = createRecoveryRecord(input(), NOW);
+    Object.assign(record.input.context, { schemaId });
+    record.inputDigest = recoveryDigest(record.input);
+    expect(() => createRecoveryRecord(record.input, NOW)).toThrow('issuance_recovery_input_invalid');
+    expect(() => validateRecoveryRecord(record)).toThrow('issuance_recovery_input_invalid');
+  });
+
+  it.each([1, 512])('accepts a schema of length %s', length => {
+    const candidate = input();
+    candidate.context.schemaId = 's'.repeat(length);
+    const record = createRecoveryRecord(candidate, NOW);
+    expect(record.input.context.schemaId).toBe(candidate.context.schemaId);
+    expect(() => validateRecoveryRecord(record)).not.toThrow();
+  });
+
+  it('preserves the reserved schema through a delayed preparation', () => {
+    const candidate = input();
+    const reserved = createRecoveryRecord(candidate, NOW);
+    candidate.context.schemaId = 'age-schema-v2';
+    const delayed = claimRecoveryRecord(reserved, OWNER, NOW + LEASE_MS)!;
+    const prepared = step(delayed, { kind: 'prepare', preparation: preparation() }, NOW + LEASE_MS);
+    expect(prepared.input.context.schemaId).toBe('age-schema-v1');
+    expect(prepared.inputDigest).toBe(reserved.inputDigest);
+  });
+
+  it('conflicts on the same request with a changed schema without overwriting the reservation', async () => {
+    const existing = freezeDeep(at('reserved'));
+    const query = vi.fn(async (sql: string, values?: unknown[]) => {
+      if (sql.includes('AS now_ms')) return { rows: [{ now_ms: NOW + 1 }] };
+      expect(sql).toMatch(/^SELECT .* FROM unet_issuance_recovery_v2 WHERE request_id=\$1 FOR UPDATE$/s);
+      expect(values).toEqual([existing.requestId]);
+      return { rows: [{
+        request_id: existing.requestId, record: existing, revision: existing.revision, phase: existing.phase,
+        lease_token: existing.leaseToken, lease_until_ms: existing.leaseUntilMs,
+        next_attempt_at_ms: existing.nextAttemptAtMs, created_at_ms: existing.createdAtMs,
+        updated_at_ms: existing.updatedAtMs,
+      }] };
+    });
+    const store = new TransactionalIssuanceRecoveryStore({ query: query as SqlClient['query'] });
+    const changed = input();
+    changed.context.schemaId = 'age-schema-v2';
+    await expect(store.reserve(changed)).rejects.toThrow('issuance_recovery_input_conflict');
+    await expect(store.reserve(input())).resolves.toEqual(existing);
+    expect(query).toHaveBeenCalledTimes(4);
+    expect(existing.input.context.schemaId).toBe('age-schema-v1');
   });
 
   it.each(['anchoring', 'ready', 'delivered', 'denied', 'failed', 'revoked', '', null])

@@ -69,6 +69,7 @@ function input(): RecoveryInput {
       claims: { eligibility: true, context: { b: 2, a: 1 } },
     },
     context: {
+      schemaId: 'synthetic_schema_v1',
       chainId: 31337, ledgerAddress: `0x${'33'.repeat(20)}`, issuerId: 'synthetic_issuer',
       issuerIdHash: ledgerV2IssuerIdHash('synthetic_issuer'), issuerKeyEpoch: 1, requiredConfirmations: 1,
       credentialKeyId: 'synthetic_credential_key', credentialKeyFingerprint: `0x${'44'.repeat(32)}`,

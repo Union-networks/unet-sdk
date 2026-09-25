@@ -54,6 +54,24 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
 
   public constructor(private readonly db: SqlClient) {}
 
+  /**
+   * Runs after BEGIN and local timeouts, before the SDK account/check advisory lock.
+   * Provider hooks must use only SQL on this guarded, pinned client (for example,
+   * policy-global locks and account FOR SHARE); no network calls or transaction control.
+   * The client must not be used after the transaction ends.
+   */
+  protected async beforeAccountTransaction(db: SqlClient, serviceAccountRef: string, checkId: string): Promise<void> {}
+
+  /**
+   * Trusted provider factory for retaining subclass create/update publication hooks.
+   * Return a fresh store constructed with exactly db, never a root or previously bound
+   * store. Overrides must preserve the base scope checks and use only this client for
+   * SQL; no network calls in provider hooks or the transaction callback.
+   */
+  protected createTransactionStore(db: SqlClient): PostgresDirectIssuerRequestStore {
+    return new PostgresDirectIssuerRequestStore(db);
+  }
+
   public async withAccountTransaction<T>(
     serviceAccountRef: string,
     checkId: string,
@@ -71,18 +89,24 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
     }
     let discard = false;
     let active = true;
-    const bound = new PostgresDirectIssuerRequestStore({
+    const transactionDb: SqlClient = {
       query: (text, values) => {
         if (!active) throw new Error('issuer_account_transaction_closed');
         return db.query(text, values);
       },
-    });
-    bound.transactionScope = scope;
+    };
     try {
       await db.query('BEGIN');
       await db.query("SET LOCAL lock_timeout = '5s'");
       await db.query("SET LOCAL statement_timeout = '10s'");
+      await this.beforeAccountTransaction(transactionDb, serviceAccountRef, checkId);
       await db.query('SELECT pg_advisory_xact_lock($1::bigint)', [key]);
+      const bound = this.createTransactionStore(transactionDb);
+      if (!(bound instanceof PostgresDirectIssuerRequestStore) || bound === this
+        || bound.db !== transactionDb || bound.transactionScope) {
+        throw new Error('issuer_account_transaction_store_invalid');
+      }
+      bound.transactionScope = scope;
       const result = await work(bound);
       active = false;
       await db.query('COMMIT');

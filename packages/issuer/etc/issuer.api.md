@@ -789,8 +789,10 @@ export interface LedgerV2Signer {
 // @public (undocumented)
 export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStore {
     constructor(db: SqlClient);
+    protected beforeAccountTransaction(db: SqlClient, serviceAccountRef: string, checkId: string): Promise<void>;
     // (undocumented)
     create(record: DirectIssuerRequestRecord): Promise<void>;
+    protected createTransactionStore(db: SqlClient): PostgresDirectIssuerRequestStore;
     // (undocumented)
     findActive(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]>;
     // (undocumented)

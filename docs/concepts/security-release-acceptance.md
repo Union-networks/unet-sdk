@@ -1801,3 +1801,19 @@ The isolated standards lab is not a prerequisite for reopening a proven secure
 Android release. It is not part of the stable SDK train and cannot authorize
 production login, credentials or messaging. Keep comparative results and fit
 gaps separate from the security acceptance matrix.
+## Provider Transaction Hook Follow-Up
+
+The September 25 local candidate retains provider policy/publication subclasses
+inside pinned account transactions and freezes the credential schema in the
+private recovery journal. All 726 issuer tests, issuer build, and API Extractor
+pass. The disposable real PostgreSQL suite was rerun: 25 cases passed with
+verified TLS, unchanged recorded sources, and owned-fixture cleanup.
+
+Receipt: `audit-2026-09-25/issuance-postgres/results/safety-0d7b43664abb40c79c85/result.json`.
+SHA-256: `7ef962223f15a14ceda028573fefeaac3ddd76c9b3c6d8684d00629ba7643bb5`.
+
+That database receipt exercises the actual SDK request/journal stores, not the
+complete Safety Center request route or an Android wallet. Safety's packed
+consumer, recovery-worker integration, and native pending-intent gates remain
+open. Nothing in this follow-up authorizes publication, activation, or reset.
+

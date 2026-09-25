@@ -48,13 +48,26 @@ credential, bearer, or idempotency record is generated for an identical replay.
 Custom stores must implement real transaction semantics; there is no unlocked
 fallback. The in-memory store is for tests and serializes transactions globally.
 
+PostgreSQL provider subclasses can implement `beforeAccountTransaction` to take
+their policy lock before the SDK account/check lock, and `createTransactionStore`
+to retain publication guards on the transaction-bound instance. The factory must
+return a fresh store constructed with the supplied guarded SQL client. Returning
+the root, a previously bound store, or a store on another client is rejected.
+The SQL client is closed when the callback ends; retained references cannot write
+after commit or rollback. These hooks perform SQL only, never builds or network
+calls. Providers must initialize their schemas before entering the transaction.
+
+The private recovery journal also freezes `schemaId` along with validity and
+signing-key context. A retry cannot replace that schema using a newer catalog
+response. This is not yet a public recovery-worker API.
+
 ## Remaining Release Gates
 
 - Persist native pending intents and secrets across Android main/miniapp
   processes before sending; retain and migrate required pending key material.
 - Integrate Safety's policy/account locks, request, recovery journal and
-  application projection in the same admission transaction. Overridden
-  `create`/`update` methods alone do not protect a new bound transaction store.
+  application projection in the same admission transaction. Providers must use
+  the bound-store factory so their `create`/`update` guards remain in effect.
 - Freeze credential configuration and validity; durably schedule issuance;
   coordinate issuer nonces and signed attempts with revocation operations.
 - Replace the existing synchronous `approve` failure behavior and unfenced
