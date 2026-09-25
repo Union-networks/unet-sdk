@@ -52,6 +52,16 @@ describe('direct issuer service', () => {
     expect(events).toEqual(['anchored', 'anchored']);
     await service.acknowledgeDelivery(replacement.requestId, childCapability, replacementReady.attestationHash!);
     expect(events).toEqual(['anchored', 'anchored', 'replaced-revoked']);
+    const delivered = await store.get(replacement.requestId);
+    await service.acknowledgeDelivery(replacement.requestId, childCapability, '0x' + replacementReady.attestationHash!.toUpperCase());
+    for (const invalid of ['ff'.repeat(32), '', '0x', 'not-a-hash']) {
+      await expect(service.acknowledgeDelivery(replacement.requestId, childCapability, invalid))
+        .rejects.toThrow('delivery_acknowledgement_invalid');
+    }
+    await expect(service.acknowledgeDelivery(replacement.requestId, 'wrong-capability', replacementReady.attestationHash!))
+      .rejects.toThrow('delivery_capability_invalid');
+    expect(await store.get(replacement.requestId)).toEqual(delivered);
+    expect(events).toEqual(['anchored', 'anchored', 'replaced-revoked']);
   });
 
   it('lists, denies, and revokes provider-owned requests without central storage', async () => {

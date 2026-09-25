@@ -306,8 +306,10 @@ export function createDirectIssuerService(options: DirectIssuerServiceOptions) {
     async acknowledgeDelivery(requestId: string, deliveryCapability: string, attestationHash: string): Promise<void> {
       const request = await options.store.get(requestId);
       if (!request || request.deliveryCapabilityHash !== hashCapability(deliveryCapability)) throw new Error('delivery_capability_invalid');
+      if (!['ready', 'delivered'].includes(request.state) || typeof attestationHash !== 'string'
+        || !/^(?:0x)?[a-fA-F0-9]{64}$/.test(attestationHash)
+        || request.attestationHash !== attestationHash.replace(/^0x/, '').toLowerCase()) throw new Error('delivery_acknowledgement_invalid');
       if (request.state === 'delivered') return;
-      if (request.state !== 'ready' || request.attestationHash !== attestationHash.replace(/^0x/, '').toLowerCase()) throw new Error('delivery_acknowledgement_invalid');
       await options.store.update({ ...request, state: 'delivered', updatedAtIso: now().toISOString() });
       if (request.replacedAttestationHash) {
         await options.revokeReplacedCredential({ requestId, attestationHash: request.replacedAttestationHash });
