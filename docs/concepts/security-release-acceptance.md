@@ -8,8 +8,9 @@ Latest local Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
 including the offline native-prover candidate and the legacy-reset SQL fence.
 It is not deployed. The new full-activity recovery build passes all three isolated
 offline crash cases, warm resumes and repeat startups; full release acceptance
-remains open. Genuine JNI/EVM acceptance is blocked before proof by test-host
-clock skew.
+remains open. A fresh genuine JNI-to-WASM/EVM run now passes authorization and
+old-grant registration revocation checks; full-wallet sender signing and
+send/fetch/acknowledgement acceptance remain open.
 See the September 25 follow-up sections below; earlier component passes do not
 override these open release gates.
 
@@ -1578,6 +1579,78 @@ provider database or ledger was changed by these local tests.
 The parent-workspace note `audit-2026-09-25/direct-issuance-recovery-gap.md`
 records the separate immutable-artifact, fenced-worker, receipt-reconciliation
 and delivery-capability recovery work. It is design/source-review evidence only.
+
+### Native Android Proof To Isolated EVM Acceptance
+
+The subsequent fresh owned-emulator run passed. Five new SSH midpoint samples
+measured the Windows clock approximately 3.94-3.99 seconds ahead, with 530-642 ms
+round trips. The stopped Windows time service alone did not establish a current
+gate failure. Original five-second guards stayed unchanged; earlier failed runs
+remain failures. This measurement does not replace proper clock synchronization.
+
+Evidence: parent-workspace
+`audit-2026-09-24/native-evm-candidate/cache/run-H8uDOp/evidence.json`, SHA256
+`76b7d492a7c2aa7e48ef1b5a24c878707ce0eaa9e80e8bb0d5ff946cb6893fe2`.
+Android build receipt SHA256:
+`5fed75e25418ec03638e20f4ce69443cba8a55a0b0bf828fbc6af3d5ba9cabde`.
+The owned AOSP Android 14 x86_64 emulator generated three actual JNI proofs for
+one freshly signed credential anchored on a disposable Besu Ledger V2 instance.
+The real WASM verifier, PostgreSQL and policy implementation accepted the intact
+proofs. Tampering, another sender, another challenge nonce and replay failed.
+No proof verifier or policy override was injected.
+
+After actual holder revocation, an old grant's sender registration was denied
+within an inclusion-relative upper bound of 6.511 seconds. Checks at approximately
+20.4 and 41.4 seconds remained denied, including after negative-cache expiry.
+This proves the registration subcase only, NOT the complete send/fetch/acknowledge
+freshness requirement. Sender signatures came from the Node test driver, not
+the Android wallet. Full-wallet integration, physical-phone acceptance, push and
+iOS remain separate gates.
+
+Fixture cleanup succeeded, the owned emulator session was released and stopped,
+and the original emulator's identity remained unchanged. The exact owned reverse
+tunnel was stopped after process identity verification. No production chain,
+wallet, service flag, reset or security epoch changed.
+
+### Private Issuance Recovery Journal Candidate
+
+The new issuer-private recovery kernel and PostgreSQL adapter freeze request,
+recipient, credential-key fingerprint, validity, chain, contract, issuer epoch
+and confirmation policy. They persist preparation, signed submission and receipt
+checkpoints under revision/token/database-clock fences. Retries retain immutable
+artifacts; a late worker cannot overwrite them. These modules are deliberately
+absent from the package's public entry point and are not used by production.
+
+All 317 focused state/SQL tests, all 381 issuer tests and issuer TypeScript
+checking passed. Real PostgreSQL 17 acceptance passed 16 cases using the actual store and queries:
+concurrent reservation/claim/transition, immutable conflicts, stale revisions,
+lease takeover, expiry during lock waits and after the clock sample, SQL rollback,
+JSON/index projection atomicity, deferred retries, corrupt-row rejection and
+rollback-failure connection eviction. The last case executes a real write,
+injects a lost response and failed rollback, verifies that the backend disappears
+and its uncommitted write rolls back, then completes a normal retry.
+The ledger artifacts in this suite are synthetic, not EVM acceptance.
+
+Receipt: parent-workspace
+`audit-2026-09-25/issuance-postgres/results/safety-5f31c20b2bc1505489ed/result.json`,
+SHA256 `6bd12fea3c8385e9838d5a8584ab7472a9ff90e260a2929ab6d5f8c70ed0fad4`.
+TLS encryption, plaintext rejection, foreign-CA rejection and hostname rejection
+passed. Source hashes stayed unchanged. The owned schema, container, network,
+forwarders and synthetic TLS files were cleaned up.
+
+The earlier 15-case receipt remains historical evidence for its exact source.
+Independent review then found failed rollback returning a damaged connection to
+the pool and regex coercion accepting array-valued addresses/hashes/signatures.
+Both are fixed and covered by regressions before the final 16-case run. Failed
+rollback now destroys the connection without replacing the original exception;
+immutable records reject non-string scalar values before persistence.
+
+This is a storage foundation, not completed issuance recovery. Its receipt
+checks enforce shape/bindings, not independent chain verification. A verified
+receipt resolver, provider-policy-locked publication, durable worker scheduling,
+issuer nonce/deadline recovery and authenticated delivery-capability recovery
+remain required. No public API, package release or production activation is
+approved by these results.
 
 ## Standards Evaluation Boundary
 
