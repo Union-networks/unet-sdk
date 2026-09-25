@@ -4,6 +4,32 @@ Updated 2026-09-25. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
+Additional local checkpoints on September 25, **not deployed or activated**:
+
+- Ledger `8d55bf34a5cfaad8dec283b038c069bb61649ea5`: confirmed target evidence
+  for saved issuer operations; 72 focused tests and TypeScript pass. A disposable
+  Besu run passes 14 cases, with 119 successful and 48 expected reverted receipts,
+  including actual holder and issuer revocation. Owned resources were removed.
+  Parent-observed receipt:
+  `audit-2026-09-25/anchor-reconciliation-contract/issuer-target-evm-evidence.json`.
+  This is not provider-worker, Android, or multi-validator acceptance.
+- Mobile `ac125a08e97b1408ea8cd7132cd01710b7c8062d`: immutable exact material
+  references and concurrent snapshot validation. Full Jest passes 99 suites /
+  1,558 tests; TypeScript passes. A separate review reproduced and verified the
+  fix for a concurrent-material reread race. Runtime delivery, publication,
+  proof, revocation, and migration consumers are not yet activated on this path.
+- SDK `82a5164e5811f76b5c2015776c43a1ddce08c99f`: repeated delivery ACKs must
+  match the exact commitment even after delivery. Issuer build and all 778 issuer
+  tests pass. This is local RC source, not a new published package version.
+
+Expanded real-PostgreSQL acceptance remains open. The first packed run passed
+40 cases before cancellation; the second passed 47, then cancelled during a
+compound replacement ACK case. That receipt does not prove a replacement-worker
+defect or a pass: its outer failure precedes the child assertion. Bounded timing
+and cancellation diagnostics are being added before rerunning. Neither run
+changed production; both verified owned-fixture cleanup. The original successful
+40-case receipt below remains valid only for its recorded source.
+
 Latest additional local Safety checkpoint: `ef8a1fd9a37f2b6c1b84243cd9d77a159dbad6ae`
 (Xevorius author and committer), **not deployed or activated**. Its private issuer
 operation ownership/signature-history primitive passes 27 unit cases and 17 real
