@@ -1718,11 +1718,42 @@ All TLS checks passed, source hashes were unchanged and both cleanup layers
 completed. Synthetic ledger artifacts remain clearly distinguished from EVM
 evidence.
 
+Local SDK checkpoint: `3e3ca90962d02faf68ba7f8e6ca0ef63b19ec3fc`.
+Local ledger checkpoint: `fc440ee69531edb7223d139ad4e51f8f76451da4`.
+Both author and committer are Xevorius. The latter also passes the real-EVM
+HTTP-route extension and all 11 ledger cases (96 successful, 42 deliberately
+reverted transactions). It uses an explicit candidate, not a real PostgreSQL
+index lookup. The disposable container/network and local tunnel were removed;
+post-run checks found no remaining test resources. See the ledger acceptance
+document for exact source hashes and execution scope.
+
 Still required: integration into the existing direct issuer service and Safety
 policy locks; immutable admission and authenticated lost-response delivery
 recovery; durable scheduling; shared issuer nonce and signed-attempt recovery;
 atomic application publication and replacement acknowledgement. No production
 reset, deployment, maintenance reopening or stable SDK promotion occurred.
+
+### Miniapp Credential Response Boundary
+
+Mobile local checkpoint `c53f6932eab4e46b23b1b68f75c2c9fde7766f5d` narrows
+`host.importProviderCredential` to `{ imported: true }` and
+`host.refreshAttestations` to `{ refreshed: true }`. Previously those responses
+serialized an internal credential record or the wallet's attestation inventory.
+Completion now sends no credential fields, capabilities, envelopes, local key
+references or inventory counts. Errors in those two actions return one fixed
+code, never raw provider bodies or exceptions. Existing permission and origin
+checks remain.
+
+Thirty-three tests execute the actual handler/catch/serializer source with
+native operations stubbed. Private canaries, future fields, hostile getters,
+asynchronous completion and permission/origin failures are covered. Six existing
+delivery/privacy tests and mobile typechecking also pass. The inspected Safety
+consumer only awaits `ok`; it does not require the removed wallet record.
+
+This is not an APK or physical-device pass. Import inputs still currently carry
+a provider-returned capability; durable native pending issuance and hash-only
+admission are unfinished. Other bridge actions and their legacy contracts are
+not implicitly approved by this focused fix. No production deployment occurred.
 
 ## Standards Evaluation Boundary
 
