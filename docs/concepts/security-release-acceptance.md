@@ -1,8 +1,15 @@
 # Security-2 acceptance record
 
-Updated 2026-09-24. This is an evidence ledger, not release approval.
+Updated 2026-09-25. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
+
+Latest local Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
+including the offline native-prover candidate and the legacy-reset SQL fence.
+It is not deployed. The new full-activity recovery build remains unaccepted,
+and genuine JNI/EVM acceptance is blocked before proof by test-host clock skew.
+See the September 25 follow-up sections below; earlier component passes do not
+override these open release gates.
 
 ## Candidate inventory
 
@@ -1123,6 +1130,191 @@ Two completed diagnostic Rust-target directories were removed after exact-path
 and active-process guards, reclaiming 4,530,769,920 bytes. Their source, APKs,
 keys, static dependencies, test evidence and AVDs were preserved. No production
 reset, ledger change, SDK promotion or service reopening occurred.
+
+## Additional September 25 Evidence
+
+Safety `58c7153` constrains revocation-worker persisted failure details to finite
+categories. Thirteen focused tests passed. Retry and ledger-confirmation semantics
+are unchanged; historical database errors were not purged and this is not deployed.
+
+Independent coverage2 review found a final deadline check and cancelled-verifier
+diagnostic race still missing from the acceptance harness. Coverage3 corrects
+those checks; 26 Node and 31 Python tests passed. Its manifest is
+`22518a3b2c80ff5975d66b555beafb6065c0f9e6d62f758aa05a2c555267c85f`.
+Build `full-activity-hazjk_m7` compiled both native ABIs but stopped at the capacity
+guard before Gradle assembly. A separately reviewed same-attempt continuation
+pins source, generated inputs, tools and signer; its eleven local guard tests
+passed. Assembly subsequently passed in 5m34s, including compiled-artifact audit.
+APK SHA256 is
+`e3db15d3204b3b2884e0f3d658a6394c44cabc4258a5c338047d01def9973154`,
+artifact receipt SHA256
+`523feb386896941abeb3c863d8e63892c63384917a93cf7f5a6cc80bbc8f0e00`.
+The executed continuation script SHA256 is
+`8fc4871dbf451d090722dd06723ef39cb9f9ef9b31e579f36bd1d5e9a6869d11`;
+the later local sidecar differs and was not executed. No native recompilation or
+cross-attempt generated-project reuse occurred. Device acceptance remains open.
+
+Native device attempt `native-device-gko18pu9` stopped at the original-emulator
+identity guard, before creating a device: the original uses the implicit default
+port. A narrowly pinned guard correction retained protection of that process.
+Google APIs attempt `native-device-8g2sn82a/native-device-o_insvtu` subsequently
+failed its strict second-boot ANR gate before APK installation. A GMS service ANR
+was observed, but the broader infrastructure root cause is not established.
+AOSP comparison `native-device-avzs97y3/native-device-8a_o4q0a` reached boot but
+exhausted the startup deadline during device identity checks, also before APK
+installation. Both owned emulator processes were removed and the original
+emulator identity was unchanged. Neither attempt is native application acceptance.
+
+Isolated EVM run `native-evm-candidate/cache/run-Ve9hmx` registered its disposable
+issuer and anchored a synthetic credential, then timed out awaiting Android.
+No native proof or authorization challenge was exercised. Owned-resource cleanup
+passed. A new runtime attempt must start only after the device lease is ready.
+
+The separately reviewed AOSP phase-deadline correction passed 29 local and remote
+guard tests. Run `native-device-8rcebyhw/native-device-x2k9mhw4` then passed clean
+boot1 and boot2 provisioning and installed the exact native target/test APKs.
+Its lease SHA256 is
+`1ca44b0a691e6bd3ab9b7b4a3161c9839282d3b684767c1eae8e672ce9117fee`.
+This is AOSP without GMS, not full-wallet, push or physical-device acceptance.
+
+Native/EVM run `native-evm-candidate/cache/run-FTO8F2` reached a real messaging
+challenge but the instrumented Android process aborted with SIGABRT in
+`nativeGenerateProof`, with Rust panic-unwind frames. No proof authorization
+passed. The pinned JNI invokes `setup_srs_from_bytecode` with no local SRS path;
+cached `noir_rs` source shows this downloads CRS data for each proof and unwraps
+network failures. The test UID permits only loopback traffic. This supplies a
+concrete panic path consistent with the crash, but the original panic payload
+was not captured; do not claim a completed runtime diagnosis or fix.
+
+Parent interruption stopped the driver before its automatic cleanup completed.
+After verifying exact owner labels and process termination, parent cleanup
+removed only that run's two disposable containers, network and local fixture
+secrets. `parent-interruption-cleanup.json` records that distinction; no automatic
+cleanup pass is claimed. The emulator lease was released, owned process cleanup
+passed, and the original emulator identity remained unchanged. Private crash
+evidence stays on the app plane; no proof or witness data was exported.
+
+Exact-path cleanup removed two inactive compiler-output directories and five
+older Android intermediate directories, reclaiming respectively 4,164,005,888
+and 5,275,774,976 bytes. Source, APKs, signing material, static dependencies,
+evidence and AVDs were preserved; APK hashes were checked across the second
+cleanup. These temporary outputs are outside ordinary release-build retention.
+
+No production deployment, reset, capability invalidation, SDK promotion or service
+reopening occurred. Vercel authorization for the narrow callback containment
+deployment still needs renewal.
+
+The revised counts-only log inventory passed 20 local and 20 U-chain mock tests.
+Live bounded scans on both planes returned `incomplete`, not clean: the trust
+user journal and APK-distribution journal reached their requested tail caps;
+the trust system journal was empty/unverified. Running and stopped selected
+Docker containers were included. The trust user-journal tail still contained
+40 other-secret-query markers and 2349 scoped-ID markers; `/var/log/syslog.1`
+contained four scoped-ID markers. No query-capability/bearer/cookie markers were
+reported for the selected container tails. Marker totals are overlapping pattern
+occurrences, not distinct credentials or proof of complete historical coverage.
+Only counts/status JSON was copied off-host. No log deletion or capability
+invalidation followed; shared journals, proxy/tracing coverage and older copies
+still require separate disposition.
+
+### Offline Native Prover Candidate
+
+Mobile `5fb072a23d9c2959919ae712c76700f8dd983293` replaces per-proof
+network SRS loading with immutable, hash-pinned public parameters, bounds native
+circuit capacity, serializes native operations and contains caller-thread Rust
+panics with fixed errors and process quarantine. FFI signatures and proving and
+verification settings are unchanged. This does not contain C++ aborts, OOM or
+dependency-thread panics, or prove the cause of the previous SIGABRT.
+
+Five source checks and seven Linux standalone Rust checks passed; the latter
+exercise the exact production capacity and panic-boundary modules, not a genuine
+proof. Source staging/build guards passed ten tests, including byte-exact binary
+parameter handling. Both x86_64 and arm64 JNI libraries and instrumented APKs
+compiled successfully from fresh offline source in `native-evm-build-nzhm56zd`.
+Stage SHA256 is
+`024e0f560e7daaef7697d88293fe4653808ec999467b464b8cc5bf7764c25769`;
+build receipt SHA256 is
+`5fed75e25418ec03638e20f4ce69443cba8a55a0b0bf828fbc6af3d5ba9cabde`.
+Target APK SHA256 is
+`3f30bc4b176f546fe580ff733cb75fa02ef36c14ee0f93b0039e6b2ff370e209`.
+The frozen stage README predates its source-pin update; source hashes and build
+receipt identify the new commit. Runtime proof acceptance is still pending.
+
+The separate same-APK AOSP recovery driver passed 48 local tests and 47 remote
+tests (one source-checkout-only test explicitly skipped on transfer). Its input
+and compiled-artifact identities were revalidated. Runtime results remain open;
+this driver cannot establish GMS, biometric or proof acceptance.
+
+Native device attempt `native-device-isk_g6s4/native-device-fphq507g` failed the
+strict second-boot ANR gate before either APK was installed. The retained counts
+identify SystemUI service timeouts, including one new second-boot ANR. KVM was
+available; no emulator KVM/graphics/OOM failure markers were found. Guest idle
+was 1.2% and steal 17.4% during the failing sample, versus 89-98% settled idle in
+the earlier healthy run. This is suggestive of scheduling pressure, not a proven
+cause. Owned cleanup succeeded and the original emulator identity was unchanged.
+A separately reviewed four-vCPU comparison changes only the disposable emulator's
+CPU count, retaining the image and strict deadlines/ANR checks. Host background
+update work also ended, so a passing comparison cannot isolate CPU count as cause.
+Its driver checksum manifest is
+`23a9cec2ec29a06c7442ba8f79d99c57cce24778ec26d4512688732db6ab4a98`.
+
+Four-CPU run `native-device-0xj9cw32/native-device-0c5l69zv` passed both boot
+health gates without observed ANRs and installed the exact new native APKs under
+loopback-only UID firewall rules. Lease SHA256:
+`9b379ba40c757e1ff2a9e745a54630d7ba10c0293de7bb04e1e728ae53662ff7`.
+This is OS/device provisioning, not proof acceptance. Disposable EVM attempts
+`run-n1YzmD` and `run-tLXqgs` anchored fresh synthetic commitments but stopped
+before Android submitted any proof. The second attempt's finite-category
+diagnostics confirmed `heartbeat_clock_skew_over_5_seconds`. Windows time service
+was stopped; U-chain reported synchronized NTP. The timing gate was not weakened,
+and no host clock was changed. Both attempts completed owned-resource cleanup;
+the device was released with clean teardown and original5554 identity unchanged.
+
+The parent runner now supports an owner-matched local stop request rather than
+depending on Windows Ctrl-C. Its cleanup checks captured directory identities
+before local mutations and independently bounds each child shutdown, so a failed
+stop cannot omit the remaining exact-owner cleanup. Twenty-seven focused mock
+tests passed, including never-exiting children, kill failures and directory
+replacement. The combined source-only suite passed 62 cases before the added
+failure-category test (eleven runtime-oracle cases now pass). These are runner
+tests, not Android authorization acceptance.
+
+Reviewed inactive compiler/intermediate cleanup reclaimed 3,609,522,176 bytes;
+finished APK hashes were unchanged. A fresh systemd check found the debug gateway
+`masked` and `inactive`, with no trigger units. Production remains paused.
+
+### Full-Activity Recovery Follow-Up
+
+The four-CPU AOSP run against unchanged APK `e3db15d3...9773154` reached
+`reset_verified` twice and `production_hydrated` after interruption immediately
+following secret deletion. The competing miniapp writer was rejected. Subsequent
+post-unlock verification failed `full_activity_reset_operation`; this is a failed
+scenario, not full recovery acceptance. The other two scenarios did not run.
+Evidence is retained under `full-activity-hazjk_m7/evidence/device-attempt-802uepj9`.
+Owned emulator cleanup succeeded and original5554 remained unchanged.
+
+Source inspection identified an automatic legacy-v4 migration that can advance
+the lifecycle epoch after security reset when its old SecureStore marker is
+absent. The observed failure is consistent with this path but did not record
+individual journal-operation categories. A new test overlay adds finite counts
+and epoch-match booleans, never operation IDs or epoch values, while preserving
+the strict one-operation/current-epoch assertion. Its source checks passed 26
+Node and 31 Python tests. Mobile commit
+`80c0b690abbfa0946ee37a58703da2457d006f94` adds the dedicated transactional
+legacy-reset fence: pending security reset rejects retryably; completed security
+reset supersedes migration without legacy secret deletion or marker writes.
+Generic reset semantics remain unchanged. Eighty-five real SQLite cases, including
+independent-connection races, and 224 chat tests passed; mobile typecheck passed.
+Independent source review found no blocker. A fresh Android recovery build remains
+under verification; previous failed evidence is unchanged. The stage manifest is
+`98656827aab9958c2329391cdebdf00ada261ae6d7701acb725abc092acafcd8`, with
+build ID `84b01dadf5d5e8f16c0733878779337e` and source archive
+`1124db59df81a4215a4c63b5c24b15ef953bc7f0bcf7a42037f0b5903512ceb4`.
+
+Additional exact-path cleanup reclaimed 1,908,121,600 bytes of completed native
+Rust output and 1,970,135,040 bytes of old Android intermediates. Final APK hashes
+were checked before and after; source, signing material, evidence, snapshots and
+AVDs were retained. These removals do not establish a general retention policy.
 
 ## Standards Evaluation Boundary
 
