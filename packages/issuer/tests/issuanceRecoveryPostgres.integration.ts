@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isIP } from 'node:net';
@@ -14,7 +14,7 @@ const requiredEnvironment = ['UNET_PROVIDER_TEST_DATABASE_URL', 'UNET_PROVIDER_T
   'UNET_ISSUANCE_TEST_OWNER', 'UNET_PROVIDER_TEST_SERVER_ADDRESS'] as const;
 const missingEnvironment = requiredEnvironment.filter(key => !process.env[key]);
 const waitLimit = 10_000;
-const caseCount = 18;
+const caseCount = 25;
 type Connection = Awaited<ReturnType<SqlPool['connect']>>;
 type FixturePool = SqlPool & { end(): Promise<void>; on(event: 'error', handler: () => void): void };
 
@@ -134,6 +134,7 @@ test('real PostgreSQL private issuance recovery acceptance', {
       [{ schema, schemas: [schema] }]);
     const { PostgresIssuanceRecoveryStore, TransactionalIssuanceRecoveryStore, ensureIssuanceRecoverySchema } = await bounded(import('../src/issuanceRecoveryPostgres.js'));
     const { PostgresDirectIssuerRequestStore, ensureDirectIssuerSchema } = await bounded(import('../src/directIssuerPostgres.js'));
+    const { createDirectIssuerService } = await bounded(import('../src/directIssuer.js'));
     const { recoveryDigest, validateRecoveryRecord } = await bounded(import('../src/issuanceRecovery.js'));
     const { ledgerV2IssuerIdHash, ledgerV2RequestHash } = await bounded(import('../src/ledgerV2.js'));
     await bounded(ensureIssuanceRecoverySchema(pool));
@@ -627,6 +628,105 @@ test('real PostgreSQL private issuance recovery acceptance', {
       await assert.rejects(outerTransaction(db => new TransactionalIssuanceRecoveryStore(db)
         .transition(r.requestId, r.leaseToken!, r.revision, { kind: 'complete' })));
       assert.equal((await projection(r.requestId)).phase, 'completed');
+    });
+    const admissionInput = () => {
+      const { requestId: _id, state: _state, createdAtIso: _created, updatedAtIso: _updated, ...request } = input().request;
+      return request;
+    };
+    const admissionService = (requests = new PostgresDirectIssuerRequestStore(pool!), mode: 'deny' | 'parallel' | 'replace_after_delivery' = 'deny') =>
+      createDirectIssuerService({ store: requests, replacementModeFor: async () => mode,
+        buildCredential: async () => { throw new Error('admission_must_not_build'); },
+        anchorCredential: async () => { throw new Error('admission_must_not_anchor'); },
+        revokeReplacedCredential: async () => { throw new Error('admission_must_not_revoke'); } });
+    const admissionBarrier = async <T>(start: () => Promise<T>[]): Promise<PromiseSettledResult<T>[]> => {
+      const db = await bounded(pool!.connect());
+      try {
+        await bounded(db.query('BEGIN'));
+        const pid = Number((await bounded(db.query('SELECT pg_backend_pid() AS pid'))).rows[0].pid);
+        await bounded(db.query('LOCK TABLE unet_attestation_requests_v2 IN SHARE MODE'));
+        const attempts = start().map(track);
+        await waitLocked(pid, attempts.length);
+        await bounded(db.query('COMMIT'));
+        return bounded(Promise.allSettled(attempts));
+      } finally { try { await bounded(db.query('ROLLBACK')); } finally { db.release(); } }
+    };
+    await runCase('actual admission concurrent identical retries converge on one durable request', async () => {
+      const request = admissionInput(), service = admissionService();
+      const results = await admissionBarrier(() => Array.from({ length: 4 }, () => service.createRequest(request)));
+      const values = results.map(result => { assert.equal(result.status, 'fulfilled'); return (result as PromiseFulfilledResult<Awaited<ReturnType<typeof service.createRequest>>>).value; });
+      values.forEach(value => assert.deepEqual(value, values[0]));
+      assert.deepEqual(Object.keys(values[0]).sort(), ['replacementRequired', 'requestId', 'state']);
+      assert.equal((await query('SELECT count(*)::int AS count FROM unet_attestation_requests_v2 WHERE service_account_ref=$1', [request.serviceAccountRef])).rows[0].count, 1);
+      assert.equal((await new PostgresDirectIssuerRequestStore(pool!).get(values[0].requestId))?.deliveryCapabilityHash, request.deliveryCapabilityHash);
+    });
+    await runCase('actual deny admission serializes competing idempotency keys', async () => {
+      const request = admissionInput(), service = admissionService();
+      const results = await admissionBarrier(() => [service.createRequest(request), service.createRequest({ ...request, idempotencyKey: 'competing' })]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      const failure = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+      assert.equal(failure.reason?.message, 'active_credential_exists');
+    });
+    await runCase('actual admission rejects conflicting intent without altering the winner', async () => {
+      const request = admissionInput(), service = admissionService();
+      const results = await admissionBarrier(() => [service.createRequest(request), service.createRequest({ ...request, deliveryCapabilityHash: 'b'.repeat(64) })]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      const failure = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+      assert.equal(failure.reason?.message, 'issuer_request_idempotency_conflict');
+      assert.equal((await query('SELECT count(*)::int AS count FROM unet_attestation_requests_v2 WHERE service_account_ref=$1', [request.serviceAccountRef])).rows[0].count, 1);
+    });
+    await runCase('lost COMMIT response is recovered by an identical admission retry', async () => {
+      let loseResponse = true;
+      const responseLossPool: SqlPool = { query: (sql, values) => pool!.query(sql, values), connect: async () => {
+        const db = await pool!.connect();
+        return { release: destroy => db.release(destroy), query: async <T extends Record<string, unknown>>(sql: string, values?: unknown[]) => {
+          const result = await db.query<T>(sql, values);
+          if (sql === 'COMMIT' && loseResponse) { loseResponse = false; throw new Error('synthetic_commit_response_lost'); }
+          return result;
+        } };
+      } };
+      const request = admissionInput();
+      await assert.rejects(track(admissionService(new PostgresDirectIssuerRequestStore(responseLossPool)).createRequest(request)), /^Error: synthetic_commit_response_lost$/);
+      const service = admissionService(), recovered = await track(service.createRequest(request));
+      assert.deepEqual(await track(service.createRequest(request)), recovered);
+      assert.equal((await query('SELECT count(*)::int AS count FROM unet_attestation_requests_v2 WHERE service_account_ref=$1', [request.serviceAccountRef])).rows[0].count, 1);
+    });
+    await runCase('account-wide idempotency cannot admit the same operation under another check', async () => {
+      const request = admissionInput(), service = admissionService(undefined, 'parallel');
+      const results = await admissionBarrier(() => [service.createRequest(request), service.createRequest({ ...request, checkId: 'other-check' })]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.equal((results.find(result => result.status === 'rejected') as PromiseRejectedResult).reason?.message, 'issuer_request_idempotency_conflict');
+      assert.equal((await query('SELECT count(*)::int AS count FROM unet_attestation_requests_v2 WHERE service_account_ref=$1', [request.serviceAccountRef])).rows[0].count, 1);
+    });
+    await runCase('admission transaction rollback leaves no request and permits retry', async () => {
+      const request = input().request, requests = new PostgresDirectIssuerRequestStore(pool!);
+      await assert.rejects(track(requests.withAccountTransaction(request.serviceAccountRef, request.checkId, async tx => {
+        await tx.create(request);
+        assert.equal(await requests.get(request.requestId), undefined);
+        throw new Error('synthetic_admission_failure');
+      })), /^Error: synthetic_admission_failure$/);
+      assert.equal(await requests.get(request.requestId), undefined);
+      await track(requests.withAccountTransaction(request.serviceAccountRef, request.checkId, tx => tx.create(request)));
+      assert.equal((await requests.get(request.requestId))?.state, 'pending');
+    });
+    await runCase('concurrent renewal converges and remains replayable after parent revocation', async () => {
+      const requests = new PostgresDirectIssuerRequestStore(pool!);
+      const parent = input().request;
+      const bearer = randomBytes(32).toString('base64url');
+      parent.deliveryCapabilityHash = createHash('sha256').update(bearer).digest('hex');
+      parent.state = 'delivered'; parent.attestationHash = 'e'.repeat(64);
+      await requests.create(parent);
+      const service = admissionService(requests, 'replace_after_delivery');
+      const renewal = { requestId: parent.requestId, deliveryCapability: bearer, deliveryCapabilityHash: 'f'.repeat(64),
+        holderBinding: 'next-holder', deliveryPublicKey: 'next-public-key', holderRevocationSigner: parent.holderRevocationSigner, idempotencyKey: 'next-request' };
+      const results = await admissionBarrier(() => [service.createRenewalRequest(renewal), service.createRenewalRequest(renewal)]);
+      const first = results[0], second = results[1];
+      assert.equal(first.status, 'fulfilled'); assert.equal(second.status, 'fulfilled');
+      if (first.status !== 'fulfilled' || second.status !== 'fulfilled') throw new Error('renewal_failed');
+      assert.deepEqual(first.value, second.value);
+      assert.equal((await requests.get(first.value.requestId))?.renewalOfRequestId, parent.requestId);
+      await requests.update({ ...parent, state: 'revoked' });
+      assert.deepEqual(await service.createRenewalRequest(renewal), first.value);
+      await assert.rejects(service.createRenewalRequest({ ...renewal, deliveryCapability: 'wrong' }), /^Error: renewal_capability_invalid$/);
     });
     assert.equal(cases, caseCount);
     assert.equal(fetchCalls, 0);

@@ -1,5 +1,10 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createDirectIssuerService, InMemoryDirectIssuerRequestStore } from './directIssuer.js';
+
+const firstCapability = 'wallet-generated-first-capability';
+const childCapability = 'wallet-generated-child-capability';
+const hashCapability = (value: string) => createHash('sha256').update(value).digest('hex');
 
 describe('direct issuer service', () => {
   it('stores encrypted delivery before anchoring and revokes a replacement only after acknowledgement', async () => {
@@ -26,24 +31,26 @@ describe('direct issuer service', () => {
       checkId: 'membership.test',
       holderBinding: 'holder-binding',
       deliveryPublicKey: 'delivery-key',
+      deliveryCapabilityHash: hashCapability(firstCapability),
       holderRevocationSigner: `0x${'33'.repeat(20)}`,
       idempotencyKey: 'first',
     });
     const ready = await service.approve(first.requestId);
-    await service.acknowledgeDelivery(first.requestId, first.deliveryCapability, ready.attestationHash!);
+    await service.acknowledgeDelivery(first.requestId, firstCapability, ready.attestationHash!);
 
     const replacement = await service.createRequest({
       serviceAccountRef: 'scoped-provider-account',
       checkId: 'membership.test',
       holderBinding: 'holder-binding-2',
       deliveryPublicKey: 'delivery-key-2',
+      deliveryCapabilityHash: hashCapability(childCapability),
       holderRevocationSigner: `0x${'44'.repeat(20)}`,
       idempotencyKey: 'second',
     });
     expect(replacement.replacementRequired).toBe(true);
     const replacementReady = await service.approve(replacement.requestId);
     expect(events).toEqual(['anchored', 'anchored']);
-    await service.acknowledgeDelivery(replacement.requestId, replacement.deliveryCapability, replacementReady.attestationHash!);
+    await service.acknowledgeDelivery(replacement.requestId, childCapability, replacementReady.attestationHash!);
     expect(events).toEqual(['anchored', 'anchored', 'replaced-revoked']);
   });
 
@@ -64,6 +71,7 @@ describe('direct issuer service', () => {
     });
     const deniedRequest = await service.createRequest({
       serviceAccountRef: 'account-a', checkId: 'check-a', holderBinding: 'binding', deliveryPublicKey: 'delivery',
+      deliveryCapabilityHash: hashCapability(firstCapability),
       holderRevocationSigner: `0x${'11'.repeat(20)}`, idempotencyKey: 'deny-a',
     });
     expect((await service.deny(deniedRequest.requestId)).state).toBe('denied');
@@ -71,6 +79,7 @@ describe('direct issuer service', () => {
 
     const issuedRequest = await service.createRequest({
       serviceAccountRef: 'account-a', checkId: 'check-a', holderBinding: 'binding', deliveryPublicKey: 'delivery',
+      deliveryCapabilityHash: hashCapability(childCapability),
       holderRevocationSigner: `0x${'33'.repeat(20)}`, idempotencyKey: 'issue-a',
     });
     const ready = await service.approve(issuedRequest.requestId);
@@ -81,12 +90,12 @@ describe('direct issuer service', () => {
     })).rejects.toThrow('revocation_capability_invalid');
     await expect(service.authorizeRevocation({
       requestId: issuedRequest.requestId,
-      deliveryCapability: issuedRequest.deliveryCapability,
+      deliveryCapability: childCapability,
       attestationHash: `${'ff'.repeat(32)}`,
     })).rejects.toThrow('revocation_commitment_mismatch');
     await expect(service.authorizeRevocation({
       requestId: issuedRequest.requestId,
-      deliveryCapability: issuedRequest.deliveryCapability,
+      deliveryCapability: childCapability,
       attestationHash: ready.attestationHash!,
     })).resolves.toMatchObject({
       serviceAccountRef: 'account-a',
@@ -117,16 +126,18 @@ describe('direct issuer service', () => {
       checkId: 'membership.messaging-access',
       holderBinding: 'holder-a',
       deliveryPublicKey: 'delivery-a',
+      deliveryCapabilityHash: hashCapability(firstCapability),
       holderRevocationSigner: `0x${'11'.repeat(20)}`,
       claims: { membership_id: 'messaging-access', service_account_generation: 'generation-a' },
       idempotencyKey: 'initial',
     });
     const ready = await service.approve(first.requestId);
-    await service.acknowledgeDelivery(first.requestId, first.deliveryCapability, ready.attestationHash!);
+    await service.acknowledgeDelivery(first.requestId, firstCapability, ready.attestationHash!);
 
     await expect(service.createRenewalRequest({
       requestId: first.requestId,
       deliveryCapability: 'wrong-capability',
+      deliveryCapabilityHash: hashCapability(childCapability),
       holderBinding: 'holder-b',
       deliveryPublicKey: 'delivery-b',
       holderRevocationSigner: `0x${'22'.repeat(20)}`,
@@ -135,7 +146,8 @@ describe('direct issuer service', () => {
 
     const renewal = await service.createRenewalRequest({
       requestId: first.requestId,
-      deliveryCapability: first.deliveryCapability,
+      deliveryCapability: firstCapability,
+      deliveryCapabilityHash: hashCapability(childCapability),
       holderBinding: 'holder-b',
       deliveryPublicKey: 'delivery-b',
       holderRevocationSigner: `0x${'22'.repeat(20)}`,
@@ -145,8 +157,10 @@ describe('direct issuer service', () => {
     expect(renewalRecord?.serviceAccountRef).toBe('scoped-account-a');
     expect(renewalRecord?.claims?.service_account_generation).toBe('generation-a');
     expect(renewalRecord?.replacedAttestationHash).toBe(ready.attestationHash);
+    expect(renewalRecord?.renewalOfRequestId).toBe(first.requestId);
+    expect(renewal).not.toHaveProperty('deliveryCapability');
     const renewedReady = await service.approve(renewal.requestId);
-    await service.acknowledgeDelivery(renewal.requestId, renewal.deliveryCapability, renewedReady.attestationHash!);
+    await service.acknowledgeDelivery(renewal.requestId, childCapability, renewedReady.attestationHash!);
     expect(revoked).toEqual([ready.attestationHash]);
   });
 });

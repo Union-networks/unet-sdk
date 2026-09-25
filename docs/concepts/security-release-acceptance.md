@@ -1755,6 +1755,46 @@ a provider-returned capability; durable native pending issuance and hash-only
 admission are unfinished. Other bridge actions and their legacy contracts are
 not implicitly approved by this focused fix. No production deployment occurred.
 
+### Hash-Only Admission Integration
+
+The existing direct issuer service now takes a wallet-generated delivery hash,
+not a server-generated bearer. Creation and renewal return only an opaque
+reference, lifecycle state and replacement flag. Matching retries converge;
+changed intent fails. The HTTP adapter requires an authenticated provider
+account and has bounded body reads. Admission is serialized against pending
+and active requests by the actual PostgreSQL store.
+
+All 25 real PostgreSQL cases pass, including seven new direct-service cases:
+concurrent matching/conflicting requests, pending duplicate policy, cross-check
+idempotency collision, rollback, a lost real COMMIT response, and renewal replay
+after parent revocation. Ledger artifacts remain synthetic; no build or chain
+operation is called by admission. The fixture's source hashes and TLS checks
+pass, and independent checks confirm resource removal.
+
+Receipt: parent-workspace
+`audit-2026-09-25/issuance-postgres/results/safety-f0c8dd1a52517c6373c8/result.json`,
+SHA256 `36a55e576b21eae879ac68342f2470c94f4d1154b37d530a6c5a6359ae926d84`.
+
+See [Recoverable Direct Issuer Admission](./issuer-request-admission.md) for the
+breaking contract and open integration gates. Safety policy/application/journal
+publication, durable workers/nonce coordination, native pending secrets and
+physical-device acceptance remain open. This is not production activation.
+
+Local verification also passes all 697 issuer tests, issuer build, explicit
+TypeScript checking of changed tests/integration source, and API Extractor. The
+125 initial focused passes exposed one locked-body error-classification defect;
+after fixing it, all 126 targeted cases pass. The new major Changeset and API
+report record the incompatible admission contract; no package was published.
+
+Mobile checkpoint `53bff79a05e774312c883ce338d9e53dd44287ff` further removes the
+reusable device-delivery capability from miniapp notification replies, rejects
+retired central bridge paths in core2, and maps remaining bridge failures to
+finite codes. The maintained dashboard, Safety and supermarket use provider
+request references; stale local Web/Issuer checkouts are not deployed-consumer
+evidence. All 97 mobile suites / 1,390 tests and mobile TypeScript pass, including
+91 actual-source bridge response tests. No APK or physical-device acceptance is
+claimed for this checkpoint. Both Git identity fields are Xevorius.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure

@@ -63,15 +63,13 @@ export function createCredentialEnvelopeV2(input: {
 
 // @public (undocumented)
 export function createDirectIssuerService(options: DirectIssuerServiceOptions): {
-    createRequest(input: DirectIssuerRequestInput): Promise<{
+    createRequest(raw: DirectIssuerRequestInput): Promise<{
         requestId: string;
-        deliveryCapability: string;
         state: DirectIssuerRequestState;
         replacementRequired: boolean;
     }>;
-    createRenewalRequest(input: DirectIssuerRenewalInput): Promise<{
+    createRenewalRequest(raw: DirectIssuerRenewalInput): Promise<{
         requestId: string;
-        deliveryCapability: string;
         state: DirectIssuerRequestState;
         replacementRequired: true;
     }>;
@@ -275,6 +273,8 @@ export interface DirectIssuerRenewalInput {
     // (undocumented)
     deliveryCapability: string;
     // (undocumented)
+    deliveryCapabilityHash: string;
+    // (undocumented)
     deliveryPublicKey: string;
     // (undocumented)
     holderBinding: string;
@@ -297,6 +297,7 @@ export interface DirectIssuerRequestInput {
         text: string;
         acceptedAtIso: string;
     };
+    deliveryCapabilityHash: string;
     // (undocumented)
     deliveryPublicKey: string;
     // (undocumented)
@@ -316,13 +317,13 @@ export interface DirectIssuerRequestRecord extends DirectIssuerRequestInput {
     // (undocumented)
     createdAtIso: string;
     // (undocumented)
-    deliveryCapabilityHash: string;
-    // (undocumented)
     encryptedCredentialEnvelope?: Record<string, unknown>;
     // (undocumented)
     failureCategory?: string;
     // (undocumented)
     ledgerTransactionHash?: string;
+    // (undocumented)
+    renewalOfRequestId?: string;
     // (undocumented)
     replacedAttestationHash?: string;
     // (undocumented)
@@ -347,6 +348,8 @@ export interface DirectIssuerRequestStore {
     // (undocumented)
     findByIdempotency(serviceAccountRef: string, idempotencyKey: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
+    findPending(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]>;
+    // (undocumented)
     get(requestId: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
     list(input?: {
@@ -356,6 +359,8 @@ export interface DirectIssuerRequestStore {
     }): Promise<DirectIssuerRequestRecord[]>;
     // (undocumented)
     update(record: DirectIssuerRequestRecord): Promise<void>;
+    // (undocumented)
+    withAccountTransaction<T>(serviceAccountRef: string, checkId: string, work: (store: DirectIssuerRequestStore) => Promise<T>): Promise<T>;
 }
 
 // @public (undocumented)
@@ -398,6 +403,9 @@ export interface DirectIssuerServiceOptions {
 
 // @public (undocumented)
 export interface DirectIssuerWebAdapterOptions {
+    authenticateAccount: (request: Request) => Promise<{
+        serviceAccountRef: string;
+    } | undefined>;
     // (undocumented)
     authorizeManagement: (request: Request) => Promise<boolean>;
     // (undocumented)
@@ -605,6 +613,8 @@ export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStor
     // (undocumented)
     findByIdempotency(serviceAccountRef: string, idempotencyKey: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
+    findPending(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]>;
+    // (undocumented)
     get(requestId: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
     list(input?: {
@@ -614,6 +624,8 @@ export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStor
     }): Promise<DirectIssuerRequestRecord[]>;
     // (undocumented)
     update(record: DirectIssuerRequestRecord): Promise<void>;
+    // (undocumented)
+    withAccountTransaction<T>(serviceAccountRef: string, checkId: string, work: (store: DirectIssuerRequestStore) => Promise<T>): Promise<T>;
 }
 
 // @public (undocumented)
@@ -786,6 +798,8 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
     // (undocumented)
     findByIdempotency(serviceAccountRef: string, idempotencyKey: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
+    findPending(serviceAccountRef: string, checkId: string): Promise<DirectIssuerRequestRecord[]>;
+    // (undocumented)
     get(requestId: string): Promise<DirectIssuerRequestRecord | undefined>;
     // (undocumented)
     list(input?: {
@@ -795,6 +809,8 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
     }): Promise<DirectIssuerRequestRecord[]>;
     // (undocumented)
     update(record: DirectIssuerRequestRecord): Promise<void>;
+    // (undocumented)
+    withAccountTransaction<T>(serviceAccountRef: string, checkId: string, work: (store: DirectIssuerRequestStore) => Promise<T>): Promise<T>;
 }
 
 // @public (undocumented)

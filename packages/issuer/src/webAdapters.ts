@@ -8,17 +8,43 @@ const json = (value: unknown, status = 200): Response => new Response(JSON.strin
 });
 
 const body = async <T extends JsonObject>(request: Request): Promise<T> => {
-  const value = await request.json().catch(() => undefined);
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('request_body_invalid');
-  return value as T;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  try { reader = request.body?.getReader(); }
+  catch { throw new Error('request_body_invalid'); }
+  if (!reader) throw new Error('request_body_invalid');
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('request_body_invalid')), 5_000); });
+  try {
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    for (;;) {
+      const result = await Promise.race([reader.read(), deadline]);
+      if (result.done) break;
+      length += result.value.byteLength;
+      if (length > 65_536) throw new Error('request_body_invalid');
+      chunks.push(result.value);
+    }
+    const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('request_body_invalid');
+    return value as T;
+  } catch {
+    throw new Error('request_body_invalid');
+  } finally {
+    clearTimeout(timer);
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
 };
 
 // Only exact service/adapter codes are public. Store/provider exceptions may
 // contain credentials or request URLs and must never become response text.
 const publicErrors = new Map<string, number>([
   ['request_body_invalid', 400], ['issuer_management_authorization_required', 401],
+  ['issuer_account_authorization_required', 401], ['issuer_account_mismatch', 403],
   ['issuer_request_invalid', 400], ['holder_revocation_signer_invalid', 400],
   ['issuer_request_idempotency_replayed', 409], ['active_credential_exists', 409],
+  ['issuer_request_idempotency_conflict', 409], ['issuer_request_in_progress', 409],
+  ['issuer_replacement_state_invalid', 409], ['issuer_replacement_policy_invalid', 503],
   ['renewal_capability_invalid', 401], ['credential_not_renewable', 409],
   ['issuer_renewal_invalid', 400], ['issuer_request_not_pending', 409],
   ['attestation_hash_invalid', 400], ['attestation_hash_missing_after_build', 503],
@@ -37,6 +63,8 @@ const failure = (error: unknown): Response => {
 /** @public */
 export interface DirectIssuerWebAdapterOptions {
   service: DirectIssuerService;
+  /** Validate the provider session, request origin and CSRF protection; never derive this from the JSON body. */
+  authenticateAccount: (request: Request) => Promise<{ serviceAccountRef: string } | undefined>;
   authorizeManagement: (request: Request) => Promise<boolean>;
 }
 
@@ -49,7 +77,11 @@ export function createDirectIssuerWebHandlers(options: DirectIssuerWebAdapterOpt
   return {
     createRequest: async (request: Request): Promise<Response> => {
       try {
-        return json({ success: true, ...(await options.service.createRequest(await body<DirectIssuerRequestInput & JsonObject>(request))) }, 201);
+        const account = await options.authenticateAccount?.(request);
+        if (!account || typeof account.serviceAccountRef !== 'string' || !account.serviceAccountRef.trim()) throw new Error('issuer_account_authorization_required');
+        const input = await body<DirectIssuerRequestInput & JsonObject>(request);
+        if (input.serviceAccountRef !== undefined && input.serviceAccountRef !== account.serviceAccountRef) throw new Error('issuer_account_mismatch');
+        return json({ success: true, ...(await options.service.createRequest({ ...input, serviceAccountRef: account.serviceAccountRef })) }, 201);
       } catch (error) {
         return failure(error);
       }

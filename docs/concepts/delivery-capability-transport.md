@@ -1,5 +1,10 @@
 # Credential Delivery Transport And Exposure Gate
 
+For the subsequently staged hash-only creation and renewal contract, see
+[Recoverable Direct Issuer Admission](./issuer-request-admission.md). The
+header-only transport patch described below does not by itself implement that
+native-wallet/provider recovery integration.
+
 ## Header-Only Contract
 
 The SDK 2 release-candidate delivery adapter and Safety delivery route accept:

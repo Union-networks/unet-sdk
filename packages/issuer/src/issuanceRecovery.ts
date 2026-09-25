@@ -124,7 +124,7 @@ function validateInput(input: RecoveryInput): void {
   const context = input?.context;
   keys(request, ['requestId', 'deliveryCapabilityHash', 'state', 'createdAtIso', 'updatedAtIso', 'serviceAccountRef',
     'checkId', 'holderBinding', 'deliveryPublicKey', 'holderRevocationSigner', 'claims', 'consent', 'idempotencyKey',
-    'attestationHash', 'encryptedCredentialEnvelope', 'ledgerTransactionHash', 'replacedAttestationHash', 'failureCategory']);
+    'attestationHash', 'encryptedCredentialEnvelope', 'ledgerTransactionHash', 'replacedAttestationHash', 'renewalOfRequestId', 'failureCategory']);
   keys(context, ['chainId', 'ledgerAddress', 'issuerId', 'issuerIdHash', 'issuerKeyEpoch', 'requiredConfirmations', 'credentialKeyId',
     'credentialKeyFingerprint', 'validFromEpoch', 'validUntilEpoch']);
   if (!request || !context || request.state !== 'pending'
@@ -132,6 +132,7 @@ function validateInput(input: RecoveryInput): void {
       request.deliveryPublicKey, request.idempotencyKey].every(text)
     || !matches(request.deliveryCapabilityHash, /^[0-9a-f]{64}$/)
     || !matches(request.holderRevocationSigner, address)
+    || (request.renewalOfRequestId !== undefined && (!text(request.renewalOfRequestId) || request.renewalOfRequestId.length > 512))
     || request.attestationHash !== undefined || request.encryptedCredentialEnvelope !== undefined
     || request.ledgerTransactionHash !== undefined || request.failureCategory !== undefined
     || !positiveInteger(context.chainId) || !matches(context.ledgerAddress, address)
