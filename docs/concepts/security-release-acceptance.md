@@ -21,8 +21,8 @@ override these open release gates.
 | Messaging | `69c2811da190e95994862594f30f8e430154e5d7`, maintenance enabled |
 | Trust/dashboard backend | `69534ce0f6910b382a070b408393746ff1ccd390` |
 | Dashboard frontend | `b856e563bf90611e19720afc29485388b8bcc203` |
-| Safety Center | `5286eaef48455efc4aa67674b493c1afd45c0cda`; Vercel `6MfaZ3dQ4BcnJcGPg7bvZFjgWFK3` |
-| Supermarket | `fd75ef66acc8f5d906b15852753dfe66a3a889f6`; Vercel `gvApShTNecnyH8DyqhVr6bB3gggJ` |
+| Safety Center | `b999d37ee42f69f4f7670d0dd7e4093c052281e7`; Vercel `2bUeNBtnoVvdD2Vx9H4b22Lapoan`; maintenance-only callback containment |
+| Supermarket | `cfcca3f10154b79574c2f645e59fd7580ec3d92a`; Vercel `GnabRTDmsmMvSsx4zKDKSFHnfudd`; maintenance-only callback containment |
 | Android checkpoint | `d7a061a65d68c0630fa059cc8b5bdec391fe1e5b`; debug APK SHA256 `4ca40c0d4e4bcb26f2d882b9959b8da759a00d640d6ef63c836212d7623a04ed` |
 | Isolated Android LAN candidate (not production) | Mobile `aa8aedd763b2d252e63f28730147d5128e7a14f6`; private build overlay SHA256 `472a1171d8f118f1715cf89cbec17dac7b9538129fa42821df1b114739853fc3`; APK SHA256 `13e206b372359c9094e0624993999c053af69dffff1a811b7b6dd9349f81ade2`; physical miniapp login/biometric retry reported, physical QR scan failed; replacement required |
 | Isolated Android scanner replacement (not production) | Same mobile base plus overlay `a6e710ee4f41374a19f526a51ce797eebaabf382eebd58ae1879318b05cb04ca`; APK `924dc59029589877ff50c94517e43f3db691ee09f70139dc3db455595efa10f7`; compiled-artifact and native small/dense pixel-decoding checks pass on app-plane emulator; physical QR scan, approval and browser login passed per user report on 2026-09-17. Test-only decoder replacement is not production camera acceptance. |
@@ -1449,7 +1449,7 @@ Both author and committer are `Xevorius <tim.is@live.nl>`. Each commit has exact
 one changed matcher line and the verified production revision as its parent.
 Four containment checks pass; actual worktree contents separately match the
 expected one-line transformation. Newer provider auth/TLS work was not included.
-Neither branch was pushed or deployed. Vercel CLI requires a fresh login; the
+At this preparation checkpoint neither branch was pushed or deployed. Vercel CLI required a fresh login; the
 signed-in browser displayed a disabled authorization button and the bounded CLI
 attempt ended without authorization. No UI restriction was bypassed.
 
@@ -1457,6 +1457,79 @@ Windows time service remains stopped. The final read-only midpoint probe estimat
 the PC 4.312 seconds ahead of U-chain with 527 ms round trip. This is not clock
 synchronization or a new proof-test pass. The earlier signed-heartbeat failure
 remains open; no clock, timing guard or production maintenance flag was changed.
+
+### Provider Containment Deployment
+
+The normal Git integration subsequently removed the CLI authorization blocker
+for these two patches. Both preview builds succeeded; preview endpoint access
+remained protected/blocked and is NOT counted as an HTTP acceptance pass.
+
+[Safety PR 2](https://github.com/Union-networks/unet-safety-center/pull/2) and
+[Supermarket PR 1](https://github.com/Union-networks/unet-demo-supermarket/pull/1)
+were fast-forwarded through ordinary Git permissions, without force or an admin
+bypass. GitHub marked both merged. Remote `main` retains the exact reviewed
+commits above, with `Xevorius <tim.is@live.nl>` as author AND committer. Each diff
+is one matcher line; no newer provider auth, database TLS, worker or SDK changes
+were bundled into this containment release.
+
+Vercel confirms Ready, Production, Current and the expected custom domain for:
+
+- Safety `2bUeNBtnoVvdD2Vx9H4b22Lapoan`, source `b999d37`.
+- Supermarket `GnabRTDmsmMvSsx4zKDKSFHnfudd`, source `cfcca3f`.
+
+All four local matcher/maintenance checks passed again. Ten bounded production
+GET checks passed: `/api/unet/domain-admin/issue`, `/api/unet/domain-admin/revoke`
+and `/api/unet/login/challenge` return 503 with the expected fixed error,
+`no-store`, retry-after 300, and no session cookie or redirect, on both providers.
+Both well-known public JSON manifests still return 200 on both providers.
+The reproducible read-only probe is
+`audit-2026-09-25/verify-provider-containment.mjs` in the parent workspace.
+No worker route, POST, credential, account or session data was submitted.
+
+This closes the narrow deployed callback-maintenance gap only. It does not prove
+callback authentication/durability, approve production login or messaging, or
+authorize toggling the shared maintenance flag off. Production reset, security
+epoch activation and stable SDK promotion remain unperformed.
+
+### Revocation Worker Fencing Candidate
+
+Safety source `d581569c587f1fcf8622748424d6913413c9ac51` is committed locally
+with Xevorius as author and committer, but is NOT deployed. It adds random
+five-minute database-clock job leases, stale-owner confirmation/retry fencing,
+and conflict-safe concurrent enqueue. Job confirmation and both exact-credential
+child updates commit together. A same-account replacement is not revoked by an
+older job. Both completion and retry acquire the row lock before checking current
+expiry, with transaction-local lock and statement deadlines.
+
+All 54 focused mock/SQL tests and both isolation wrappers passed. The broader
+Safety suite and TypeScript check passed; environment-gated PostgreSQL cases in
+the broad suite were not counted as database acceptance.
+
+A separate real PostgreSQL 17 run passed all 22 cases in
+`audit-2026-09-25/revocation-postgres/results/safety-40242845b047be4968b6`.
+Receipt SHA256:
+`3b674f0122b82dbfcf342fb0693a13e50d1b506c8128bbc335afdbe4e1085631`.
+The suite uses the actual schema, worker and database queries; ONLY ledger calls
+are mocked. It checks concurrent enqueue/claim, immutable conflicts, legacy and
+expired leases, paused old workers, unchanged-row lock waits, child-write rollback,
+finite error categories/backoff, and replacement preservation. All sources stayed
+hash-identical during execution. TLS encryption and negative plaintext, foreign-CA
+and hostname tests passed. The owned schema, container, internal network,
+forwarding processes and synthetic TLS files were cleaned up.
+
+Three earlier failed fixture runs remain recorded. The first exposed PostgreSQL
+`name[]` decoding in the test, corrected with an explicit `text[]` cast. The next
+two stopped after 13 cases; diagnostics established a ten-second timeout in the
+single grouped backoff case. Its seven unchanged samples are now separate
+ten-second cases. A four-minute overall test/five-minute child deadline bounds the
+larger suite; no production lease, policy, heartbeat or network limit was relaxed.
+
+This is database-state fencing, not exactly-once EVM submission. A lease check
+cannot retract an already-started network request. All old unfenced worker
+versions must be stopped/drained before rollout. Domain-admin issuance durability,
+real native Android-to-EVM acceptance, phone verification and the production
+cutover remain separate open gates. No provider database or ledger was changed
+by these fixtures.
 
 ## Standards Evaluation Boundary
 
