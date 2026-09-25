@@ -1817,3 +1817,41 @@ complete Safety Center request route or an Android wallet. Safety's packed
 consumer, recovery-worker integration, and native pending-intent gates remain
 open. Nothing in this follow-up authorizes publication, activation, or reset.
 
+## September 25 Provider and Native Recovery Evidence
+
+| Area | Implemented | Verified | Deployed / activated |
+| --- | --- | --- | --- |
+| Actual Safety admission/publication SQL | `735e3594bf9f338a57145c543a32747782adbf52` | 23 real PostgreSQL 17 cases, TLS checks, owned cleanup; credential construction and external chain mocked | No |
+| Gateway cancellation observation | Ledger `98effbe` | 12 disposable deployed-EVM cases, 103 successful transactions and 44 expected mined reverts; includes real HTTP cancellation route | No |
+| Safety cancellation client and catalog bounds | `2a4c2b3ccd2f2f913bcbb19dad9ff07f896ff4cc` | 618 packed-consumer tests and full unchanged Safety typecheck | No |
+| Android credential broker | Mobile `563d905d2468583e9f63898b7b33ba276e2ffa7d` | Five issuance and ten existing native storage tests on isolated app-plane emulator; provider compiled, RN module not compiled | No |
+| Native pending issuance journal and exact tuple keys | Same mobile checkpoint, unconnected | Mobile 98 suites / 1,502 tests and TypeScript plus independent real-wrapper checks; no full activity issuance acceptance | No |
+
+PostgreSQL receipt: parent-workspace
+`audit-2026-09-25/issuance-postgres/results/safety-42f609885b6205536d4e/result.json`,
+SHA-256 `fff66103f1b85f03a61c94362beccbe0652b292ff8c5e3164febf56d1d81347a`.
+EVM receipt: `audit-2026-09-25/anchor-reconciliation-contract/cancellation-route-evm-evidence.json`,
+SHA-256 `02828c6cc6e2509465eec9937bac8354ae03549e69316e62b27a9826b9389c6a`.
+Packed receipt: `audit-2026-09-25/issuer-packed-consumer/evidence/f41131d7-bb1c-4c64-a520-d51306e9cc6b.json`,
+SHA-256 `ceab6b61e0f27a204a579bd96a585385f8a6b4788300106d5fc4eea36cc6234c`.
+The packed candidate SDK is `3626690b0110ca5a4c9562ab5eb5320bbb64e84d`;
+this is not evidence that the published rc.2 already contains these changes.
+
+The cancellation helper is a trusted-gateway observation, not a light-client
+proof. It checks the saved attempt history but does not release an issuer nonce
+or cancel the journal. Issuer-wide anchor/revoke coordination and revision-fenced
+terminal transitions remain prerequisites, along with atomic acknowledgement and
+predecessor revocation.
+
+Native review found valid legacy key aliases such as `(alice.dev, shop)` and
+`(alice, dev.shop)`. New candidate keys use exact tuple hashes and owner metadata;
+unresolved legacy material fails closed without import, copy or overwrite.
+Existing production readers are not migrated. Complete reference inventory,
+independent legacy attribution, rotation/retirement coordination, native-owned
+delivery and full Android integration remain required before activation. A
+matching cryptographic key alone does not prove exclusive legacy ownership.
+
+No production reset, maintenance reopening, stable SDK publication or Android
+release approval follows from these local results. Physical-device verification
+of the completed integration remains a separate gate. iOS remains unapproved.
+
