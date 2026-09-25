@@ -4,6 +4,18 @@ Updated 2026-09-25. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
+Latest additional local Safety checkpoint: `ef8a1fd9a37f2b6c1b84243cd9d77a159dbad6ae`
+(Xevorius author and committer), **not deployed or activated**. Its private issuer
+operation ownership/signature-history primitive passes 27 unit cases and 17 real
+PostgreSQL race/recovery cases, alongside the existing 23 provider cases. The packed
+SDK fixture and full Safety TypeScript check pass; TLS rejection and owned-resource
+cleanup are verified. Ledger operations in this fixture are mocked. There is no
+signed-operation release or complete issuer-writer integration in that checkpoint.
+Receipt: `audit-2026-09-25/issuance-postgres/results/safety-bef53c80c87634946841/result.json`,
+SHA-256 `d0b053a3b0f06e4cd1f8fa7e5bafe2b0c7399e2bc61407a234017839b1df24b0`.
+Subsequent unsigned-cancellation, delivery-acknowledgement and exact-key-reference
+work remains in progress and is not covered by that receipt.
+
 Latest local Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
 including the offline native-prover candidate and the legacy-reset SQL fence.
 It is not deployed. The new full-activity recovery build passes all three isolated
