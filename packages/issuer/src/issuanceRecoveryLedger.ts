@@ -3,13 +3,22 @@ import {
   type RecoveryReceipt, type RecoveryRecord,
 } from './issuanceRecovery.js';
 
-// Private checkpoint only: the configured gateway verifies request-specific chain
-// evidence. This is not a provider coordinator or an independent RPC verifier.
-type Reconciliation =
+/**
+ * Request-specific evidence from the configured gateway, not independent RPC
+ * verification or provider publication authorization. Coordinated SDK 2 RC only.
+ * @beta
+ */
+export type RecoveryAnchorReconciliationResult =
   | { kind: 'confirmed'; receipt: RecoveryReceipt }
   | { kind: 'revoked' }
   | { kind: 'pending' }
   | { kind: 'unavailable' };
+
+/** @beta */
+export interface RecoveryAnchorReconciliationOptions {
+  fetch?: typeof fetch;
+  signal?: AbortSignal;
+}
 
 const REQUEST_MS = 10_000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -127,7 +136,7 @@ async function requestJson(url: string, body: string, fetcher: typeof fetch, sig
   }
 }
 
-function reconcileResponse(status: number, payload: unknown, record: RecoveryRecord): Reconciliation {
+function reconcileResponse(status: number, payload: unknown, record: RecoveryRecord): RecoveryAnchorReconciliationResult {
   if (status === 409) {
     const result = exactObject(payload, ['success', 'error']);
     // Only the configured, request-specific reconciliation gateway is trusted to
@@ -174,11 +183,18 @@ function reconcileResponse(status: number, payload: unknown, record: RecoveryRec
   } };
 }
 
+/**
+ * Coordinated SDK 2 RC candidate, not approved stable. Reconcile exact durable
+ * submission bytes through the configured gateway outside provider transactions.
+ * This does not mutate the journal. Before publication, recheck policy and apply
+ * the result under the provider's owned, pinned transaction and current lease.
+ * @beta
+ */
 export async function reconcileRecoveryAnchor(
   record: RecoveryRecord,
   readUrl: string,
-  options: { fetch?: typeof fetch; signal?: AbortSignal } = {},
-): Promise<Reconciliation> {
+  options: RecoveryAnchorReconciliationOptions = {},
+): Promise<RecoveryAnchorReconciliationResult> {
   try {
     // Snapshot and validate synchronously, before fetch or the first await. Never
     // refresh or re-sign an expired submission: these are its exact durable bytes.

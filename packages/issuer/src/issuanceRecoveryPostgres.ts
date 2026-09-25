@@ -5,10 +5,20 @@ import {
   type RecoveryAction, type RecoveryInput, type RecoveryRecord,
 } from './issuanceRecovery.js';
 
+/**
+ * Pool for the coordinated SDK 2 RC recovery candidate; each connection is pinned
+ * until released. Exported from the package as IssuanceRecoverySqlPool.
+ * @beta
+ */
 export interface SqlPool extends SqlClient {
   connect(): Promise<SqlClient & { release(destroy?: boolean): void }>;
 }
 
+/**
+ * Initialize the coordinated SDK 2 RC recovery schema before provider transactions.
+ * This candidate is not approved stable; the caller owns the SQL client lifecycle.
+ * @beta
+ */
 export async function ensureIssuanceRecoverySchema(db: SqlClient): Promise<void> {
   await db.query(`
     CREATE TABLE IF NOT EXISTS unet_issuance_recovery_v2 (
@@ -155,10 +165,14 @@ async function transitionRecord(
 }
 
 /**
- * Internal adapter for an already-open transaction on a pinned SQL client, never a pool.
+ * Coordinated SDK 2 RC candidate, not approved stable. Use an already-open
+ * transaction on a pinned SQL client, never a pool.
  * The caller owns BEGIN, timeouts, COMMIT/ROLLBACK and release, and must roll back on
  * any adapter or publication error. Await each operation and discard this adapter
  * when the transaction ends. Returned records are not committed until the caller commits.
+ * Compose provider policy/account locks, request, journal and publication writes
+ * on this same transaction. Do not perform network calls while holding it open.
+ * @beta
  */
 export class TransactionalIssuanceRecoveryStore {
   public constructor(private readonly db: SqlClient) {}
@@ -182,7 +196,13 @@ export class TransactionalIssuanceRecoveryStore {
   }
 }
 
-// Internal adapter only; deliberately absent from the package's public entry point.
+/**
+ * Coordinated SDK 2 RC candidate, not approved stable. Owns a pinned connection,
+ * BEGIN, timeouts, COMMIT/ROLLBACK and release for each operation separately.
+ * Use TransactionalIssuanceRecoveryStore for atomic provider publication instead;
+ * separate calls here cannot share the provider's transaction.
+ * @beta
+ */
 export class PostgresIssuanceRecoveryStore {
   public constructor(private readonly pool: SqlPool) {}
 

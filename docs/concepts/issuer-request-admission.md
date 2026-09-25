@@ -57,9 +57,12 @@ The SQL client is closed when the callback ends; retained references cannot writ
 after commit or rollback. These hooks perform SQL only, never builds or network
 calls. Providers must initialize their schemas before entering the transaction.
 
-The private recovery journal also freezes `schemaId` along with validity and
+The core recovery journal also freezes `schemaId` along with validity and
 signing-key context. A retry cannot replace that schema using a newer catalog
-response. This is not yet a public recovery-worker API.
+response. Its stores and reconciliation contracts are now a
+[staged coordinated SDK 2 RC-only package API candidate](./issuer-recovery-api.md),
+not approved stable or a completed provider worker. Providers must compose
+journal and publication writes on one owned, pinned transaction.
 
 ## Remaining Release Gates
 

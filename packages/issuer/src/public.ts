@@ -4,6 +4,29 @@ export * from './directIssuerPostgres.js';
 export * from './ledgerV2.js';
 export * from './webAdapters.js';
 
+// Core recovery candidate for the coordinated SDK 2 RC train, not approved stable.
+export {
+  ensureIssuanceRecoverySchema,
+  PostgresIssuanceRecoveryStore,
+  TransactionalIssuanceRecoveryStore,
+} from './issuanceRecoveryPostgres.js';
+export type { SqlPool as IssuanceRecoverySqlPool } from './issuanceRecoveryPostgres.js';
+export { reconcileRecoveryAnchor } from './issuanceRecoveryLedger.js';
+export type {
+  RecoveryAnchorReconciliationOptions,
+  RecoveryAnchorReconciliationResult,
+} from './issuanceRecoveryLedger.js';
+export type {
+  RecoveryAction,
+  RecoveryFailure,
+  RecoveryInput,
+  RecoveryPhase,
+  RecoveryPreparation,
+  RecoveryReceipt,
+  RecoveryRecord,
+  RecoverySubmission,
+} from './issuanceRecovery.js';
+
 export {
   anchorLedgerV2CredentialFromEnv,
   buildFieldMerkleProofV2,

@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import type { DirectIssuerRequestRecord } from './directIssuer.js';
 import { ledgerV2IssuerIdHash, ledgerV2RequestHash, type LedgerV2AnchorOperation } from './ledgerV2.js';
 
-// Private recovery implementation. Do not export through public.ts until the
-// provider coordinator, receipt verifier and deployed integration are complete.
+// Core recovery contracts staged for coordinated SDK 2 RC provider integration,
+// not approved stable. Mutations and digests remain private implementation helpers.
+// Providers compose journal and publication writes on one owned, pinned transaction.
+/** @beta */
 export interface RecoveryInput {
   request: DirectIssuerRequestRecord;
   context: {
@@ -21,16 +23,19 @@ export interface RecoveryInput {
   };
 }
 
+/** @beta */
 export interface RecoveryPreparation {
   attestationHash: string;
   encryptedCredentialEnvelope: Record<string, unknown>;
 }
 
+/** @beta */
 export interface RecoverySubmission {
   operation: LedgerV2AnchorOperation;
   signature: string;
 }
 
+/** @beta */
 export interface RecoveryReceipt {
   chainId: number;
   ledgerAddress: string;
@@ -45,8 +50,11 @@ export interface RecoveryReceipt {
   confirmations: number;
 }
 
+/** @beta */
 export type RecoveryPhase = 'reserved' | 'prepared' | 'submitted' | 'confirmed' | 'completed' | 'blocked';
+/** @beta */
 export type RecoveryFailure = 'dependency_unavailable' | 'receipt_pending' | 'policy_unavailable';
+/** @beta */
 export interface RecoveryRecord {
   requestId: string;
   input: RecoveryInput;
@@ -65,6 +73,7 @@ export interface RecoveryRecord {
   failureCategory?: RecoveryFailure | 'policy_denied' | 'artifact_invalid';
 }
 
+/** @beta */
 export type RecoveryAction =
   | { kind: 'prepare'; preparation: RecoveryPreparation }
   | { kind: 'submit'; submission: RecoverySubmission }

@@ -12,6 +12,17 @@ import { createDirectIssuerService, PostgresDirectIssuerRequestStore } from '@u-
 
 See [docs.egress.live](https://docs.egress.live) for guides and the versioned API reference.
 
+## Staged Core Recovery API
+
+Recovery schema initialization, pooled and transaction-bound stores, gateway
+reconciliation and their types are exported for coordinated SDK 2 RC provider
+integration only, not approved stable. Providers must consume a built candidate
+package, not private source imports; existing installed packages are unchanged.
+This does not publish, deploy or introduce experimental standards exports.
+The caller of `TransactionalIssuanceRecoveryStore` owns the pinned transaction,
+policy/account locks, atomic publication, rollback and release. See the
+[recovery API contract](../../docs/concepts/issuer-recovery-api.md).
+
 ## Domain-Admin Callback Security
 
 Domain-admin issuance callbacks require protocol version 2, signed V2 control

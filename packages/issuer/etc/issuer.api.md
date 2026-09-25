@@ -511,6 +511,9 @@ export interface EncryptedCredentialEnvelopeV2 {
 // @public (undocumented)
 export function ensureDirectIssuerSchema(db: SqlClient): Promise<void>;
 
+// @beta
+export function ensureIssuanceRecoverySchema(db: SqlClient): Promise<void>;
+
 // @public (undocumented)
 export function fetchUnetControlPublicKeys(input?: {
     controlPlaneUrl?: string;
@@ -626,6 +629,14 @@ export class InMemoryDirectIssuerRequestStore implements DirectIssuerRequestStor
     update(record: DirectIssuerRequestRecord): Promise<void>;
     // (undocumented)
     withAccountTransaction<T>(serviceAccountRef: string, checkId: string, work: (store: DirectIssuerRequestStore) => Promise<T>): Promise<T>;
+}
+
+// @beta
+export interface IssuanceRecoverySqlPool extends SqlClient {
+    // (undocumented)
+    connect(): Promise<SqlClient & {
+        release(destroy?: boolean): void;
+    }>;
 }
 
 // @public (undocumented)
@@ -815,6 +826,164 @@ export class PostgresDirectIssuerRequestStore implements DirectIssuerRequestStor
     withAccountTransaction<T>(serviceAccountRef: string, checkId: string, work: (store: DirectIssuerRequestStore) => Promise<T>): Promise<T>;
 }
 
+// @beta
+export class PostgresIssuanceRecoveryStore {
+    constructor(pool: IssuanceRecoverySqlPool);
+    // (undocumented)
+    claim(requestId: string): Promise<RecoveryRecord | undefined>;
+    // (undocumented)
+    get(requestId: string): Promise<RecoveryRecord | undefined>;
+    // (undocumented)
+    reserve(input: RecoveryInput): Promise<RecoveryRecord>;
+    // (undocumented)
+    transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord>;
+}
+
+// @beta
+export function reconcileRecoveryAnchor(record: RecoveryRecord, readUrl: string, options?: RecoveryAnchorReconciliationOptions): Promise<RecoveryAnchorReconciliationResult>;
+
+// @beta (undocumented)
+export type RecoveryAction = {
+    kind: 'prepare';
+    preparation: RecoveryPreparation;
+} | {
+    kind: 'submit';
+    submission: RecoverySubmission;
+} | {
+    kind: 'confirm';
+    receipt: RecoveryReceipt;
+} | {
+    kind: 'complete';
+} | {
+    kind: 'defer';
+    category: RecoveryFailure;
+} | {
+    kind: 'block';
+    category: 'policy_denied' | 'artifact_invalid';
+};
+
+// @beta (undocumented)
+export interface RecoveryAnchorReconciliationOptions {
+    // (undocumented)
+    fetch?: typeof fetch;
+    // (undocumented)
+    signal?: AbortSignal;
+}
+
+// @beta
+export type RecoveryAnchorReconciliationResult = {
+    kind: 'confirmed';
+    receipt: RecoveryReceipt;
+} | {
+    kind: 'revoked';
+} | {
+    kind: 'pending';
+} | {
+    kind: 'unavailable';
+};
+
+// @beta (undocumented)
+export type RecoveryFailure = 'dependency_unavailable' | 'receipt_pending' | 'policy_unavailable';
+
+// @beta (undocumented)
+export interface RecoveryInput {
+    // (undocumented)
+    context: {
+        schemaId: string;
+        chainId: number;
+        ledgerAddress: string;
+        issuerId: string;
+        issuerIdHash: string;
+        issuerKeyEpoch: number;
+        requiredConfirmations: number;
+        credentialKeyId: string;
+        credentialKeyFingerprint: string;
+        validFromEpoch: number;
+        validUntilEpoch: number;
+    };
+    // (undocumented)
+    request: DirectIssuerRequestRecord;
+}
+
+// @beta (undocumented)
+export type RecoveryPhase = 'reserved' | 'prepared' | 'submitted' | 'confirmed' | 'completed' | 'blocked';
+
+// @beta (undocumented)
+export interface RecoveryPreparation {
+    // (undocumented)
+    attestationHash: string;
+    // (undocumented)
+    encryptedCredentialEnvelope: Record<string, unknown>;
+}
+
+// @beta (undocumented)
+export interface RecoveryReceipt {
+    // (undocumented)
+    attestationHash: string;
+    // (undocumented)
+    blockHash: string;
+    // (undocumented)
+    blockNumber: number;
+    // (undocumented)
+    chainId: number;
+    // (undocumented)
+    confirmations: number;
+    // (undocumented)
+    holderRevocationSigner: string;
+    // (undocumented)
+    issuerIdHash: string;
+    // (undocumented)
+    ledgerAddress: string;
+    // (undocumented)
+    requestIdHash: string;
+    // (undocumented)
+    submissionDigest: string;
+    // (undocumented)
+    transactionHash: string;
+}
+
+// @beta (undocumented)
+export interface RecoveryRecord {
+    // (undocumented)
+    attempts: number;
+    // (undocumented)
+    createdAtMs: number;
+    // (undocumented)
+    failureCategory?: RecoveryFailure | 'policy_denied' | 'artifact_invalid';
+    // (undocumented)
+    input: RecoveryInput;
+    // (undocumented)
+    inputDigest: string;
+    // (undocumented)
+    leaseToken?: string;
+    // (undocumented)
+    leaseUntilMs?: number;
+    // (undocumented)
+    nextAttemptAtMs: number;
+    // (undocumented)
+    phase: RecoveryPhase;
+    // (undocumented)
+    preparation?: RecoveryPreparation;
+    // (undocumented)
+    receipt?: RecoveryReceipt;
+    // (undocumented)
+    requestId: string;
+    // (undocumented)
+    revision: number;
+    // (undocumented)
+    submission?: RecoverySubmission;
+    // (undocumented)
+    updatedAtMs: number;
+}
+
+// @beta (undocumented)
+export interface RecoverySubmission {
+    // (undocumented)
+    operation: LedgerV2AnchorOperation;
+    // (undocumented)
+    signature: string;
+}
+
 // @public (undocumented)
 export function resolveCredentialValidity(input: {
     policy: AttestationCredentialPolicy;
@@ -924,6 +1093,19 @@ export function submitLedgerV2Operation(input: {
     };
     fetch?: typeof globalThis.fetch;
 }): Promise<Record<string, unknown>>;
+
+// @beta
+export class TransactionalIssuanceRecoveryStore {
+    constructor(db: SqlClient);
+    // (undocumented)
+    claim(requestId: string): Promise<RecoveryRecord | undefined>;
+    // (undocumented)
+    get(requestId: string): Promise<RecoveryRecord | undefined>;
+    // (undocumented)
+    reserve(input: RecoveryInput): Promise<RecoveryRecord>;
+    // (undocumented)
+    transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord>;
+}
 
 // @public (undocumented)
 export function validateDomainAdminCallbackRequest(value: unknown, input: {
