@@ -1557,6 +1557,28 @@ encrypted artifact, not a newly built credential. This remains a release gate;
 these transport results do not approve reopening issuance. Revocation's durable
 job retries are separate from issuance recovery. Production remains paused.
 
+### Safety Application Error Privacy Candidate
+
+Safety source `b9adbc17b64ad1a0e3fe85c6b6f2179bdb48bf32` adds the application
+route privacy fix on top of the transport checkpoint. It is local-only, with
+Xevorius as author and committer. Authentication, initialization and body parsing
+now share the private failure boundary. All responses use `no-store`; unknown
+exceptions become a fixed 503 response and finite database error category.
+Only the exact two known policy denials retain HTTP 403. Arbitrary prefixes,
+exception-supplied statuses, raw SQL/transport messages and nested causes are
+neither returned nor stored. Normal delivery and missing-context UX are retained.
+
+The actual route passed 85 isolated regression cases plus its enclosing test
+(86 total), with mocked dependencies and synthetic canaries. The broader Safety
+suite passed 229, failed zero and reported two skips; typechecking passed.
+See Safety `tests/application-privacy-acceptance.md`. This is not a production
+logging audit or issuance-recovery acceptance. No production setting, wallet,
+provider database or ledger was changed by these local tests.
+
+The parent-workspace note `audit-2026-09-25/direct-issuance-recovery-gap.md`
+records the separate immutable-artifact, fenced-worker, receipt-reconciliation
+and delivery-capability recovery work. It is design/source-review evidence only.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
