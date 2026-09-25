@@ -1531,6 +1531,32 @@ real native Android-to-EVM acceptance, phone verification and the production
 cutover remain separate open gates. No provider database or ledger was changed
 by these fixtures.
 
+### Safety Ledger Transport Candidate
+
+Safety source `d4376f8120d62015449e82b80ee25702db6b3322` is committed locally
+with Xevorius as author and committer, NOT deployed. The app-private transport
+bounds status/nonce/submission reads to ten seconds including the streamed body,
+caps JSON at 64 KiB, disables redirects and validates explicit success, protocol,
+exact commitment/issuer bindings and canonical uint256 nonces. Relayer failover
+reuses the identical signed payload within twenty seconds. Confirmation polls
+within thirty seconds; unavailable reads fail with finite categories rather than
+changing lifecycle. No SDK API, cryptography or contract change is included.
+
+All 189 focused mocked-transport tests passed. The broad Safety suite passed 228
+with zero failures and two reported skips, and TypeScript passed. Tests cover
+abort-ignoring headers/bodies, late responses, aggregate budgets, cancellation,
+malformed and oversized responses, wrong bindings, unchanged signed failover
+payloads and privacy canaries. They do NOT prove deployed ledger or Android
+behavior. See Safety `tests/ledger-transport-acceptance.md` for reproduction.
+
+Independent review reproduced a remaining issuance recovery defect: the SDK can
+mark a request terminally failed after a committed anchor's response is lost.
+Retrying the same signed operation is not enough; an already-known rejection
+must lead to durable exact-commitment/receipt reconciliation with the original
+encrypted artifact, not a newly built credential. This remains a release gate;
+these transport results do not approve reopening issuance. Revocation's durable
+job retries are separate from issuance recovery. Production remains paused.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure
