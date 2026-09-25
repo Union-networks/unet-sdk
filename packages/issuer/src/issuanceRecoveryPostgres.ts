@@ -116,29 +116,79 @@ async function updateRecord(db: SqlClient, previous: RecoveryRecord, next: Recov
   if (result.rowCount !== 1) throw new Error('issuance_recovery_lease_lost');
 }
 
+async function reserveRecord(db: SqlClient, snapshot: RecoveryInput): Promise<RecoveryRecord> {
+  let record = await readRecord(db, snapshot.request.requestId, true);
+  const candidate = createRecoveryRecord(snapshot, await databaseNow(db));
+  if (!record) {
+    await db.query(
+      `INSERT INTO unet_issuance_recovery_v2
+           (request_id,record,revision,phase,lease_token,lease_until,next_attempt_at,created_at,updated_at)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(request_id) DO NOTHING`,
+      values(candidate),
+    );
+    // Another reservation can win after the absent-row read; compare its locked record.
+    record = await readRecord(db, candidate.requestId, true);
+  }
+  if (!record) throw new Error('issuance_recovery_not_found');
+  if (record.inputDigest !== candidate.inputDigest) throw new Error('issuance_recovery_input_conflict');
+  return record;
+}
+
+async function claimRecord(db: SqlClient, requestId: string): Promise<RecoveryRecord | undefined> {
+  const record = await readRecord(db, requestId, true);
+  if (!record) return undefined;
+  // Time must be sampled separately after the row lock has been acquired.
+  const nowMs = await databaseNow(db);
+  const next = claimRecoveryRecord(record, randomUUID(), nowMs);
+  if (next) await updateRecord(db, record, next, 'claim');
+  return next;
+}
+
+async function transitionRecord(
+  db: SqlClient, requestId: string, token: string, revision: number, snapshot: RecoveryAction,
+): Promise<RecoveryRecord> {
+  const record = await readRecord(db, requestId, true);
+  if (!record) throw new Error('issuance_recovery_not_found');
+  const next = transitionRecoveryRecord(record, token, revision, snapshot, await databaseNow(db));
+  await updateRecord(db, record, next, 'transition');
+  return next;
+}
+
+/**
+ * Internal adapter for an already-open transaction on a pinned SQL client, never a pool.
+ * The caller owns BEGIN, timeouts, COMMIT/ROLLBACK and release, and must roll back on
+ * any adapter or publication error. Await each operation and discard this adapter
+ * when the transaction ends. Returned records are not committed until the caller commits.
+ */
+export class TransactionalIssuanceRecoveryStore {
+  public constructor(private readonly db: SqlClient) {}
+
+  public async reserve(input: RecoveryInput): Promise<RecoveryRecord> {
+    const snapshot = createRecoveryRecord(input, 0).input;
+    return reserveRecord(this.db, snapshot);
+  }
+
+  public async get(requestId: string): Promise<RecoveryRecord | undefined> {
+    return readRecord(this.db, requestId, true);
+  }
+
+  public async claim(requestId: string): Promise<RecoveryRecord | undefined> {
+    return claimRecord(this.db, requestId);
+  }
+
+  public async transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord> {
+    const snapshot = structuredClone(action);
+    return transitionRecord(this.db, requestId, token, revision, snapshot);
+  }
+}
+
 // Internal adapter only; deliberately absent from the package's public entry point.
 export class PostgresIssuanceRecoveryStore {
   public constructor(private readonly pool: SqlPool) {}
 
   public async reserve(input: RecoveryInput): Promise<RecoveryRecord> {
     const snapshot = createRecoveryRecord(input, 0).input;
-    return transaction(this.pool, async (db) => {
-      let record = await readRecord(db, snapshot.request.requestId, true);
-      const candidate = createRecoveryRecord(snapshot, await databaseNow(db));
-      if (!record) {
-        await db.query(
-          `INSERT INTO unet_issuance_recovery_v2
-           (request_id,record,revision,phase,lease_token,lease_until,next_attempt_at,created_at,updated_at)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(request_id) DO NOTHING`,
-          values(candidate),
-        );
-        // Another reservation can win after the absent-row read; compare its locked record.
-        record = await readRecord(db, candidate.requestId, true);
-      }
-      if (!record) throw new Error('issuance_recovery_not_found');
-      if (record.inputDigest !== candidate.inputDigest) throw new Error('issuance_recovery_input_conflict');
-      return record;
-    });
+    return transaction(this.pool, db => reserveRecord(db, snapshot));
   }
 
   public async get(requestId: string): Promise<RecoveryRecord | undefined> {
@@ -146,25 +196,11 @@ export class PostgresIssuanceRecoveryStore {
   }
 
   public async claim(requestId: string): Promise<RecoveryRecord | undefined> {
-    return transaction(this.pool, async (db) => {
-      const record = await readRecord(db, requestId, true);
-      if (!record) return undefined;
-      // Time must be sampled separately after the row lock has been acquired.
-      const nowMs = await databaseNow(db);
-      const next = claimRecoveryRecord(record, randomUUID(), nowMs);
-      if (next) await updateRecord(db, record, next, 'claim');
-      return next;
-    });
+    return transaction(this.pool, db => claimRecord(db, requestId));
   }
 
   public async transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord> {
     const snapshot = structuredClone(action);
-    return transaction(this.pool, async (db) => {
-      const record = await readRecord(db, requestId, true);
-      if (!record) throw new Error('issuance_recovery_not_found');
-      const next = transitionRecoveryRecord(record, token, revision, snapshot, await databaseNow(db));
-      await updateRecord(db, record, next, 'transition');
-      return next;
-    });
+    return transaction(this.pool, db => transitionRecord(db, requestId, token, revision, snapshot));
   }
 }

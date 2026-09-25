@@ -1686,6 +1686,44 @@ nonce/deadline recovery, policy-locked publication and authenticated delivery
 capability recovery remain open. The source must not be deployed or exposed as
 completed issuance recovery on the strength of component tests alone.
 
+### Recovery Transport And Transaction Composition
+
+The private issuer adapter now calls the ledger's bounded, read-only anchor
+reconciliation route. It snapshots the original submitted journal, sends no
+capabilities in URLs, rejects redirects and malformed/oversized responses, and
+uses a ten-second whole-request deadline. Confirmed evidence is bound to the
+original chain, contract, commitment, issuer and signed operation. Pending or
+unavailable results never become delivery-ready or revoked.
+
+The OpenAPI definition and generated contracts describe this new route. Contract
+build and API Extractor pass. The adapter and transaction-bound recovery store
+remain absent from the issuer's public exports; they are not a released worker.
+
+All 568 issuer unit tests pass, including 168 adapter tests and the expanded
+71-case SQL-adapter suite. Issuer no-emit TypeScript passes. A separate 18-case
+cross-repository fixture connects the actual SDK adapter, Fastify route, privacy
+logger, candidate finder, chain verifier and journal transition. PG/RPC evidence
+there is explicitly synthetic; it does not replace live integration.
+
+The real PostgreSQL suite now passes 18 cases. The two new cases compose the
+actual SDK request table and journal with a synthetic application projection in
+one pinned outer transaction. They verify invisibility before commit, rollback
+of all writes after publication failure, successful retry and stale-completion
+rejection. This is not yet Safety's authenticated policy transaction.
+
+Receipt: parent-workspace
+`audit-2026-09-25/issuance-postgres/results/safety-b91086923bd1871ae3a6/result.json`,
+SHA256 `93b925e7254c4fdf4cc03e0926629184323780b71834c9b379e9332d8331e5a0`.
+All TLS checks passed, source hashes were unchanged and both cleanup layers
+completed. Synthetic ledger artifacts remain clearly distinguished from EVM
+evidence.
+
+Still required: integration into the existing direct issuer service and Safety
+policy locks; immutable admission and authenticated lost-response delivery
+recovery; durable scheduling; shared issuer nonce and signed-attempt recovery;
+atomic application publication and replacement acknowledgement. No production
+reset, deployment, maintenance reopening or stable SDK promotion occurred.
+
 ## Standards Evaluation Boundary
 
 The isolated standards lab is not a prerequisite for reopening a proven secure

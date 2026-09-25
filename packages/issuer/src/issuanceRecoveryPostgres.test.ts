@@ -5,7 +5,9 @@ import {
   type RecoveryAction, type RecoveryInput, type RecoveryRecord,
 } from './issuanceRecovery.js';
 import { ledgerV2IssuerIdHash, ledgerV2RequestHash } from './ledgerV2.js';
-import { ensureIssuanceRecoverySchema, PostgresIssuanceRecoveryStore, type SqlPool } from './issuanceRecoveryPostgres.js';
+import {
+  ensureIssuanceRecoverySchema, PostgresIssuanceRecoveryStore, TransactionalIssuanceRecoveryStore, type SqlPool,
+} from './issuanceRecoveryPostgres.js';
 
 type Step = {
   sql: string | RegExp;
@@ -36,11 +38,11 @@ function fixture(steps: Step[]) {
   const pool: SqlPool = { query: poolQuery, connect: vi.fn(async () => client) };
   return {
     pool, client, query, release,
-    done() {
+    done(ownedTransaction = true) {
       expect(cursor).toBe(steps.length);
       expect(poolQuery).not.toHaveBeenCalled();
-      expect(pool.connect).toHaveBeenCalledTimes(1);
-      expect(release).toHaveBeenCalledTimes(1);
+      expect(pool.connect).toHaveBeenCalledTimes(ownedTransaction ? 1 : 0);
+      expect(release).toHaveBeenCalledTimes(ownedTransaction ? 1 : 0);
     },
   };
 }
@@ -414,5 +416,178 @@ describe('issuance recovery PostgreSQL SQL-shape fixtures', () => {
       expect(warn).not.toHaveBeenCalled();
       f.done();
     } finally { warn.mockRestore(); log.mockRestore(); }
+  });
+});
+
+describe('transaction-bound issuance recovery SQL-shape fixtures', () => {
+  // The fixture models caller ownership only, not PostgreSQL commit/rollback semantics.
+  async function outerTransaction<T>(f: ReturnType<typeof fixture>, work: (db: SqlClient) => Promise<T>): Promise<T> {
+    const db = await f.pool.connect();
+    try {
+      await db.query('BEGIN');
+      const result = await work(db);
+      await db.query('COMMIT');
+      return result;
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
+    }
+  }
+
+  it('composes reserve, locked get, claim and prepare with provider writes before the caller commits', async () => {
+    const reserved = createRecoveryRecord(input(), now);
+    let leased: RecoveryRecord;
+    let prepared: RecoveryRecord;
+    const f = fixture([
+      { sql: 'BEGIN' }, { sql: 'INSERT INTO provider_requests VALUES($1)', values: [requestId] },
+      read(), clock(), insert(reserved), read(reserved), read(reserved),
+      read(reserved), clock(), update(reserved, next => {
+        expect(next).toEqual(claimRecoveryRecord(reserved, next.leaseToken!, now));
+        leased = next;
+      }),
+      { ...read(), get rows() { return [row(leased)]; } }, clock(),
+      {
+        sql: update(reserved, () => undefined, 'transition').sql,
+        inspect: values => {
+          prepared = transitionRecoveryRecord(leased, leased.leaseToken!, leased.revision, { kind: 'prepare', preparation }, now);
+          update(leased, next => expect(next).toEqual(prepared), 'transition').inspect!(values);
+        },
+      },
+      { sql: 'UPDATE provider_applications SET request_id=$1', values: [requestId] }, { sql: 'COMMIT' },
+    ]);
+    await outerTransaction(f, async db => {
+      const store = new TransactionalIssuanceRecoveryStore(db);
+      await db.query('INSERT INTO provider_requests VALUES($1)', [requestId]);
+      expect(await store.reserve(input())).toEqual(reserved);
+      expect(await store.get(requestId)).toEqual(reserved);
+      const claim = (await store.claim(requestId))!;
+      expect(await store.transition(requestId, claim.leaseToken!, claim.revision, { kind: 'prepare', preparation })).toEqual(prepared!);
+      await db.query('UPDATE provider_applications SET request_id=$1', [requestId]);
+      expect(f.release).not.toHaveBeenCalled();
+      expect(f.query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false);
+    });
+    f.done();
+  });
+
+  it.each(['commit', 'publication_error', 'completion_cas_error'] as const)
+    ('leaves composed completion and publication outcome to the caller: %s', async outcome => {
+      const previous = confirmed();
+      const completed = transitionRecoveryRecord(previous, previous.leaseToken!, previous.revision, { kind: 'complete' }, now);
+      const publicationError = new Error('synthetic_publication_failure');
+      const f = fixture([
+        { sql: 'BEGIN' },
+        { sql: 'UPDATE provider_requests SET state=$1', values: ['ready'] },
+        read(previous), clock(),
+        { ...update(previous, next => expect(next).toEqual(completed), 'transition'), rowCount: outcome === 'completion_cas_error' ? 0 : 1 },
+        ...(outcome === 'completion_cas_error' ? [] : [{
+          sql: 'UPDATE provider_applications SET status=$1', values: ['pending'],
+          ...(outcome === 'publication_error' ? { error: publicationError } : {}),
+        }]),
+        { sql: outcome === 'commit' ? 'COMMIT' : 'ROLLBACK' },
+      ]);
+      const result = outerTransaction(f, async db => {
+        const store = new TransactionalIssuanceRecoveryStore(db);
+        await db.query('UPDATE provider_requests SET state=$1', ['ready']);
+        expect(await store.transition(requestId, previous.leaseToken!, previous.revision, { kind: 'complete' })).toEqual(completed);
+        await db.query('UPDATE provider_applications SET status=$1', ['pending']);
+      });
+      if (outcome === 'commit') await result;
+      else if (outcome === 'publication_error') await expect(result).rejects.toBe(publicationError);
+      else await expect(result).rejects.toThrow('issuance_recovery_lease_lost');
+      f.done();
+    });
+
+  it('returns an isolated validated snapshot while retaining the caller-owned row lock', async () => {
+    const previous = claimed();
+    const f = fixture([read(previous)]);
+    const result = await new TransactionalIssuanceRecoveryStore(f.client).get(requestId);
+    expect(result).toEqual(previous);
+    result!.input.request.claims!.eligibility = false;
+    expect(previous.input.request.claims!.eligibility).toBe(true);
+    f.done(false);
+  });
+
+  it.each(['get', 'claim'] as const)('returns missing %s without any transaction management', async method => {
+    const f = fixture([read()]);
+    expect(await new TransactionalIssuanceRecoveryStore(f.client)[method](requestId)).toBeUndefined();
+    f.done(false);
+  });
+
+  it.each(['json', 'projection', 'database'] as const)('propagates %s read failure without rollback or release', async failure => {
+    const previous = claimed();
+    const error = new Error('synthetic_database_failure');
+    const f = fixture([{
+      ...read(previous),
+      ...(failure === 'database' ? { error } : {
+        rows: [{ ...row(previous), ...(failure === 'json' ? { record: null } : { revision: '0' }) }],
+      }),
+    }]);
+    const result = new TransactionalIssuanceRecoveryStore(f.client).get(requestId);
+    if (failure === 'database') await expect(result).rejects.toBe(error);
+    else await expect(result).rejects.toThrow(failure === 'json' ? 'issuance_recovery_record_invalid' : 'issuance_recovery_projection_invalid');
+    f.done(false);
+  });
+
+  it('leaves immutable reservation conflicts to the outer transaction', async () => {
+    const previous = createRecoveryRecord(input(), now);
+    const different = input();
+    different.context.issuerKeyEpoch++;
+    const f = fixture([read(previous), clock()]);
+    await expect(new TransactionalIssuanceRecoveryStore(f.client).reserve(different)).rejects.toThrow('issuance_recovery_input_conflict');
+    f.done(false);
+  });
+
+  it('checks database time after the claim lock and retains the SQL lease guard', async () => {
+    const previous = claimed();
+    const afterLock = previous.leaseUntilMs!;
+    const f = fixture([
+      read(previous), clock(afterLock),
+      { ...update(previous, next => expect(next).toEqual(claimRecoveryRecord(previous, next.leaseToken!, afterLock))), rowCount: 0 },
+    ]);
+    await expect(new TransactionalIssuanceRecoveryStore(f.client).claim(requestId)).rejects.toThrow('issuance_recovery_lease_lost');
+    f.done(false);
+  });
+
+  it.each(['expired', 'token', 'revision'] as const)('rejects a %s transition fence without owning rollback', async failure => {
+    const previous = claimed();
+    const f = fixture([read(previous), clock(failure === 'expired' ? previous.leaseUntilMs! : now)]);
+    await expect(new TransactionalIssuanceRecoveryStore(f.client).transition(
+      requestId, failure === 'token' ? 'wrong_token' : previous.leaseToken!,
+      failure === 'revision' ? previous.revision - 1 : previous.revision, { kind: 'prepare', preparation },
+    )).rejects.toThrow('issuance_recovery_lease_lost');
+    f.done(false);
+  });
+
+  it.each([false, true])('snapshots reservation before any await (standalone: %s)', async standalone => {
+    const original = input();
+    const expected = createRecoveryRecord(original, now);
+    const f = fixture([
+      ...(standalone ? begin() : []), read(), clock(), insert(expected), read(expected),
+      ...(standalone ? [{ sql: 'COMMIT' }] : []),
+    ]);
+    const store = standalone ? new PostgresIssuanceRecoveryStore(f.pool) : new TransactionalIssuanceRecoveryStore(f.client);
+    const result = store.reserve(original);
+    original.context.issuerKeyEpoch++;
+    original.request.claims!.context = { mutated: true };
+    expect(await result).toEqual(expected);
+    f.done(standalone);
+  });
+
+  it.each([false, true])('snapshots transition action before any await (standalone: %s)', async standalone => {
+    const previous = claimed();
+    const action: RecoveryAction = { kind: 'prepare', preparation: structuredClone(preparation) };
+    const expected = transitionRecoveryRecord(previous, previous.leaseToken!, previous.revision, action, now);
+    const f = fixture([
+      ...(standalone ? begin() : []), read(previous), clock(),
+      update(previous, next => expect(next).toEqual(expected), 'transition'), ...(standalone ? [{ sql: 'COMMIT' }] : []),
+    ]);
+    const store = standalone ? new PostgresIssuanceRecoveryStore(f.pool) : new TransactionalIssuanceRecoveryStore(f.client);
+    const result = store.transition(requestId, previous.leaseToken!, previous.revision, action);
+    action.preparation.attestationHash = '99'.repeat(32);
+    action.preparation.encryptedCredentialEnvelope.ciphertext = 'mutated';
+    expect(await result).toEqual(expected);
+    f.done(standalone);
   });
 });

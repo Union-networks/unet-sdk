@@ -14,7 +14,7 @@ const requiredEnvironment = ['UNET_PROVIDER_TEST_DATABASE_URL', 'UNET_PROVIDER_T
   'UNET_ISSUANCE_TEST_OWNER', 'UNET_PROVIDER_TEST_SERVER_ADDRESS'] as const;
 const missingEnvironment = requiredEnvironment.filter(key => !process.env[key]);
 const waitLimit = 10_000;
-const caseCount = 16;
+const caseCount = 18;
 type Connection = Awaited<ReturnType<SqlPool['connect']>>;
 type FixturePool = SqlPool & { end(): Promise<void>; on(event: 'error', handler: () => void): void };
 
@@ -132,10 +132,12 @@ test('real PostgreSQL private issuance recovery acceptance', {
     schemaOid = await verifySchema();
     assert.deepEqual((await query('SELECT current_schema() AS schema, current_schemas(false)::text[] AS schemas')).rows,
       [{ schema, schemas: [schema] }]);
-    const { PostgresIssuanceRecoveryStore, ensureIssuanceRecoverySchema } = await bounded(import('../src/issuanceRecoveryPostgres.js'));
+    const { PostgresIssuanceRecoveryStore, TransactionalIssuanceRecoveryStore, ensureIssuanceRecoverySchema } = await bounded(import('../src/issuanceRecoveryPostgres.js'));
+    const { PostgresDirectIssuerRequestStore, ensureDirectIssuerSchema } = await bounded(import('../src/directIssuerPostgres.js'));
     const { recoveryDigest, validateRecoveryRecord } = await bounded(import('../src/issuanceRecovery.js'));
     const { ledgerV2IssuerIdHash, ledgerV2RequestHash } = await bounded(import('../src/ledgerV2.js'));
     await bounded(ensureIssuanceRecoverySchema(pool));
+    await bounded(ensureDirectIssuerSchema(pool));
     const store = new PostgresIssuanceRecoveryStore(pool);
     const input = (): RecoveryInput => {
       const id = randomBytes(12).toString('hex');
@@ -544,6 +546,87 @@ test('real PostgreSQL private issuance recovery acceptance', {
       }
       assert.deepEqual(await row(r.requestId), before);
       assert.equal((await transition(r, prepare)).phase, 'prepared');
+    });
+    // Provider projection here is synthetic; these cases prove transaction
+    // composition, not Safety's account-policy or HTTP authorization boundary.
+    await query('CREATE TABLE application_publication(request_id text PRIMARY KEY, state text NOT NULL)');
+    const outerTransaction = async <T>(work: (db: Connection) => Promise<T>): Promise<T> => {
+      const db = await bounded(pool!.connect());
+      let discard = false;
+      try {
+        await bounded(db.query('BEGIN'));
+        const result = await work(db);
+        await bounded(db.query('COMMIT'));
+        return result;
+      } catch (error) {
+        try { await bounded(db.query('ROLLBACK')); } catch { discard = true; }
+        throw error;
+      } finally { db.release(discard); }
+    };
+    await runCase('outer transaction atomically reserves request, journal and application', async () => {
+      const i = input();
+      const reserve = (fail: boolean) => outerTransaction(async db => {
+        const requests = new PostgresDirectIssuerRequestStore(db);
+        const recovery = new TransactionalIssuanceRecoveryStore(db);
+        await requests.create(i.request);
+        await recovery.reserve(i);
+        await db.query('INSERT INTO application_publication VALUES($1,$2)', [i.request.requestId, 'pending']);
+        // A separate pool connection must not observe any of the three writes.
+        assert.equal(await store.get(i.request.requestId), undefined);
+        assert.equal(await new PostgresDirectIssuerRequestStore(pool!).get(i.request.requestId), undefined);
+        assert.equal((await query('SELECT request_id FROM application_publication WHERE request_id=$1', [i.request.requestId])).rowCount, 0);
+        if (fail) throw new Error('synthetic_publication_failed');
+      });
+      await assert.rejects(reserve(true), /^Error: synthetic_publication_failed$/);
+      assert.equal(await store.get(i.request.requestId), undefined);
+      assert.equal(await new PostgresDirectIssuerRequestStore(pool!).get(i.request.requestId), undefined);
+      assert.equal((await query('SELECT request_id FROM application_publication WHERE request_id=$1', [i.request.requestId])).rowCount, 0);
+      await reserve(false);
+      assert.equal((await store.get(i.request.requestId))?.phase, 'reserved');
+      assert.equal((await new PostgresDirectIssuerRequestStore(pool!).get(i.request.requestId))?.state, 'pending');
+      assert.deepEqual((await query('SELECT state FROM application_publication WHERE request_id=$1', [i.request.requestId])).rows, [{ state: 'pending' }]);
+    });
+    await runCase('outer publication failure rolls back completion and preserves its retry lease', async () => {
+      let r = await claimed();
+      await new PostgresDirectIssuerRequestStore(pool!).create(r.input.request);
+      await query('INSERT INTO application_publication VALUES($1,$2)', [r.requestId, 'pending']);
+      r = await transition(r, prepare);
+      r = await transition(r, { kind: 'submit', submission: { operation: {
+        attestationHash: '0x' + r.preparation!.attestationHash, issuerIdHash: r.input.context.issuerIdHash,
+        holderRevocationSigner: r.input.request.holderRevocationSigner, requestIdHash: ledgerV2RequestHash(r.requestId),
+        issuerKeyEpoch: 1, nonce: '0', deadline: 2_000_000_000 }, signature: '0x' + '1'.repeat(128) + '1b' } });
+      const op = r.submission!.operation;
+      r = await transition(r, { kind: 'confirm', receipt: { chainId: r.input.context.chainId,
+        ledgerAddress: r.input.context.ledgerAddress, attestationHash: op.attestationHash,
+        issuerIdHash: op.issuerIdHash, holderRevocationSigner: op.holderRevocationSigner,
+        requestIdHash: op.requestIdHash, submissionDigest: recoveryDigest(r.submission),
+        transactionHash: '0x' + '4'.repeat(64), blockHash: '0x' + '5'.repeat(64), blockNumber: 1, confirmations: 1 } });
+      const before = await row(r.requestId);
+      const publish = (fail: boolean) => outerTransaction(async db => {
+        const recovery = new TransactionalIssuanceRecoveryStore(db);
+        const requests = new PostgresDirectIssuerRequestStore(db);
+        const current = await recovery.get(r.requestId);
+        assert.deepEqual(current, r);
+        await recovery.transition(r.requestId, r.leaseToken!, r.revision, { kind: 'complete' });
+        await requests.update({ ...r.input.request, state: 'ready',
+          attestationHash: r.preparation!.attestationHash,
+          encryptedCredentialEnvelope: r.preparation!.encryptedCredentialEnvelope,
+          ledgerTransactionHash: r.receipt!.transactionHash });
+        assert.equal((await db.query('UPDATE application_publication SET state=$2 WHERE request_id=$1 AND state=$3', [r.requestId, 'ready', 'pending'])).rowCount, 1);
+        assert.deepEqual(await row(r.requestId), before);
+        assert.equal((await new PostgresDirectIssuerRequestStore(pool!).get(r.requestId))?.state, 'pending');
+        if (fail) throw new Error('synthetic_publication_failed');
+      });
+      await assert.rejects(publish(true), /^Error: synthetic_publication_failed$/);
+      assert.deepEqual(await row(r.requestId), before);
+      assert.deepEqual((await query('SELECT state FROM application_publication WHERE request_id=$1', [r.requestId])).rows, [{ state: 'pending' }]);
+      await publish(false);
+      assert.equal((await projection(r.requestId)).phase, 'completed');
+      assert.equal((await new PostgresDirectIssuerRequestStore(pool!).get(r.requestId))?.state, 'ready');
+      assert.deepEqual((await query('SELECT state FROM application_publication WHERE request_id=$1', [r.requestId])).rows, [{ state: 'ready' }]);
+      await assert.rejects(outerTransaction(db => new TransactionalIssuanceRecoveryStore(db)
+        .transition(r.requestId, r.leaseToken!, r.revision, { kind: 'complete' })));
+      assert.equal((await projection(r.requestId)).phase, 'completed');
     });
     assert.equal(cases, caseCount);
     assert.equal(fetchCalls, 0);

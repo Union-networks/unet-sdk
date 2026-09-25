@@ -117,6 +117,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/operations/anchor/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read-only recovery of an exact previously signed anchor after a lost response. The original signed operation stays in the request body, never in URLs or logs. An index row only locates a candidate; confirmation requires matching canonical chain evidence and active status. No transaction is submitted. At most eight concurrent requests per gateway, a 4096-byte body limit and ten-second total deadline apply. Responses are no-store. The result trusts the configured gateway/RPC; it is not a light-client proof or a delivery authorization. */
+        post: operations["reconcileLedgerV2Anchor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 /** @public */
 export type webhooks = Record<string, never>;
@@ -182,6 +199,59 @@ export interface components {
             issuerIdHash?: string;
             anchorBlockNumber?: number;
             revokeBlockNumber?: number;
+        };
+        LedgerAnchorReconciliationRequest: {
+            chainId: number;
+            ledgerAddress: string;
+            /** Cannot lower the gateway confirmation floor. */
+            requiredConfirmations: number;
+            /** Optional known transaction. Otherwise the disposable index supplies a candidate, never proof. */
+            candidateTransactionHash?: string;
+            operation: {
+                attestationHash: string;
+                issuerIdHash: string;
+                holderRevocationSigner: string;
+                requestIdHash: string;
+                issuerKeyEpoch: number;
+                /** Canonical decimal uint256, no greater than 2^256-1. */
+                nonce: string;
+                /** Original signed Unix deadline. It may now be expired if the transaction was included in time. */
+                deadline: number;
+            };
+            signature: string;
+        };
+        LedgerAnchorReconciliationConfirmed: {
+            /** Constant value. */
+            success: true;
+            /** Constant value. */
+            protocolVersion: 2;
+            /** Constant value. */
+            status: "confirmed";
+            receipt: {
+                chainId: number;
+                ledgerAddress: string;
+                attestationHash: string;
+                issuerIdHash: string;
+                transactionHash: string;
+                blockHash: string;
+                blockNumber: number;
+                confirmations: number;
+                requiredConfirmations: number;
+                checkedHeadHash: string;
+                checkedHeadNumber: number;
+                /** Constant value. */
+                status: "active";
+            };
+        };
+        LedgerAnchorReconciliationPending: {
+            /** Constant value. */
+            success: true;
+            /** Constant value. */
+            protocolVersion: 2;
+            /** Constant value. */
+            status: "pending";
+            /** Enum (unknown). */
+            reason: "receipt_pending" | "insufficient_confirmations" | "reorg_detected";
         };
     };
     responses: never;
@@ -356,6 +426,81 @@ export interface operations {
         responses: {
             /** Signed operation accepted by relayer */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reconcileLedgerV2Anchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LedgerAnchorReconciliationRequest"];
+            };
+        };
+        responses: {
+            /** Exact anchor evidence confirmed at the returned canonical head */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerAnchorReconciliationConfirmed"];
+                };
+            };
+            /** Receipt/index pending, insufficient confirmations or detected reorg; preserve pending state */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerAnchorReconciliationPending"];
+                };
+            };
+            /** Invalid request; no query parameters are accepted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** Exact operation evidence mismatch, reverted transaction or chain-revoked credential */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Constant value. */
+                        success: false;
+                        /** Enum (unknown). */
+                        error: "ledger_v2_anchor_evidence_mismatch" | "ledger_v2_anchor_transaction_failed" | "ledger_v2_attestation_revoked";
+                    };
+                };
+            };
+            /** Request exceeds 4096 bytes */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** Gateway concurrency limit; retry later without changing credential lifecycle */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** Dependency unavailable, timeout or unknown current chain state; preserve pending state */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
