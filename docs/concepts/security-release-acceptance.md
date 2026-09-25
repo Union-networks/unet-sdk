@@ -1614,7 +1614,8 @@ wallet, service flag, reset or security epoch changed.
 
 ### Private Issuance Recovery Journal Candidate
 
-The new issuer-private recovery kernel and PostgreSQL adapter freeze request,
+SDK local checkpoint `14626a66c7a807699f2fd225ea9a68a5a32eabbb` adds the new
+issuer-private recovery kernel and PostgreSQL adapter. They freeze request,
 recipient, credential-key fingerprint, validity, chain, contract, issuer epoch
 and confirmation policy. They persist preparation, signed submission and receipt
 checkpoints under revision/token/database-clock fences. Retries retain immutable
@@ -1651,6 +1652,39 @@ receipt resolver, provider-policy-locked publication, durable worker scheduling,
 issuer nonce/deadline recovery and authenticated delivery-capability recovery
 remain required. No public API, package release or production activation is
 approved by these results.
+
+### Private Canonical Anchor Evidence Candidate
+
+Ledger local checkpoint `99b81ef6b470c6ab8309d18aa7979457511379f2` adds a private
+receipt verifier, without registering any route or changing the public protocol.
+Both author and committer are Xevorius. It snapshots the expected signed operation
+and checks chain/contract, exact canonical calldata, successful receipt, matching
+anchor event, block membership, inclusion time and required confirmations. It
+reads exact active status using EIP-1898 canonical block-hash pinning, then checks
+the canonical blocks and chain again. Timeouts and cancellation have finite,
+sanitized outcomes. The configured RPC and contract remain trusted; this is not
+a light-client or independently verified finality proof.
+
+All 160 mock-RPC cases pass, along with the full ledger build. The disposable
+Besu suite passes all 11 cases, with 96 successful and 42 intentionally reverted
+transactions. The new real-EVM case recovers the original receipt, rejects
+changed request/signature inputs, rejects insufficient confirmation depth and an
+absent transaction, then refuses delivery following actual holder revocation.
+No injected RPC results are used by that case. Existing governance, issuer-key
+rotation/suspension/recovery and revocation regressions still pass.
+
+The separate ordinary ledger suite passes 238 tests and explicitly skips its 11
+environment-gated EVM tests; the dedicated run above executes them. See ledger
+`docs/anchor-recovery-acceptance.md` for source hashes, commands, toolchain and
+limits. The existing owned fixture runner was unchanged. Its container and
+network were removed and the tunnel listener was gone. No production contract,
+wallet, validator, maintenance flag or security epoch changed.
+
+This verifier is not yet connected to the private SDK recovery journal. Index
+candidate discovery, bounded provider-facing reconciliation, durable worker and
+nonce/deadline recovery, policy-locked publication and authenticated delivery
+capability recovery remain open. The source must not be deployed or exposed as
+completed issuance recovery on the strength of component tests alone.
 
 ## Standards Evaluation Boundary
 
