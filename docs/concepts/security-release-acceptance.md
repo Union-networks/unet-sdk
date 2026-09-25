@@ -1824,7 +1824,7 @@ open. Nothing in this follow-up authorizes publication, activation, or reset.
 | Actual Safety admission/publication SQL | `735e3594bf9f338a57145c543a32747782adbf52` | 23 real PostgreSQL 17 cases, TLS checks, owned cleanup; credential construction and external chain mocked | No |
 | Gateway cancellation observation | Ledger `98effbe` | 12 disposable deployed-EVM cases, 103 successful transactions and 44 expected mined reverts; includes real HTTP cancellation route | No |
 | Safety cancellation client and catalog bounds | `2a4c2b3ccd2f2f913bcbb19dad9ff07f896ff4cc` | 618 packed-consumer tests and full unchanged Safety typecheck | No |
-| Android credential broker | Mobile `563d905d2468583e9f63898b7b33ba276e2ffa7d` | Five issuance and ten existing native storage tests on isolated app-plane emulator; provider compiled, RN module not compiled | No |
+| Android credential broker | Mobile `563d905d2468583e9f63898b7b33ba276e2ffa7d` | Five issuance and ten existing native storage tests on isolated app-plane emulator; subsequent real React Android 0.81.5 fixture compiles module and provider, not a full app test | No |
 | Native pending issuance journal and exact tuple keys | Same mobile checkpoint, unconnected | Mobile 98 suites / 1,502 tests and TypeScript plus independent real-wrapper checks; no full activity issuance acceptance | No |
 
 PostgreSQL receipt: parent-workspace
