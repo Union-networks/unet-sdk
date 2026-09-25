@@ -6,8 +6,10 @@ or security-epoch activation has run. A missing result is not a pass.
 
 Latest local Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
 including the offline native-prover candidate and the legacy-reset SQL fence.
-It is not deployed. The new full-activity recovery build remains unaccepted,
-and genuine JNI/EVM acceptance is blocked before proof by test-host clock skew.
+It is not deployed. The new full-activity recovery build passes all three isolated
+offline crash cases, warm resumes and repeat startups; full release acceptance
+remains open. Genuine JNI/EVM acceptance is blocked before proof by test-host
+clock skew.
 See the September 25 follow-up sections below; earlier component passes do not
 override these open release gates.
 
@@ -1311,10 +1313,150 @@ under verification; previous failed evidence is unchanged. The stage manifest is
 build ID `84b01dadf5d5e8f16c0733878779337e` and source archive
 `1124db59df81a4215a4c63b5c24b15ef953bc7f0bcf7a42037f0b5903512ceb4`.
 
+Fresh build `full-activity-saxbvz24` compiled both native ABIs and passed the
+offline release-artifact audit. APK SHA256 is
+`3e5a66d6e1e86d539dee75c6adad9d88e550ad591447e3161f4fb2eba68c544c`;
+artifact receipt SHA256 is
+`22e51d57e88fa85424f9f36349492a966c0e4c89534c09e29b7a38e6d13483e0`.
+The changed chat client and lifecycle store separately matched bundled source
+map contents exactly. This is an isolated package with no network permission,
+not a distributed production build. The new external driver retains the prior
+four-CPU runtime and assertions; only artifact pins and associated tests/docs
+change. Its checksum manifest is
+`af60cccb1470fc3c6cde6b37034176709fd72ffe75b97d7daa1aaedf81df8612`.
+Driver checks passed 51 locally and 50 on the app plane, with one explicit
+source-checkout-only skip remotely. Runtime acceptance is not implied.
+
+Actual attempt `device-attempt-eqqz7ppj/after-secret-delete-dm6d4_fe` passed
+clean AOSP provisioning, the native writer barrier, exact reset preservation and
+`production_ready`. Its journal check reported one security operation, zero
+legacy operations and the expected terminal epoch. After an observed background
+transition, warm-resume verification failed with an unclassified `Error` before
+`production_warm_ready`. The scenario remains FAIL and the other two scenarios
+did not run. Owned cleanup succeeded; original5554 was unchanged.
+
+The retained diagnostics do not establish the warm failure's cause. The test
+overlay repeatedly opens transient SQLite wrappers, unlike the production
+cache's retained promise. Installed Expo source caches native database objects
+and closes their binding on shared-object release, making wrapper lifetime a
+specific test-harness risk. A separate diagnostic candidate will retain its
+handle and emit finite verification-step/error categories without raw exception
+text. This is not yet a demonstrated fix or permission to ignore SQLite errors.
+
 Additional exact-path cleanup reclaimed 1,908,121,600 bytes of completed native
 Rust output and 1,970,135,040 bytes of old Android intermediates. Final APK hashes
 were checked before and after; source, signing material, evidence, snapshots and
 AVDs were retained. These removals do not establish a general retention policy.
+
+After the new run finished, its reproducible compiler output reclaimed another
+3,411,816,448 bytes. Sixteen reviewed generated `android/build` and `android/.cxx`
+directories inside four native dependency packages across two inactive runs
+reclaimed 2,944,765,952 bytes. These per-run dependency outputs are outside APK
+retention. APK/source-map/receipt hashes remained unchanged; package sources and
+all test evidence were retained.
+
+The separate V5 test overlay retains one database-opening promise per process,
+including a rejected promise, rather than implicitly reopening after errors.
+It labels verification failures with fixed step/native-error categories while
+preserving all 47 acceptance predicates and the unchanged readiness observer.
+Parent reruns passed 32 Node and 31 Python checks, including concurrent opens,
+synchronous/asynchronous opening failure, overlapping verification and hostile
+error-object redaction. These do not demonstrate Android lifetime behavior.
+Its new frozen stage manifest is
+`45ce55bf4e3c1e43ad28c556275c943e36805653fa6b53fafdc9ed9de1a14a12`,
+build ID `7bd6edc838d2246b464822e1c999ff3d`, still using mobile commit
+`80c0b690abbfa0946ee37a58703da2457d006f94`. The new build and emulator outcome
+must be recorded separately; neither earlier failed attempt is overwritten.
+
+Sixteen more reviewed dependency compiler directories in the inactive
+`full-activity-v_j9nhlg` and `full-activity-fpofst66` runs reclaimed
+2,944,380,928 bytes. Both runs' APK, source-map and receipt hashes were verified
+before and after. No source, evidence, shared cache or emulator was removed.
+
+### Retained-Handle Recovery Result
+
+Fresh run `full-activity-dlxe45n8` compiled both ABIs from the same mobile
+commit and passed the offline Release artifact audit. APK SHA256:
+`8c00d6288efb82fb1db5d9ea9217c840d0dbef956f6f028b7db3fbb69c86b035`.
+Receipt SHA256:
+`680f9405d250774532aaae22070525831c9de70071f81a2478caefafdb7a7fc8`.
+Source-map SHA256:
+`6d9f82910c2dc9b618c59ca81589212b8fc6e83872a00b4e5c6dcaa0d27db788`.
+Its completed Rust/compiler intermediates were removed only after receipt,
+APK and source-map checks, reclaiming 3,411,824,640 bytes with hashes unchanged.
+
+First attempt `device-attempt-4nb1hhe2` passed after-secret-delete, including
+warm resume and repeat process restart. The second fresh AVD stopped before
+app installation because `adb root` reported a closed transport; the third
+scenario did not run. Both owned emulators shut down and original5554 remained
+unchanged. This partial series remains failed evidence, not a three-case pass.
+
+A separately reviewed driver reconciles only that exact ambiguous root response:
+one root request, reconnect, then independently require the same owned emulator,
+UID 0 and unchanged boot identity within the EXISTING total 60-second phase.
+All other failures remain fatal. A hash-pinned, exclusive reservation permits
+one reviewed new series and verifies cleanup of the prior attempt. It neither
+invents prior start records nor reuses AVDs. The full driver delta and unchanged
+app/reset predicates are checked. Sixty-five local tests passed; the app plane
+passed 64 with one explicit source-checkout-only skip. Independent review found
+no blocker. Driver checksum manifest:
+`80e2526d8316bd5562655287501df719aa72f25cc7c695e648f35b0f9458288d`.
+
+Reviewed retry `device-attempt-6xdz0xks` passed all THREE fresh AOSP 34 cases:
+
+| Interruption | Scenario receipt SHA256 |
+| --- | --- |
+| After secret deletion | `ae304baa9e6c6e037c0b000ecc98ac7bbb2130f1615924b79aee749d4e489ea8` |
+| After lifecycle SQL reset | `ec671fe97088cd80710e301dca0f7b0c100ca6902d48ea830a2a6d0b947c3bf5` |
+| After SQL commit, miniapp-initiated | `3eff011fb0b8f7d51bda3d45e55db4657801d6ac3df5ee6920221e4d30654272` |
+
+Series receipt SHA256:
+`f066e6dcc8458ab0ace58436b79302bd71d25cf747026f2a3a11974665e27e53`.
+Every scenario demonstrated exact unrelated fixture preservation, native
+ordinary/CAS stale-writer rejection, recovery after all package processes were
+killed, underlying main-root local work, same-process/task/JS warm resume, and
+another process restart with repeat warm readiness. All owned processes stopped;
+original5554 identity remained unchanged. Six warm/repeat screenshots were
+manually reviewed: the Communications UI was visible, with the expected synthetic
+fixture's locked-messaging state and no startup blocker or ANR overlay.
+
+All six root transitions in the passing series returned normally; actual
+ambiguous-response reconciliation remains mock-tested, not observed on-device.
+The passing retained-handle overlay supports the wrapper-lifetime diagnosis but
+does not prove the earlier unclassified native error's exact cause.
+
+This closes ONLY the isolated offline, fresh-app/provisioned-OS recovery scope.
+The APK has no Internet permission and uses a test biometric bypass. GMS, real
+biometrics, live delivery/rotation, miniapp business work, native proofs, physical
+Android, iOS and full production startup remain unapproved. No production reset,
+SDK promotion, messaging activation or release deployment follows from this pass.
+
+### Provider Containment Preparation
+
+Read-only Vercel UI inspection on September 25 reconfirmed the current production
+identities as Safety `5286eaef48455efc4aa67674b493c1afd45c0cda` / deployment
+`6MfaZ3dQ4BcnJcGPg7bvZFjgWFK3`, and Supermarket
+`fd75ef66acc8f5d906b15852753dfe66a3a889f6` / deployment
+`gvApShTNecnyH8DyqhVr6bB3gggJ`. Public GETs to both login challenge routes still
+returned 503, without submitting any account or session data.
+
+Two isolated local branches now contain ONLY the reviewed proxy matcher change:
+
+- Safety: `b999d37ee42f69f4f7670d0dd7e4093c052281e7`.
+- Supermarket: `cfcca3f10154b79574c2f645e59fd7580ec3d92a`.
+
+Both author and committer are `Xevorius <tim.is@live.nl>`. Each commit has exactly
+one changed matcher line and the verified production revision as its parent.
+Four containment checks pass; actual worktree contents separately match the
+expected one-line transformation. Newer provider auth/TLS work was not included.
+Neither branch was pushed or deployed. Vercel CLI requires a fresh login; the
+signed-in browser displayed a disabled authorization button and the bounded CLI
+attempt ended without authorization. No UI restriction was bypassed.
+
+Windows time service remains stopped. The final read-only midpoint probe estimated
+the PC 4.312 seconds ahead of U-chain with 527 ms round trip. This is not clock
+synchronization or a new proof-test pass. The earlier signed-heartbeat failure
+remains open; no clock, timing guard or production maintenance flag was changed.
 
 ## Standards Evaluation Boundary
 
