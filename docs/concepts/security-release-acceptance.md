@@ -1,8 +1,67 @@
 # Security-2 acceptance record
 
-Updated 2026-09-25. This is an evidence ledger, not release approval.
+Updated 2026-09-26. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
+
+September 26 follow-up: the current Safety worker candidate passes **59 real
+PostgreSQL cases**, including reconciliation of saved signatures after suspension,
+account retirement, and external request revocation without publication or
+resurrection. Receipt:
+`audit-2026-09-25/issuance-postgres/results/safety-3419927a72ec8b93cb11/result.json`.
+The receipt pins the tested source hashes, verifies TLS, and confirms owned
+resource cleanup. Ledger responses in this fixture are mocked. This is not a
+deployment, full issuer-writer integration, or Android acceptance result.
+
+Ledger checkpoint `702a927038fc4ca921a5126b7bb53e713ff87b9e` adds confirmed
+chain-time expiry evidence for the complete saved issuer-operation history.
+The disposable Besu suite passed **16 cases**, with 132 successful transactions
+and 52 expected reverts. Expired operations cannot execute; this does not imply
+that an operation succeeded or consumed its nonce. This remains local candidate
+code, not production activation.
+
+Mobile retirement-fence checkpoint `b2734826438877ee7951a9b0a0cb0c722138dab0` passes **101 Jest
+suites / 1,695 tests**, full mobile TypeScript checking, and `git diff --check`.
+The new account-cache fixture asserts lookup outside the broker lease. Recovery
+of an existing request no longer probes legacy delivery material. These results
+cover the locally committed source, not a new APK, native process-death run, deployed
+client, or physical-phone approval. Consumer and renewal integration remain open.
+
+The Safety expiry-evidence candidate passes **768 tests** across the packed SDK
+consumer's 14 focused files and full Safety TypeScript checking. Receipt:
+`audit-2026-09-25/issuer-packed-consumer/evidence/7dbd3640-2835-4ebd-8ca1-5c3df6ff2204.json`.
+This includes strict maximum-deadline comparison, mode-separated history digest,
+immutable revision/token checks and idempotent expiry disposition. A prior run
+passed tests but failed typechecking on the endpoint union; it is retained as a
+failed run, not counted as acceptance.
+
+Safety checkpoint `2969a89862b1004ec8f154ae3b0eee93278a4e4f` subsequently passes
+**64 real PostgreSQL cases**, including all five expiry transaction/race cases.
+Outer receipt:
+`audit-2026-09-25/issuance-postgres/results/safety-92d39572a6a5b2fda68f/result.json`,
+SHA-256 `18a8b1657c7b68870a72c80a61932517664733e056222ceb72270ac3b8148014`.
+Packed receipt:
+`audit-2026-09-25/issuer-packed-consumer/evidence/dc09ef0c-4303-4b0d-aab6-5f74c966fdc3.json`.
+Typechecking, original-input immutability, TLS checks and owned cleanup pass.
+The five compound expiry cases use 90-second test budgets; per-operation, SQL,
+lock and whole-suite bounds are unchanged. Ledger evidence is synthetic in this
+PG fixture; it does not claim real-chain worker integration or deployment.
+
+Mobile checkpoint `c15a52be29f30c23a7141b6454aef797a840eef4` passes **102 suites /
+1,727 tests** plus TypeScript. Native callers must now supply a durable consent
+attempt ID: retries retain the same request, while separately authorized renewals
+can allocate new material without replacing previous publications. Exact material
+readers parse and validate outside the broker lease and recheck raw snapshots
+before disclosure. The ten dedicated reader tests cover deletion during hashing,
+revoker erasure, cancellation and read-only operation. Native consent creation,
+publication-backed consumers, migration and full app activation are still open.
+
+Capacity recheck on September 26: U-chain root was 93% used with 4.1 GB available.
+App-plane root was 94% used with 12 GB available. Guarded cleanup removed only 11
+inactive disposable AVD directories from two old full-activity runs, recovering
+approximately 9.3 GB (21 GB available, 89% used afterwards). Parent evidence,
+screenshots, APKs, source and the running `unetApi34` emulator were retained.
+Reviewed cleanup command: `audit-2026-09-25/cleanup-old-activity-avds.sh`.
 
 Additional local checkpoints on September 25, **not deployed or activated**:
 
@@ -22,13 +81,30 @@ Additional local checkpoints on September 25, **not deployed or activated**:
   match the exact commitment even after delivery. Issuer build and all 778 issuer
   tests pass. This is local RC source, not a new published package version.
 
-Expanded real-PostgreSQL acceptance remains open. The first packed run passed
-40 cases before cancellation; the second passed 47, then cancelled during a
-compound replacement ACK case. That receipt does not prove a replacement-worker
-defect or a pass: its outer failure precedes the child assertion. Bounded timing
-and cancellation diagnostics are being added before rerunning. Neither run
-changed production; both verified owned-fixture cleanup. The original successful
-40-case receipt below remains valid only for its recorded source.
+New local Safety checkpoint `840962171bf746f044043717e29eb2be6c39d307` passes
+all **56 real PostgreSQL cases**, its packed-consumer focused tests and full Safety
+TypeScript check. This includes durable replacement ACK, rollback, concurrent
+retries, lost commit replies and preservation of the replacement during predecessor
+revocation. TLS rejection, unchanged original inputs and owned cleanup pass.
+Outer receipt: `audit-2026-09-25/issuance-postgres/results/safety-5145e171259b6d4bf0a8/result.json`,
+SHA-256 `f1ec4f09f1e91fa3db9c76586606bbc66fc57e48ff424f28f502303ee56a5faa`.
+Packed receipt: `audit-2026-09-25/issuer-packed-consumer/evidence/161b95cb-02f5-4cdb-a71f-8da1a9c6f728.json`,
+SHA-256 `8a21ccf46762a658e981fb67ff0e74fc2ad7cc8798c54992b76a31f7f6a82f40`.
+Ledger calls in this fixture are mocked. Complete issuer-writer integration,
+Android delivery and production deployment are still open.
+
+Earlier expanded runs passed 40, 47 and 49 cases before cancellation. Measured
+compound cases took 40-49 seconds across the TLS fixture tunnel. Test-only ACK
+budgets were increased to 90 seconds, with individual operations, SQL locks and
+production deadlines unchanged; the harness delta was independently reviewed.
+Those incomplete runs remain retained failure evidence, not separate passes.
+
+Mobile checkpoint `49e854b85a28a7a961abeb09f921b450e905277a` adds atomic native
+credential publication and write-free replay. The full suite passes **100 suites /
+1,636 tests**; focused tests and TypeScript pass. Independent review reproduced
+and verified the fix for near-limit replay and lost-response recovery. The path
+remains disconnected until account retirement, renewal and wallet consumers are
+integrated. No new APK or device acceptance follows from these JS tests.
 
 Latest additional local Safety checkpoint: `ef8a1fd9a37f2b6c1b84243cd9d77a159dbad6ae`
 (Xevorius author and committer), **not deployed or activated**. Its private issuer
@@ -42,7 +118,7 @@ SHA-256 `d0b053a3b0f06e4cd1f8fa7e5bafe2b0c7399e2bc61407a234017839b1df24b0`.
 Subsequent unsigned-cancellation, delivery-acknowledgement and exact-key-reference
 work remains in progress and is not covered by that receipt.
 
-Latest local Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
+The earlier full-activity Android source is `80c0b690abbfa0946ee37a58703da2457d006f94`,
 including the offline native-prover candidate and the legacy-reset SQL fence.
 It is not deployed. The new full-activity recovery build passes all three isolated
 offline crash cases, warm resumes and repeat startups; full release acceptance
