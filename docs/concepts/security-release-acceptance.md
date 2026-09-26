@@ -40,7 +40,18 @@ September 26 later local checkpoints (not APK or release approval):
   (SHA-256 `6ef306dfae93b96e8b0a7db0895eb8b89bf16066c3d37b2122c30825e7a77e80`).
   This is not completion of all issuer nonce writers or production activation.
 
-The expanded 80-case real PostgreSQL worker acceptance is **not passing yet**.
+The expanded 80-case real PostgreSQL worker acceptance now **passes** at Safety
+checkpoint `80da29a991dcf85700f925ef7b90d01b7d2db0a2` (Xevorius author and
+committer). Receipt:
+`audit-2026-09-25/issuance-postgres/results/safety-bcef7077673462597c6e/result.json`,
+SHA-256 `e3aad50d5b185ae798449a9a345e7dc4fe3ee4703047cb11f99b7d201688acd2`.
+The packed consumer and full Safety typecheck pass; TLS checks, unchanged
+recorded sources and owned fixture cleanup pass. Ledger responses are mocked:
+this is real database/worker acceptance, not live chain or production acceptance.
+Public revocation and private domain-admin writers still require integration
+before issuer-wide coordination can be activated.
+
+Preserved failed-run history:
 Run `safety-92efffa0e9d55f270575` reached 69 passing cases before its total
 suite deadline. After independently reviewed total-budget changes, run
 `safety-65b86257f329c64a2a04` reached 64 passing cases, then case 65 failed
@@ -56,8 +67,8 @@ transport contract counter. Its HTTP response barrier outlasted the real
 ten-second evidence deadline; a follow-up observation encountered the already
 terminal lane. A test-only correction moves the barrier after the real evidence
 validator returns, without changing production deadlines or ownership checks.
-That correction is not yet accepted. Both fixtures were cleaned up; 79 passing
-cases are not acceptance of the 80-case suite.
+The corrected fixture is exercised by the passing 80-case run above. Both failed
+fixtures were cleaned up; their earlier 79-case results remain failures.
 
 The committed holder/proof/UI integration has the mobile evidence above. The
 final multi-credential fence now uses broker revision endpoints and a separate
