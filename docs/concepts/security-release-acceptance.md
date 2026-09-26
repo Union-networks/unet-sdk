@@ -19,6 +19,17 @@ proofs, push, online messaging or physical Android. No release approval follows.
 
 September 26 later local checkpoints (not release approval):
 
+- Ledger `0cb5f5e4d4756d089bff343cef11dce33783832d` and Safety
+  `33365d022dc3dc963d22077489aba5af06ab8ab7` add exact confirmed-block
+  unsigned revocation observations. Latest-state `revoked` alone cannot complete
+  the new producer. This distinct evidence cannot release unresolved signed
+  issuer operations or claim a particular transaction executed. Gateway tests
+  (136), Safety reader tests (37), and actual-module/synthetic-RPC composition
+  cases (7) pass. The disposable-EVM suite passes all 16 cases, with 132
+  successful transactions and 52 expected mined reverts; owned resources were
+  removed. Evidence: `audit-2026-09-26/revoked-evidence-results.md`. No production
+  deployment follows from these results. Public producer database integration
+  and domain-admin coordination remain open.
 - Mobile `18651d6` and `9480f34789a8254f5ce5452ec291662fb9cac4e7` connect
   protected credential authority, the bounded SQL/native read window and
   attempt-bound consent to proof consumers. Cache-only rows cannot authorize
