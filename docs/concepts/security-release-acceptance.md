@@ -4,6 +4,39 @@ Updated 2026-09-26. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
+September 26 later local checkpoints (not APK or release approval):
+
+- Mobile `55045c5404d373681941b394e09c81d278b79555` supplies fresh trusted
+  network reads for native publication admission; 39 focused tests and
+  TypeScript pass.
+- Mobile `0dd5b63ef0b356d7c004dd57793739f08d11d030` preserves native credential
+  lifecycle across retirement, revocation journals and concurrent storage
+  changes. Parent full verification passes 107 suites / 2,003 tests and
+  TypeScript; independent review found no actionable issues in that scope.
+- Mobile `1fd0574b5fe9c7a920fcf0f7e1f66ae2930ecf30` replaces bounded tombstone
+  enumeration with exact SQLite existence checks. Parent full verification
+  passes 107 suites / 2,017 tests; the separate SQLite lifecycle suite passes
+  85 tests. These counts precede the uncommitted proof-consumer integration.
+- The later Safety candidate passes 793 packed-consumer tests and full Safety
+  TypeScript, receipt
+  `audit-2026-09-25/issuer-packed-consumer/evidence/dad41305-3360-41e4-888f-995a88d0ef9f.json`
+  (SHA-256 `6ef306dfae93b96e8b0a7db0895eb8b89bf16066c3d37b2122c30825e7a77e80`).
+  This is not completion of all issuer nonce writers or production activation.
+
+The expanded 80-case real PostgreSQL worker acceptance is **not passing yet**.
+Run `safety-92efffa0e9d55f270575` reached 69 passing cases before its total
+suite deadline. After independently reviewed total-budget changes, run
+`safety-65b86257f329c64a2a04` reached 64 passing cases, then case 65 failed
+inside the 15-second test coordination helper. Neither run is accepted; both
+outer receipts confirm owned fixture cleanup. Query, lock and production lease
+limits were not relaxed. Diagnosis of the test coordination remains open.
+
+Uncommitted holder/proof/UI integration has focused test evidence only. Final
+multi-credential proof authorization still needs a consistent cross-process
+fence: sequential checks alone can miss a credential retired while a later
+credential is being checked. Do not count this consumer integration as accepted
+or enable native issuance on the strength of these tests.
+
 September 26 publication-reader checkpoint
 `8c4d1eac40ec6d50a7c6ac0758e8dbd8b12b5f72` (Xevorius author and committer) adds
 bounded native publication enumeration/exact lookup and a native-host admission
