@@ -4,7 +4,20 @@ Updated 2026-09-26. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
-September 26 later local checkpoints (not APK or release approval):
+September 26 current Android reset rehearsal:
+
+Mobile `9480f34789a8254f5ce5452ec291662fb9cac4e7`, isolated APK SHA-256
+`92ab0a39dccd7708321edb10e8578e55b54b8506f5805d7af93e06ba74dae19e`,
+passes after-secret-delete, after-lifecycle-reset and after-SQL-commit recovery
+on three fresh AOSP 14 test emulators. All twelve ready/warm screenshots were
+reviewed; owned processes stopped successfully and original emulator identity
+is unchanged. Evidence: parent-workspace
+`audit-2026-09-26/full-activity-current/REPORT.md` and its `evidence/` directory.
+This tests actual activities and broker reset recovery offline, with biometric
+bypass and no GMS. It does not validate full startup, live issuance, credential
+proofs, push, online messaging or physical Android. No release approval follows.
+
+September 26 later local checkpoints (not release approval):
 
 - Mobile `18651d6` and `9480f34789a8254f5ce5452ec291662fb9cac4e7` connect
   protected credential authority, the bounded SQL/native read window and
@@ -14,7 +27,7 @@ September 26 later local checkpoints (not APK or release approval):
   legacy duplicates cannot be hidden by an active copy. Public proof failures
   use fixed categories rather than raw diagnostics. The full mobile run passes
   114 suites / 2,351 tests and TypeScript. This is not a full-app proof or phone
-  acceptance result; the new APK still needs its own evidence.
+  acceptance result; the APK reset evidence above does not close those gates.
 - Mobile `e156b5a3fae6e15db74963bcb46167f27c88133b` adds the fail-closed,
   cross-process secure-store mutation revision. The wrapper passes 176 tests;
   the isolated app-plane provider harness passes 16 instrumentation tests.
