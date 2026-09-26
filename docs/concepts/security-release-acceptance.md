@@ -4,6 +4,39 @@ Updated 2026-09-26. This is an evidence ledger, not release approval.
 Production login/direct messaging remain under maintenance. No production reset
 or security-epoch activation has run. A missing result is not a pass.
 
+September 26 publication-reader checkpoint
+`8c4d1eac40ec6d50a7c6ac0758e8dbd8b12b5f72` (Xevorius author and committer) adds
+bounded native publication enumeration/exact lookup and a native-host admission
+verifier. The reader validates protected inventory, journals, exact snapshots and
+publication digests outside leases, then rereads captured values before disclosure.
+The verifier requires approved service/schema/key metadata, signed generation
+membership, signed validity, Messaging Access expiry membership, an active issuer,
+and the exact active commitment/revocation signer. Reader transport/freshness and
+wallet/proof/revocation/migration activation remain unfinished.
+
+Parent verification: three publication/issuance suites pass 251 tests; the full
+mobile run passes 104 suites / 1,872 tests. Eight subsequently added composition
+tests pass the real envelope preflight and secp256k1 verification, with synthetic
+field hashing in place of Android JNI. These reject altered generation/expiry
+paths, field encodings, signature, holder secret and signed validity. TypeScript
+and staged diff checks pass. The composition suite was run separately from the
+full suite; this does not claim a full 1,880-test run or device acceptance.
+
+The uncommitted public issuance-worker integration passes 788 packed-consumer
+tests and full unchanged Safety TypeScript. Receipt:
+`audit-2026-09-25/issuer-packed-consumer/evidence/c36844f4-955f-4631-a89a-f69dbc8139e6.json`.
+Tested source digest:
+`d9016565570497d2bd108a8f210a47f0ce39a276c87f73fff7c980092b205e09`.
+Reservation precedes signing; saved signatures and producer transitions share a
+transaction, with confirmed target/expiry evidence required for release. Real
+PostgreSQL worker integration is being extended; revocation and domain-admin
+writers still require the same coordination. No activation follows from this run.
+
+Capacity follow-up: the user expanded U-chain's root LV and ext4 filesystem by
+40 GiB using already-free VG space. An independent SSH `df -h /` check confirms
+101 GB filesystem size, 54 GB used, 42 GB available, 57% usage. No Proxmox disk
+resize or reboot was needed. App-plane remains at the earlier 21 GB-free reading.
+
 September 26 follow-up: the current Safety worker candidate passes **59 real
 PostgreSQL cases**, including reconciliation of saved signatures after suspension,
 account retirement, and external request revocation without publication or
