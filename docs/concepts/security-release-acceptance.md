@@ -6,6 +6,14 @@ or security-epoch activation has run. A missing result is not a pass.
 
 September 26 later local checkpoints (not APK or release approval):
 
+- Mobile `e156b5a3fae6e15db74963bcb46167f27c88133b` adds the fail-closed,
+  cross-process secure-store mutation revision. The wrapper passes 176 tests;
+  the isolated app-plane provider harness passes 16 instrumentation tests.
+  A separate fixture compiles the actual React Native adapter against pinned
+  React Android 0.81.5 and verifies its exported method. Evidence:
+  `audit-2026-09-26/credential-proof-fence/REPORT.md` and
+  `audit-2026-09-26/credential-proof-rn-compile/REPORT.md`. The original emulator
+  was preserved. No full application or physical-device acceptance follows.
 - Mobile `55045c5404d373681941b394e09c81d278b79555` supplies fresh trusted
   network reads for native publication admission; 39 focused tests and
   TypeScript pass.
@@ -29,13 +37,22 @@ suite deadline. After independently reviewed total-budget changes, run
 `safety-65b86257f329c64a2a04` reached 64 passing cases, then case 65 failed
 inside the 15-second test coordination helper. Neither run is accepted; both
 outer receipts confirm owned fixture cleanup. Query, lock and production lease
-limits were not relaxed. Diagnosis of the test coordination remains open.
+limits were not relaxed. The next run, `safety-1da92d0591f160662f93`, passed
+79 cases, including case 65, then failed case 80 in the bounded coordination
+helper. Its packed receipt is
+`audit-2026-09-25/issuer-packed-consumer/evidence/900f1bf8-76c3-4ea9-841c-015f814f3e84.json`.
+Owned fixture cleanup completed. Final-case orchestration diagnosis remains
+open; 79 passing cases are not acceptance of the 80-case suite.
 
-Uncommitted holder/proof/UI integration has focused test evidence only. Final
-multi-credential proof authorization still needs a consistent cross-process
-fence: sequential checks alone can miss a credential retired while a later
-credential is being checked. Do not count this consumer integration as accepted
-or enable native issuance on the strength of these tests.
+Uncommitted holder/proof/UI integration has focused test evidence only. The
+final multi-credential fence now uses broker revision endpoints and a separate
+query-only SQLite connection, with final expiry/consent checks. Its consistency
+point is the final SQL read, not immutability until HTTP dispatch. Review found
+legacy duplicate-restriction and interrupted-migration issues; their corrections
+and the complete consumer integration still need acceptance. Proof failures now
+send a fixed public code instead of raw error text, and messaging rechecks async
+authorization before returning proofs. Do not enable native issuance on the
+strength of these focused tests.
 
 September 26 publication-reader checkpoint
 `8c4d1eac40ec6d50a7c6ac0758e8dbd8b12b5f72` (Xevorius author and committer) adds
