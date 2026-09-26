@@ -6,6 +6,15 @@ or security-epoch activation has run. A missing result is not a pass.
 
 September 26 later local checkpoints (not APK or release approval):
 
+- Mobile `18651d6` and `9480f34789a8254f5ce5452ec291662fb9cac4e7` connect
+  protected credential authority, the bounded SQL/native read window and
+  attempt-bound consent to proof consumers. Cache-only rows cannot authorize
+  proofs; backgrounded or superseded consent cannot disclose buffered results.
+  Native material uses its exact protected reference; stronger pending/revoked
+  legacy duplicates cannot be hidden by an active copy. Public proof failures
+  use fixed categories rather than raw diagnostics. The full mobile run passes
+  114 suites / 2,351 tests and TypeScript. This is not a full-app proof or phone
+  acceptance result; the new APK still needs its own evidence.
 - Mobile `e156b5a3fae6e15db74963bcb46167f27c88133b` adds the fail-closed,
   cross-process secure-store mutation revision. The wrapper passes 176 tests;
   the isolated app-plane provider harness passes 16 instrumentation tests.
@@ -41,15 +50,22 @@ limits were not relaxed. The next run, `safety-1da92d0591f160662f93`, passed
 79 cases, including case 65, then failed case 80 in the bounded coordination
 helper. Its packed receipt is
 `audit-2026-09-25/issuer-packed-consumer/evidence/900f1bf8-76c3-4ea9-841c-015f814f3e84.json`.
-Owned fixture cleanup completed. Final-case orchestration diagnosis remains
-open; 79 passing cases are not acceptance of the 80-case suite.
+Owned fixture cleanup completed. Run `safety-63079cf264e1294c8d91` again passed
+79 cases. Case 80 reached its final state assertions but failed the synthetic
+transport contract counter. Its HTTP response barrier outlasted the real
+ten-second evidence deadline; a follow-up observation encountered the already
+terminal lane. A test-only correction moves the barrier after the real evidence
+validator returns, without changing production deadlines or ownership checks.
+That correction is not yet accepted. Both fixtures were cleaned up; 79 passing
+cases are not acceptance of the 80-case suite.
 
-Uncommitted holder/proof/UI integration has focused test evidence only. The
+The committed holder/proof/UI integration has the mobile evidence above. The
 final multi-credential fence now uses broker revision endpoints and a separate
 query-only SQLite connection, with final expiry/consent checks. Its consistency
 point is the final SQL read, not immutability until HTTP dispatch. Review found
-legacy duplicate-restriction and interrupted-migration issues; their corrections
-and the complete consumer integration still need acceptance. Proof failures now
+legacy duplicate-restriction and interrupted-migration issues; corrections pass
+148 focused tests, including 12 migration interruption boundaries, and the full
+mobile suite above. Complete device integration still needs acceptance. Proof failures now
 send a fixed public code instead of raw error text, and messaging rechecks async
 authorization before returning proofs. Do not enable native issuance on the
 strength of these focused tests.
