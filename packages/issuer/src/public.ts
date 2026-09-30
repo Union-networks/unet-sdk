@@ -4,6 +4,30 @@ export * from './directIssuerPostgres.js';
 export * from './ledgerV2.js';
 export * from './webAdapters.js';
 
+// Provider lane/evidence candidate only. No provider migration or stable approval.
+export {
+  PROVIDER_ISSUER_LANE_TABLES,
+  TransactionalIssuerOperationLane,
+  ensureIssuerOperationLaneSchema,
+  prepareIssuerLaneTargetRequest,
+  validateIssuerLaneTargetEvidence,
+  prepareIssuerLaneExpiryRequest,
+  validateIssuerLaneExpiryEvidence,
+  checkIssuerLaneTarget,
+  checkIssuerLaneExpiry,
+} from './providerIssuerLane.js';
+export type {
+  ProviderIssuerLaneTableConfig,
+  IssuerLaneIntent,
+  IssuerLaneAttempt,
+  IssuerLaneRecord,
+  IssuerLaneTargetEvidence,
+  IssuerLaneExpiryEvidence,
+  IssuerLaneTargetResult,
+  IssuerLaneExpiryResult,
+  IssuerLaneEvidenceOptions,
+} from './providerIssuerLane.js';
+
 // Core recovery candidate for the coordinated SDK 2 RC train, not approved stable.
 export {
   ensureIssuanceRecoverySchema,

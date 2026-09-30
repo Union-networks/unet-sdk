@@ -44,6 +44,12 @@ export function buildFieldMerkleProofV2(input: {
     pathBits: boolean[];
 }>;
 
+// @beta
+export function checkIssuerLaneExpiry(record: IssuerLaneRecord, readUrl: string, options?: IssuerLaneEvidenceOptions): Promise<IssuerLaneExpiryResult>;
+
+// @beta
+export function checkIssuerLaneTarget(record: IssuerLaneRecord, readUrl: string, options?: IssuerLaneEvidenceOptions): Promise<IssuerLaneTargetResult>;
+
 // @public (undocumented)
 export function createCredentialEnvelopeV2(input: {
     requestType: string;
@@ -514,6 +520,9 @@ export function ensureDirectIssuerSchema(db: SqlClient): Promise<void>;
 // @beta
 export function ensureIssuanceRecoverySchema(db: SqlClient): Promise<void>;
 
+// @beta
+export function ensureIssuerOperationLaneSchema(db: SqlClient, config: ProviderIssuerLaneTableConfig): Promise<void>;
+
 // @public (undocumented)
 export function fetchUnetControlPublicKeys(input?: {
     controlPlaneUrl?: string;
@@ -661,6 +670,135 @@ export interface IssuerActionEnvelope<TPayload extends Record<string, unknown> =
     // (undocumented)
     v: 1;
 }
+
+// @beta (undocumented)
+export interface IssuerLaneAttempt {
+    // (undocumented)
+    deadline: number;
+    // (undocumented)
+    nonce: string;
+    // (undocumented)
+    signature: string;
+}
+
+// @beta (undocumented)
+export interface IssuerLaneEvidenceOptions {
+    // (undocumented)
+    fetch?: typeof fetch;
+    // (undocumented)
+    signal?: AbortSignal;
+}
+
+// @beta (undocumented)
+export type IssuerLaneExpiryEvidence = Omit<IssuerLaneTargetEvidence, 'targetStatus'>;
+
+// @beta (undocumented)
+export type IssuerLaneExpiryResult = {
+    kind: 'expired_nonexecutable';
+    evidence: IssuerLaneExpiryEvidence;
+    laneRevision: number;
+    laneToken: string;
+} | {
+    kind: 'pending' | 'unavailable';
+};
+
+// @beta (undocumented)
+export interface IssuerLaneIntent {
+    // (undocumented)
+    attestationHash: string;
+    // (undocumented)
+    chainId: number;
+    // (undocumented)
+    holderRevocationSigner?: string;
+    // (undocumented)
+    issuerIdHash: string;
+    // (undocumented)
+    issuerKeyEpoch: number;
+    // (undocumented)
+    kind: 'anchor' | 'issuer_revoke';
+    // (undocumented)
+    ledgerAddress: string;
+    // (undocumented)
+    operationId: string;
+    // (undocumented)
+    reasonHash?: string;
+    // (undocumented)
+    requestIdHash: string;
+    // (undocumented)
+    requiredConfirmations: number;
+    // (undocumented)
+    signerAddress: string;
+}
+
+// @beta (undocumented)
+export interface IssuerLaneRecord {
+    // (undocumented)
+    attempts: IssuerLaneAttempt[];
+    // (undocumented)
+    expiryEvidence?: IssuerLaneExpiryEvidence;
+    // (undocumented)
+    intent: IssuerLaneIntent;
+    // (undocumented)
+    revision: number;
+    // (undocumented)
+    state: 'reserved' | 'signed' | 'cancelled_unsigned' | 'target_nonexecutable' | 'expired_nonexecutable';
+    // (undocumented)
+    targetEvidence?: IssuerLaneTargetEvidence;
+    // (undocumented)
+    token: string;
+    // (undocumented)
+    version: 1;
+}
+
+// @beta
+export interface IssuerLaneTargetEvidence {
+    // (undocumented)
+    attemptCount: number;
+    // (undocumented)
+    attemptsDigest: string;
+    // (undocumented)
+    attestationHash: string;
+    // (undocumented)
+    blockHash: string;
+    // (undocumented)
+    blockNumber: number;
+    // (undocumented)
+    blockTimestamp: string;
+    // (undocumented)
+    chainId: number;
+    // (undocumented)
+    checkedHeadHash: string;
+    // (undocumented)
+    checkedHeadNumber: number;
+    // (undocumented)
+    codeHash: string;
+    // (undocumented)
+    confirmations: number;
+    // (undocumented)
+    expectedHolderRevocationSigner: string | null;
+    // (undocumented)
+    issuerIdHash: string;
+    // (undocumented)
+    kind: 'anchor' | 'issuer_revoke';
+    // (undocumented)
+    ledgerAddress: string;
+    // (undocumented)
+    maxDeadline: string;
+    // (undocumented)
+    requiredConfirmations: number;
+    // (undocumented)
+    targetStatus: 'active' | 'revoked';
+}
+
+// @beta (undocumented)
+export type IssuerLaneTargetResult = {
+    kind: 'target_nonexecutable';
+    evidence: IssuerLaneTargetEvidence;
+    laneRevision: number;
+    laneToken: string;
+} | {
+    kind: 'pending' | 'unavailable';
+};
 
 // @public (undocumented)
 export interface IssuerMiniappManifestInput {
@@ -837,6 +975,42 @@ export class PostgresIssuanceRecoveryStore {
     reserve(input: RecoveryInput): Promise<RecoveryRecord>;
     // (undocumented)
     transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord>;
+}
+
+// @beta (undocumented)
+export function prepareIssuerLaneExpiryRequest(input: IssuerLaneRecord): {
+    record: IssuerLaneRecord;
+    body: string;
+};
+
+// @beta
+export function prepareIssuerLaneTargetRequest(input: IssuerLaneRecord): {
+    record: IssuerLaneRecord;
+    body: string;
+};
+
+// @beta
+export const PROVIDER_ISSUER_LANE_TABLES: Readonly<{
+    safety: Readonly<{
+        table: "safety_issuer_operation_lanes_v2";
+        stateConstraint: "safety_issuer_operation_lanes_v2_state_check";
+        ownerIndex: "safety_issuer_operation_lane_owner_v2";
+    }>;
+    shared: Readonly<{
+        table: "unet_issuer_operation_lanes_v2";
+        stateConstraint: "unet_issuer_operation_lanes_v2_state_check";
+        ownerIndex: "unet_issuer_operation_lane_owner_v2";
+    }>;
+}>;
+
+// @beta (undocumented)
+export interface ProviderIssuerLaneTableConfig {
+    // (undocumented)
+    readonly ownerIndex: string;
+    // (undocumented)
+    readonly stateConstraint: string;
+    // (undocumented)
+    readonly table: string;
 }
 
 // @beta
@@ -1111,6 +1285,23 @@ export class TransactionalIssuanceRecoveryStore {
     transition(requestId: string, token: string, revision: number, action: RecoveryAction): Promise<RecoveryRecord>;
 }
 
+// @beta
+export class TransactionalIssuerOperationLane {
+    constructor(db: SqlClient, config: ProviderIssuerLaneTableConfig);
+    // (undocumented)
+    append(input: IssuerLaneRecord, candidate: IssuerLaneAttempt): Promise<IssuerLaneRecord>;
+    // (undocumented)
+    cancelUnsigned(input: IssuerLaneRecord): Promise<IssuerLaneRecord>;
+    // (undocumented)
+    finishExpired(input: IssuerLaneRecord, observed: IssuerLaneExpiryEvidence): Promise<IssuerLaneRecord>;
+    // (undocumented)
+    finishTarget(input: IssuerLaneRecord, observed: IssuerLaneTargetEvidence): Promise<IssuerLaneRecord>;
+    // (undocumented)
+    forRequest(input: Pick<IssuerLaneIntent, 'kind' | 'chainId' | 'ledgerAddress' | 'issuerIdHash' | 'requestIdHash'>): Promise<IssuerLaneRecord[]>;
+    // (undocumented)
+    reserve(input: IssuerLaneIntent): Promise<IssuerLaneRecord | undefined>;
+}
+
 // @public (undocumented)
 export function validateDomainAdminCallbackRequest(value: unknown, input: {
     serviceId: string;
@@ -1118,6 +1309,12 @@ export function validateDomainAdminCallbackRequest(value: unknown, input: {
     challengeHeader?: string;
     now?: Date;
 }): DomainAdminCallbackRequest;
+
+// @beta (undocumented)
+export function validateIssuerLaneExpiryEvidence(input: IssuerLaneRecord, evidence: unknown): IssuerLaneExpiryEvidence;
+
+// @beta (undocumented)
+export function validateIssuerLaneTargetEvidence(input: IssuerLaneRecord, evidence: unknown): IssuerLaneTargetEvidence;
 
 // @public (undocumented)
 export function verifyDomainAdminControlAuthorizationV2(input: {
