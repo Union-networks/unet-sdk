@@ -75,6 +75,19 @@ this is real database/worker acceptance, not live chain or production acceptance
 Public revocation and private domain-admin writers still require integration
 before issuer-wide coordination can be activated.
 
+The later public revocation producer passes real PostgreSQL acceptance at Safety
+`d546f7785244faaf258b5f0395bb31ae8681080f`. All 88 database cases, 671 selected
+unit tests and full Safety typecheck passed through packed SDK artifacts.
+Receipt: `audit-2026-09-25/issuance-postgres/results/safety-65ea9a957242e7f29b09/result.json`,
+SHA-256 `d6a78b5f38d49a91f41d33c519741cfe90c970d82881c73c4dbc87fd70147bbe`;
+packed receipt: `audit-2026-09-25/issuer-packed-consumer/evidence/7a0300d7-0026-45b9-b205-d3a97094042b.json`.
+Cases include persisted signatures before transmission, lost commit responses,
+atomic confirmation rollback, lease loss, legacy-row quarantine, shared issuer
+contention, separate queue identities and confirmed unsigned revocation.
+Ledger responses are mocked. TLS and fixture cleanup passed; independent
+September 30 inspection confirmed the owned container and network absent.
+Overview reconciliation and private domain-admin coordination remain open.
+
 Preserved failed-run history:
 Run `safety-92efffa0e9d55f270575` reached 69 passing cases before its total
 suite deadline. After independently reviewed total-budget changes, run
