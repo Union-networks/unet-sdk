@@ -1,3 +1,4 @@
+/** @public */
 export interface CanonicalProviderEnvironment {
   serviceId: string;
   origin: string;
@@ -18,7 +19,9 @@ export interface CanonicalProviderEnvironment {
   providerMetricsKey?: string;
 }
 
+/** @public */
 export const PROVIDER_ENVIRONMENT_SCHEMA_VERSION = 1 as const;
+/** @public */
 export const PROVIDER_ENVIRONMENT_VARIABLES = [
   { name: 'UNET_PROVIDER_SERVICE_ID', group: 'base', required: true, sensitivity: 'public' },
   { name: 'UNET_PROVIDER_ORIGIN', group: 'base', required: true, sensitivity: 'public' },
@@ -75,6 +78,7 @@ const legacy = (env: Record<string, string | undefined>, canonical: string, alia
   return undefined;
 };
 
+/** @public */
 export function readCanonicalProviderEnvironment(env: Record<string, string | undefined> = process.env): CanonicalProviderEnvironment {
   const serviceId = legacy(env, 'UNET_PROVIDER_SERVICE_ID', ['NEXT_PUBLIC_UNET_SERVICE_ID']);
   const origin = legacy(env, 'UNET_PROVIDER_ORIGIN', ['NEXT_PUBLIC_SITE_ORIGIN', 'NEXT_PUBLIC_UNET_ORIGIN']);
@@ -103,6 +107,7 @@ export function readCanonicalProviderEnvironment(env: Record<string, string | un
   };
 }
 
+/** @public */
 export function requireProviderClaimEnvironment(env: Record<string, string | undefined> = process.env) {
   const provider = readCanonicalProviderEnvironment(env);
   if (!provider.claimId || !provider.claimChallenge || !provider.claimToken) throw new Error('unet_provider_claim_environment_incomplete');

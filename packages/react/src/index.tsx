@@ -1,10 +1,11 @@
 import React from 'react';
-import { createDirectProviderLogin, renderDirectLoginQrPayload, waitForDirectProviderLogin } from '@u-net/web-login';
+import { createDirectProviderLogin, exchangeDirectProviderLogin, renderDirectLoginQrPayload, waitForDirectProviderLogin } from '@u-net/web-login';
 import { createVerificationSession, listMiniPrograms, listVerificationChecks, pollVerificationResult } from '@u-net/verification';
 import type { CreateVerificationSessionInput, ListMiniProgramsOptions, ListVerificationChecksOptions, MiniProgramCatalogResponse, VerificationCheckCatalogResponse, VerificationSession, VerificationSessionStatus } from '@u-net/verification';
 import type { DirectProviderLoginChallenge, DirectProviderLoginOptions, DirectProviderLoginPollResult } from '@u-net/web-login';
 import type { UnetClientOptions } from '@u-net/client';
 
+/** @public */
 export function useUnetLogin(origin: string, options?: DirectProviderLoginOptions) {
   const [challenge, setChallenge] = React.useState<DirectProviderLoginChallenge | undefined>();
   const [result, setResult] = React.useState<DirectProviderLoginPollResult | undefined>();
@@ -17,6 +18,11 @@ export function useUnetLogin(origin: string, options?: DirectProviderLoginOption
       const created = await createDirectProviderLogin(origin, options);
       setChallenge(created);
       const finalResult = await waitForDirectProviderLogin(origin, created.requestRef, options);
+      if (finalResult.state === 'approved') {
+        const exchanged = await exchangeDirectProviderLogin(origin, created.requestRef, options);
+        if (!exchanged.success) throw new Error('direct_login_exchange_failed');
+        finalResult.state = 'consumed';
+      }
       setResult(finalResult);
       return finalResult;
     } catch (err) {
@@ -30,10 +36,12 @@ export function useUnetLogin(origin: string, options?: DirectProviderLoginOption
   return { challenge, result, error, isLoading, start };
 }
 
+/** @public */
 export function UnetLoginQr(props: { challenge: DirectProviderLoginChallenge; label?: string }) {
   return <pre aria-label={props.label ?? 'U-net Direct Login QR payload'}>{renderDirectLoginQrPayload(props.challenge)}</pre>;
 }
 
+/** @public */
 export function useUnetVerification(input: CreateVerificationSessionInput, options?: UnetClientOptions) {
   const [session, setSession] = React.useState<VerificationSession | undefined>();
   const [result, setResult] = React.useState<VerificationSessionStatus | undefined>();
@@ -47,16 +55,19 @@ export function useUnetVerification(input: CreateVerificationSessionInput, optio
   return { session, result, start };
 }
 
+/** @public */
 export function UnetVerificationQr(props: { session: VerificationSession; alt?: string }) {
   return <pre aria-label={props.alt ?? 'U-net verification QR payload'}>{props.session.qrPayload}</pre>;
 }
 
+/** @public */
 export function UnetVerificationStatus(props: { result?: VerificationSessionStatus }) {
   const text = props.result ? props.result.aggregateOutcome ?? props.result.status : 'pending';
   return <span data-unet-verification-status={text}>{text}</span>;
 }
 
 
+/** @public */
 export function useVerificationChecks(input: ListVerificationChecksOptions = {}, options?: UnetClientOptions) {
   const [catalog, setCatalog] = React.useState<VerificationCheckCatalogResponse | undefined>();
   const [error, setError] = React.useState<Error | undefined>();
@@ -80,6 +91,7 @@ export function useVerificationChecks(input: ListVerificationChecksOptions = {},
   return { catalog, error, isLoading, load, loadMore, hasNextPage: Boolean(catalog?.pageInfo?.hasNextPage) };
 }
 
+/** @public */
 export function useMiniPrograms(input: ListMiniProgramsOptions = {}, options?: UnetClientOptions) {
   const [catalog, setCatalog] = React.useState<MiniProgramCatalogResponse | undefined>();
   const [error, setError] = React.useState<Error | undefined>();

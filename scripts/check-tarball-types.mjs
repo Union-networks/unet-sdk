@@ -1,6 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
-for (const file of readdirSync('artifacts').filter((name) => name.endsWith('.tgz'))) {
+const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+const packages = ['client', 'contracts', 'issuer', 'react', 'server', 'setup', 'verification', 'web-login'];
+for (const name of packages) {
+  const file = `u-net-${name}-${version}.tgz`;
+  if (!existsSync(`artifacts/${file}`)) throw new Error(`missing_release_artifact:${file}`);
   execFileSync(process.execPath, ['node_modules/@arethetypeswrong/cli/dist/index.js', `artifacts/${file}`, '--profile', 'esm-only'], { stdio: 'inherit' });
 }

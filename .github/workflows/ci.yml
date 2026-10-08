@@ -11,6 +11,18 @@ jobs:
       matrix:
         node-version: [20, 22]
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-tests
+          POSTGRES_DB: unet_security_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d unet_security_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      UNET_SECURITY_TEST_POSTGRES_URL: postgresql://postgres:ephemeral-ci-tests@127.0.0.1:5432/unet_security_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,7 +38,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm api:check
+      - run: pnpm api:report
       - run: pnpm pack:dry
       - run: pnpm publint
       - run: pnpm attw

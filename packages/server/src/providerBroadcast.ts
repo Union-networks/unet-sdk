@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual, verify } from 'node:crypto';
 
+/** @public */
 export interface ProviderBroadcastRequest {
   protocolVersion: 2;
   serviceId: string;
@@ -14,6 +15,7 @@ export interface ProviderBroadcastRequest {
   content: Record<string, unknown>;
 }
 
+/** @public */
 export interface ProviderBroadcastOutcomes {
   delivered: number;
   storedWithoutPush: number;
@@ -27,6 +29,7 @@ const signatureFor = (secret: string, timestamp: string, rawBody: string): Buffe
   'hex',
 );
 
+/** @public */
 export function createProviderBroadcastHandler(options: {
   serviceId: string;
   dashboardPublicKeyPem?: string;

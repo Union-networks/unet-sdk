@@ -1,3 +1,4 @@
+/** @public */
 export type OperationalMetricEvent =
   | 'authentication.session_started'
   | 'authentication.session_approved'
@@ -5,6 +6,7 @@ export type OperationalMetricEvent =
   | 'authentication.session_expired'
   | 'miniapp.session_created';
 
+/** @public */
 export interface OperationalMetricInput {
   eventType: OperationalMetricEvent;
   outcome: 'started' | 'success' | 'approved' | 'denied' | 'expired' | 'failed';
@@ -13,6 +15,7 @@ export interface OperationalMetricInput {
   count: number;
 }
 
+/** @public */
 export function createOperationalMetricsReporter(options: {
   serviceId: string;
   controlPlaneBaseUrl: string;

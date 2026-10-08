@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/issuer",
-  "version": "0.2.0",
+  "version": "0.2.1-rc.0",
   "description": "Compatibility bridge from @union-networks/issuer to @u-net/issuer.",
   "type": "module",
   "types": "dist/index.d.ts",

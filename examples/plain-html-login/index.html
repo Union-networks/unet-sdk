@@ -2,12 +2,25 @@
 <html><head><meta charset="utf-8"><title>U-net plain HTML login</title></head><body>
 <button id="login">Sign in with U-net</button><pre id="out"></pre>
 <script type="module">
-import { createDirectProviderLogin, waitForDirectProviderLogin, renderDirectLoginQrPayload } from '../../packages/web-login/src/index.ts';
+import { createDirectProviderLogin, exchangeDirectProviderLogin, waitForDirectProviderLogin, renderDirectLoginQrPayload } from '../../packages/web-login/src/index.ts';
 const out = document.getElementById('out');
-document.getElementById('login').onclick = async () => {
-  const session = await createDirectProviderLogin(window.location.origin);
-  out.textContent = renderDirectLoginQrPayload(session);
-  const result = await waitForDirectProviderLogin(window.location.origin, session.requestRef);
-  out.textContent = JSON.stringify(result, null, 2);
+const button = document.getElementById('login');
+button.onclick = async () => {
+  button.disabled = true;
+  try {
+    const challenge = await createDirectProviderLogin(window.location.origin);
+    out.textContent = renderDirectLoginQrPayload(challenge);
+    const result = await waitForDirectProviderLogin(window.location.origin, challenge.requestRef);
+    if (result.state === 'approved') {
+      const exchanged = await exchangeDirectProviderLogin(window.location.origin, challenge.requestRef);
+      if (!exchanged.success) throw new Error('direct_login_exchange_failed');
+      result.state = 'consumed';
+    }
+    out.textContent = result.state;
+  } catch {
+    out.textContent = 'Login failed. Start a new attempt.';
+  } finally {
+    button.disabled = false;
+  }
 };
 </script></body></html>

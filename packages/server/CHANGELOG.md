@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.0.0-rc.3
+
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Publish the checked tarball artifacts with explicit local paths, database race-test gates, and release checksums. The rc.1 workflow stopped before publishing any package; this new candidate preserves that failed tag without rewriting it.
+
+## 2.0.0-rc.1
+
+### Patch Changes
+
+- Prepare the coordinated SDK 2 release candidate with refreshed API reports,
+  browser-bound exchange examples, and lease-token-fenced retirement cleanup
+  migration guidance. Update the PostgreSQL regression test to use claimed leases.
+  No session-ID redemption or legacy store compatibility is restored.
+
+  This candidate is packed for provider integration testing only. Publication,
+  deployment, session invalidation, and the maintained-provider integration matrix
+  remain separate coordinated release gates.
+
+## 2.0.0-rc.0
+
+### Major Changes
+
+- Bind Direct Login redemption to a per-attempt HTTP-only browser cookie. Status
+  returns lifecycle state only; exchange accepts requestRef, never sessionId.
+  Approval/account binding and exchange are transactional in the PostgreSQL adapter.
+  Retirement accepts delayed signed operations and persists provider cleanup jobs.
+
+  This change belongs to the coordinated 2.0.0 release-candidate train. Do not
+  promote or deploy without updated providers, dashboard proxies, mobile miniapp
+  bridge, session invalidation, and maintained-provider integration tests.
+
 ## 1.0.0
 
 ### Major Changes

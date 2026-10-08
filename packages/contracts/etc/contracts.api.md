@@ -67,6 +67,47 @@ export interface components {
             anchorBlockNumber?: number;
             revokeBlockNumber?: number;
         };
+        LedgerAnchorReconciliationRequest: {
+            chainId: number;
+            ledgerAddress: string;
+            requiredConfirmations: number;
+            candidateTransactionHash?: string;
+            operation: {
+                attestationHash: string;
+                issuerIdHash: string;
+                holderRevocationSigner: string;
+                requestIdHash: string;
+                issuerKeyEpoch: number;
+                nonce: string;
+                deadline: number;
+            };
+            signature: string;
+        };
+        LedgerAnchorReconciliationConfirmed: {
+            success: true;
+            protocolVersion: 2;
+            status: "confirmed";
+            receipt: {
+                chainId: number;
+                ledgerAddress: string;
+                attestationHash: string;
+                issuerIdHash: string;
+                transactionHash: string;
+                blockHash: string;
+                blockNumber: number;
+                confirmations: number;
+                requiredConfirmations: number;
+                checkedHeadHash: string;
+                checkedHeadNumber: number;
+                status: "active";
+            };
+        };
+        LedgerAnchorReconciliationPending: {
+            success: true;
+            protocolVersion: 2;
+            status: "pending";
+            reason: "receipt_pending" | "insufficient_confirmations" | "reorg_detected";
+        };
     };
 }
 
@@ -165,6 +206,73 @@ export interface operations {
                         checks: components["schemas"]["VerificationCheck"][];
                     };
                 };
+            };
+        };
+    };
+    // (undocumented)
+    reconcileLedgerV2Anchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LedgerAnchorReconciliationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerAnchorReconciliationConfirmed"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerAnchorReconciliationPending"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: false;
+                        error: "ledger_v2_anchor_evidence_mismatch" | "ledger_v2_anchor_transaction_failed" | "ledger_v2_attestation_revoked";
+                    };
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -323,6 +431,23 @@ export interface paths {
         get: operations["resolveLedgerV2Attestation"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    // (undocumented)
+    "/v2/operations/anchor/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcileLedgerV2Anchor"];
         delete?: never;
         options?: never;
         head?: never;

@@ -38,6 +38,8 @@ export interface DirectProviderLoginOptions {
     // (undocumented)
     challengePath?: string;
     // (undocumented)
+    exchangePath?: string;
+    // (undocumented)
     fetchImpl?: typeof globalThis.fetch;
     // (undocumented)
     statusPath?: string;
@@ -47,13 +49,6 @@ export interface DirectProviderLoginOptions {
 
 // @public
 export interface DirectProviderLoginPollResult {
-    // (undocumented)
-    session?: {
-        sessionId: string;
-        requestRef: string;
-        scopedUserId: string;
-        expiresAtIso: string;
-    };
     // (undocumented)
     state: 'pending' | 'approved' | 'consumed' | 'expired';
 }
@@ -102,6 +97,11 @@ export interface DomainAdministrationSelectionStatus {
     // (undocumented)
     status: 'selected' | 'proving' | 'verified' | 'failed' | 'omitted';
 }
+
+// @public
+export const exchangeDirectProviderLogin: (origin: string, requestRef: string, options?: DirectProviderLoginOptions) => Promise<{
+    success: boolean;
+}>;
 
 // @public
 export const getDirectDomainAdministrationSelectionStatus: (requestRef: string, options?: UnetClientOptions) => Promise<{

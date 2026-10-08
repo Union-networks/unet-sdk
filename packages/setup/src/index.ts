@@ -1,10 +1,13 @@
 import { createECDH, createHash, createPrivateKey, createPublicKey, randomBytes, sign } from 'node:crypto';
 import { generateAttestationIssuerEnv, generateDomainAdminSignerEnv } from '@u-net/issuer';
 
+/** @public */
 export const PROVIDER_SETUP_SCHEMA_VERSION = 1 as const;
 
+/** @public */
 export type ProviderSetupCapability = 'direct_login' | 'public_issuer' | 'domain_admin' | 'official_messaging' | 'operational_metrics';
 
+/** @public */
 export interface ProviderSetupManifest {
   schemaVersion: typeof PROVIDER_SETUP_SCHEMA_VERSION;
   serviceId: string;
@@ -24,6 +27,7 @@ export interface ProviderSetupManifest {
   providerMetricsKey?: string;
 }
 
+/** @public */
 export interface PublicIssuerRegistration {
   issuerId: string;
   keyId: string;
@@ -39,6 +43,7 @@ export interface PublicIssuerRegistration {
   ledgerProofOfPossession: string;
 }
 
+/** @public */
 export interface PublicDomainAdminRegistration {
   issuerId: string;
   keyId: string;
@@ -55,6 +60,7 @@ export interface PublicDomainAdminRegistration {
   ledgerProofOfPossession: string;
 }
 
+/** @public */
 export interface ProviderPublicRegistrationBundle {
   schemaVersion: 1;
   serviceId: string;
@@ -64,6 +70,7 @@ export interface ProviderPublicRegistrationBundle {
   domainAdmin?: PublicDomainAdminRegistration;
 }
 
+/** @public */
 export interface ProviderSetupOutput {
   env: string;
   publicRegistration: ProviderPublicRegistrationBundle;
@@ -81,6 +88,7 @@ const parseOrigin = (value: string): string => {
   return url.origin;
 };
 
+/** @public */
 export function validateProviderSetupManifest(value: ProviderSetupManifest): ProviderSetupManifest {
   if (!value || value.schemaVersion !== 1) throw new Error('provider_setup_schema_unsupported');
   const serviceId = clean(value.serviceId, 'service_id');
@@ -98,11 +106,13 @@ export function validateProviderSetupManifest(value: ProviderSetupManifest): Pro
   return { ...value, serviceId, origin, controlPlaneUrl, ledger: { ...value.ledger, readUrl, relayerUrls } };
 }
 
+/** @public */
 export function dotenvValue(value: string): string {
   if (/^[A-Za-z0-9_./:@,+\-=]+$/.test(value)) return value;
   return JSON.stringify(value.replace(/\r\n/g, '\n'));
 }
 
+/** @public */
 export function serializeDotenv(entries: Array<[string, string | undefined]>, heading?: string): string {
   const lines = heading ? [`# ${heading}`] : [];
   for (const [name, value] of entries) {
@@ -136,6 +146,7 @@ const ledgerKeyPair = (privateKeyHex: string) => {
   return { privateKey, publicKeyPem: createPublicKey(privateKey).export({ format: 'pem', type: 'spki' }).toString() };
 };
 
+/** @public */
 export async function createProviderSetup(input: ProviderSetupManifest & { databaseUrl?: string; sessionSecret?: string }): Promise<ProviderSetupOutput> {
   const manifest = validateProviderSetupManifest(input);
   const sections: string[] = [];

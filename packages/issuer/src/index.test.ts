@@ -129,16 +129,21 @@ describe('@u-net/issuer', () => {
       serviceId: 'issuer.example',
       origin: 'https://issuer.example',
       signer: { issuerId: 'domain:issuer.example', keyId: 'domain:issuer.example#callback', privateKeyPem: signerKeys.privateKeyPem },
+      controlPublicKeys: { control: signerKeys.publicKeyPem },
+      consumeControlNonce: async () => true,
       consumeChallenge: async (challenge) => consumed.has(challenge) ? false : (consumed.add(challenge), true),
       issueCredential: async () => ({ attestationCommitment: 'a'.repeat(64), encryptedCredentialEnvelope: { version: 2 }, credentialPublicMetadata: { issuerKeyHash: '123' } }),
     });
     const request = {
-      version: 1 as const, action: 'domain-admin.issue' as const, invitationId: 'invite-1', serviceId: 'issuer.example', origin: 'https://issuer.example', role: 'owner' as const,
+      version: 2 as const, action: 'domain-admin.issue' as const, invitationId: 'invite-1', serviceId: 'issuer.example', origin: 'https://issuer.example', role: 'owner' as const,
+      clientRequestId: 'client-1', holderRevocationSigner: `0x${'a'.repeat(40)}`,
       requestType: 'private-domain-admin-issuer-example-owner', schemaId: 'unet.provider.domain-admin.v1', claims: { domain_role: 'issuer.example:owner', service_id: 'issuer.example', role: 'owner' },
       holderBinding: '123', deliveryPublicKey: 'a'.repeat(43), challenge: 'challenge-1', expiresAt: new Date(Date.now() + 60_000).toISOString(),
     };
-    await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).resolves.toMatchObject({ keyId: 'domain:issuer.example#callback' });
-    await expect(handler(request, { 'x-unet-domain-admin-challenge': request.challenge })).rejects.toThrow('domain_admin_challenge_replayed');
+    const authorization = createDomainAdminControlAuthorizationV2({ body: request, privateKeyPem: signerKeys.privateKeyPem, keyId: 'control', method: 'POST', path: '/api/unet/domain-admin/issue', audience: 'issuer.example' });
+    const headers = { 'x-unet-domain-admin-challenge': request.challenge, 'x-unet-control-authorization': authorization };
+    await expect(handler(request, headers)).resolves.toMatchObject({ keyId: 'domain:issuer.example#callback' });
+    await expect(handler(request, headers)).rejects.toThrow('domain_admin_challenge_replayed');
   });
 
   it('authorizes holder relinquishment callbacks once and returns a normal issuer revocation envelope', async () => {

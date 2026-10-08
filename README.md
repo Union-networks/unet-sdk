@@ -17,6 +17,8 @@ Providers own scoped profiles, login sessions, attestation applications, encrypt
 
 ## Install
 
+As checked on 2026-10-08, all eight canonical packages have `next = 2.0.0-rc.2` and `latest = 1.0.0` on npm. The current source includes later security fixes and staged issuer recovery APIs that are not in published rc.2. The coordinated `2.0.0-rc.3` tester candidate is versioned and packed locally, but not published. See [tester-beta consolidation](docs/releases/2.0.0-rc.3.md) for exact-source validation, artifact handoff, and remaining gates. Do not use `@next` as evidence that these source fixes are installed.
+
 Release candidates use the `next` tag:
 
 ```bash
@@ -36,6 +38,7 @@ Your server stores challenges and sessions in its own database and exposes the s
 ```ts
 import {
   createDirectProviderLogin,
+  exchangeDirectProviderLogin,
   renderDirectLoginQrPayload,
   waitForDirectProviderLogin,
 } from '@u-net/web-login';
@@ -43,7 +46,13 @@ import {
 const challenge = await createDirectProviderLogin(window.location.origin);
 showQr(renderDirectLoginQrPayload(challenge));
 const result = await waitForDirectProviderLogin(window.location.origin, challenge.requestRef);
+if (result.state === 'approved') {
+  const exchanged = await exchangeDirectProviderLogin(window.location.origin, challenge.requestRef);
+  if (!exchanged.success) throw new Error('direct_login_exchange_failed');
+}
 ```
+
+Status is lifecycle-only. Exchange requires the originating browser's per-attempt HTTP-only cookie and `requestRef`; SDK 2 does not accept session IDs for redemption. See the [security migration](docs/migration/security-2.md), including lease-based retirement cleanup and session invalidation.
 
 The wallet signs a fresh provider challenge with the service-account key. A scoped ID alone is never a bearer credential, and the control plane is not on the login data path.
 

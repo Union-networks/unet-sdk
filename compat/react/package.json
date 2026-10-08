@@ -1,6 +1,6 @@
 {
   "name": "@union-networks/react",
-  "version": "0.2.0",
+  "version": "0.2.1-rc.0",
   "description": "Compatibility bridge from @union-networks/react to @u-net/react.",
   "type": "module",
   "types": "dist/index.d.ts",
