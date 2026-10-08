@@ -12,6 +12,10 @@ import { InMemoryDirectLoginAccountStore, InMemoryDirectLoginChallengeStore, cre
 assert.equal(typeof contracts, 'object');
 assert.equal(typeof client.createUnetClient, 'function');
 assert.equal(typeof issuer.generateIssuerKeyPair, 'function');
+for (const name of ['ensureIssuanceRecoverySchema', 'PostgresIssuanceRecoveryStore', 'TransactionalIssuanceRecoveryStore', 'reconcileRecoveryAnchor', 'TransactionalIssuerOperationLane', 'ensureIssuerOperationLaneSchema', 'prepareIssuerLaneTargetRequest', 'validateIssuerLaneTargetEvidence', 'prepareIssuerLaneExpiryRequest', 'validateIssuerLaneExpiryEvidence', 'checkIssuerLaneTarget', 'checkIssuerLaneExpiry']) {
+  assert.equal(typeof issuer[name], 'function', `missing_candidate_export:${name}`);
+}
+assert.equal(typeof issuer.PROVIDER_ISSUER_LANE_TABLES, 'object');
 assert.equal(typeof react.useUnetLogin, 'function');
 assert.equal(typeof setup.validateProviderSetupManifest, 'function');
 assert.equal(typeof verification.createVerificationSession, 'function');

@@ -17,7 +17,7 @@ Providers own scoped profiles, login sessions, attestation applications, encrypt
 
 ## Install
 
-The coordinated `2.0.0-rc.1` candidate is prepared locally, not published. Provider testing must install all required packages from the matching eight tarballs; see [release preparation](docs/releases/2.0.0-rc.1.md). Registry tags below do not imply that this candidate is available there.
+As checked on 2026-10-08, all eight canonical packages have `next = 2.0.0-rc.2` and `latest = 1.0.0` on npm. The current source includes later security fixes and staged issuer recovery APIs that are not in published rc.2. The coordinated `2.0.0-rc.3` tester candidate is versioned and packed locally, but not published. See [tester-beta consolidation](docs/releases/2.0.0-rc.3.md) for exact-source validation, artifact handoff, and remaining gates. Do not use `@next` as evidence that these source fixes are installed.
 
 Release candidates use the `next` tag:
 

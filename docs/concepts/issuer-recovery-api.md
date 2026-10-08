@@ -175,4 +175,4 @@ tests validate the package candidate, not a deployed Safety consumer or real
 PostgreSQL/RPC acceptance. Consumer integration,
 crash/restart and policy-race coverage, durable scheduling, shared nonce/signed
 attempt coordination and native-wallet recovery remain separate acceptance work.
-See [recoverable admission](./issuer-request-admission.md) for the broader gates.
+See [recoverable admission](/concepts/issuer-request-admission) for the broader gates.

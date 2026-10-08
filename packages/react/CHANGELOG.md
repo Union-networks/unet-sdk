@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0-rc.3
+
+### Patch Changes
+
+- @u-net/client@2.0.0-rc.3
+  - @u-net/verification@2.0.0-rc.3
+  - @u-net/web-login@2.0.0-rc.3
+
 ## 2.0.0-rc.2
 
 ### Patch Changes

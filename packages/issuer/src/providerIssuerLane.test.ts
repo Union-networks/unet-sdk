@@ -153,7 +153,9 @@ describe('trusted candidate tables and Safety persisted compatibility', () => {
     expect(manifest.dependencies.ethers).toBe('6.17.0');
     expect(installed.version).toBe(manifest.dependencies.ethers);
     expect(runtime.startsWith(sdkModules + sep)).toBe(true);
-    expect(manifest.version).toBe('2.0.0-rc.2');
+    const root = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
+    expect(manifest.version).toBe(root.version);
+    expect(manifest.version).toMatch(/^2\.0\.0-rc\.\d+$/);
   });
 
   it('wires only the explicit candidate APIs into the package barrel', async () => {
