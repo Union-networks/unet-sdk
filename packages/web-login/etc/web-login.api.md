@@ -42,6 +42,8 @@ export interface DirectProviderLoginOptions {
     // (undocumented)
     fetchImpl?: typeof globalThis.fetch;
     // (undocumented)
+    signal?: AbortSignal;
+    // (undocumented)
     statusPath?: string;
     // (undocumented)
     timeoutMs?: number;
@@ -116,12 +118,67 @@ export const getDirectProviderLogin: (origin: string, requestRef: string, option
 export const isDirectProviderLoginApproved: (result: DirectProviderLoginPollResult) => boolean;
 
 // @public
+export interface MiniappLaunchCompletion {
+    // (undocumented)
+    launchToken: string;
+    // (undocumented)
+    outcome: 'success' | 'unavailable';
+    // (undocumented)
+    requestRef: string;
+    // (undocumented)
+    stage: 'initial_status';
+    // (undocumented)
+    state: 'ready' | 'failed';
+}
+
+// @public
+export interface MiniappLoginAccount {
+    // (undocumented)
+    scopedUserId: string;
+}
+
+// @public
+export interface MiniappLoginApproval {
+    // (undocumented)
+    approved: true;
+    launchReadiness: {
+        version: 1;
+        launchToken: string;
+        expiresAtMs: number;
+    };
+    // (undocumented)
+    requestRef: string;
+    // (undocumented)
+    scopedUserId: string;
+}
+
+// @public
+export interface MiniappLoginOptions<Account extends MiniappLoginAccount> {
+    // (undocumented)
+    approve: (challenge: DirectProviderLoginChallenge, signal: AbortSignal) => Promise<MiniappLoginApproval>;
+    complete: (completion: MiniappLaunchCompletion, signal: AbortSignal) => Promise<unknown>;
+    // (undocumented)
+    createChallenge: (signal: AbortSignal) => Promise<DirectProviderLoginChallenge>;
+    // (undocumented)
+    exchange: (challenge: DirectProviderLoginChallenge, signal: AbortSignal) => Promise<Account>;
+    initialize: (account: Account, signal: AbortSignal) => Promise<Account>;
+    // (undocumented)
+    origin: string;
+    // (undocumented)
+    signal?: AbortSignal;
+    timeoutMs?: number;
+}
+
+// @public
 export const renderDirectLoginQrPayload: (challenge: DirectProviderLoginChallenge) => string;
 
 // @public
 export const resolveDirectLoginService: (input: ResolveServiceInput, options?: UnetClientOptions) => Promise<ServiceResolution>;
 
 export { ResolveServiceInput }
+
+// @public
+export function runMiniappLogin<Account extends MiniappLoginAccount>(options: MiniappLoginOptions<Account>): Promise<Account>;
 
 export { ServiceResolution }
 

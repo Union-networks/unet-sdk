@@ -29,6 +29,7 @@ export interface DirectProviderLoginOptions {
   exchangePath?: string;
   fetchImpl?: typeof globalThis.fetch;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 const providerRequest = async <T>(origin: string, path: string, init: RequestInit | undefined, options: DirectProviderLoginOptions): Promise<T> => {
@@ -36,14 +37,19 @@ const providerRequest = async <T>(origin: string, path: string, init: RequestIni
   const url = new URL(path, normalizedOrigin);
   if (url.protocol !== 'https:' || url.origin !== normalizedOrigin) throw new Error('direct_login_origin_mismatch');
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener('abort', abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
   try {
-    const response = await (options.fetchImpl ?? globalThis.fetch)(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: controller.signal });
+    if (controller.signal.aborted) throw new Error('direct_login_aborted');
+    const response = await (options.fetchImpl ?? globalThis.fetch)(url, { ...init, credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: controller.signal });
     const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
     if (!response.ok) throw new UnetApiError(String(payload.message ?? payload.error ?? `direct_login_http_${response.status}`), response.status, typeof payload.errorCode === 'string' ? payload.errorCode : undefined, payload);
     return payload as T;
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', abort);
   }
 };
 
@@ -167,3 +173,5 @@ export const getDirectDomainAdministrationSelectionStatus = (requestRef: string,
   );
 
 export type { ResolveServiceInput, ServiceResolution, UnetClientOptions, VerifiedService } from '@u-net/client';
+export { runMiniappLogin } from './miniappLogin.js';
+export type { MiniappLaunchCompletion, MiniappLoginAccount, MiniappLoginApproval, MiniappLoginOptions } from './miniappLogin.js';

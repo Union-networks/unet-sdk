@@ -19,4 +19,10 @@ if (result.state === 'approved') {
 
 Status contains only lifecycle state. Exchange sends `{ requestRef }` with the originating browser's HTTP-only cookie. Approval alone does not establish your provider session. Native miniapp bridges approve the public WebView-created challenge; only the WebView exchanges it.
 
+`runMiniappLogin<Account extends { scopedUserId: string }>(options): Promise<Account>` coordinates miniapp login and initial-status readiness. Supply `origin`, optional `signal`/`timeoutMs`, and async callbacks `createChallenge(signal)`, `approve(challenge, signal)`, `exchange(challenge, signal)`, `initialize(account, signal)`, and `complete(payload, signal)`. Exchange and initialization must both return the provider's authoritative account matching the host-approved scoped ID. Completion carries only `{ requestRef, launchToken, state, stage: 'initial_status', outcome }`; readiness is reported only after initialization. The helper never navigates or logs identifiers. HTTP helpers now accept `signal` and reject redirects while preserving same-origin cookies.
+
+The completion adapter must forward the host response; ready requires `{ completed: true }`, never `void` or a success-only response. Readiness has exactly the V1 fields `version`, `launchToken` (64 hexadecimal characters), and `expiresAtMs` (a future safe-integer Unix-millisecond timestamp at most 30 seconds away). Exchange, initialization, and ready acknowledgement share a maximum 15-second post-approval deadline. Overall `timeoutMs` is a positive integer at most 60,000 milliseconds.
+
+See the [miniapp readiness guide](https://next.docs.egress.live/guides/miniapp-ready) for bridge adapters, approval/completion contracts, deadlines, and best-effort failure reporting. Providers advertise this capability only with `miniappLaunchReadiness: true` in their service manifest. This is an SDK implementation, not authorization to deploy or publish.
+
 See [docs.egress.live](https://docs.egress.live) for guides and the versioned API reference.

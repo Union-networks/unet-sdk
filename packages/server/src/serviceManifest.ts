@@ -8,6 +8,9 @@ export interface UnetServiceManifestV2 {
   protocolVersion: 2;
   serviceId: string;
   origin: string;
+  miniapp?: {
+    launchReadinessVersion: 1;
+  };
   accountPolicy: {
     mode: ServiceAccountMode;
     maxAccounts: number;
@@ -42,6 +45,7 @@ export interface UnetServiceManifestOptions {
   maxAccounts?: number;
   officialMessaging?: boolean;
   directIssuer?: boolean;
+  miniappLaunchReadiness?: boolean;
 }
 
 const sameOriginUrl = (origin: string, path: string): string => new URL(path, origin).toString();
@@ -56,6 +60,7 @@ export function createUnetServiceManifest(options: UnetServiceManifestOptions): 
     protocolVersion: 2,
     serviceId: options.serviceId,
     origin,
+    ...(options.miniappLaunchReadiness === true ? { miniapp: { launchReadinessVersion: 1 as const } } : {}),
     accountPolicy: {
       mode: options.accountMode ?? 'single',
       maxAccounts,

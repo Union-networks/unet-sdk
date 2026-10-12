@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.0-rc.4
+
+### Patch Changes
+
+- Add the browser-safe generic runMiniappLogin callback flow with authoritative
+  account matching, bounded abort/deadline handling, and exact host launch
+  completion payloads. Preserve initiating-WebView cookies, reject redirects, and
+  propagate AbortSignal through Direct Login HTTP helpers.
+
+  Advertise service-manifest miniapp launchReadinessVersion 1 only when the provider
+  explicitly enables miniappLaunchReadiness. This coordinated RC candidate is for
+  local hash-pinned provider integration; it is not stable-release acceptance or
+  authorization to publish or deploy.
+
 ## 2.0.0-rc.3
 
 ## 2.0.0-rc.2

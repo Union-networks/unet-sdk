@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0-rc.4 (local candidate, unpublished)
+
+- Added `runMiniappLogin` with callback-based host approval, browser-cookie exchange, authoritative account matching, initial-status initialization, and exact readiness completion.
+- Required the host's explicit `{ completed: true }` acknowledgement before returning a ready account; validated native 64-hex readiness capabilities, fixed V1 fields, a maximum 30-second expiry, and a maximum 15-second post-approval initial-status deadline.
+- Added abort propagation and redirect rejection to browser Direct Login HTTP helpers.
+- Added opt-in service-manifest `miniapp: { launchReadinessVersion: 1 }` through `miniappLaunchReadiness: true`.
+- Applied the fixed-version Changesets RC workflow to all eight canonical packages; root aligned to the same RC4 version. Compatibility forwarders retain their separate version train.
+- Candidate handoff uses local RC4 web-login/server/client/contracts tarballs and `artifacts/2.0.0-rc.4-miniapp-manifest.json`, generated with `node scripts/write-release-manifest.mjs --miniapp`. Install those exact hashes together or with consumer-local overrides; packed internal dependencies use publish-compatible `^2.0.0-rc.4` ranges.
+
+This is not a registry RC3 artifact or a trusted published RC4 release. Focused checks do not authorize stable promotion, publication, deployment, or a full release campaign. See the [miniapp readiness guide](guides/miniapp-ready).
+
 ## 2.0.0-rc.1 (prepared, unpublished)
 
 - Coordinated major-version release candidate across all eight `@u-net/*` packages.

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createDirectProviderLogin, exchangeDirectProviderLogin, getDirectProviderLogin, isDirectProviderLoginApproved, renderDirectLoginQrPayload } from './index.js';
 
 describe('@u-net/web-login', () => {
@@ -20,7 +20,26 @@ describe('@u-net/web-login', () => {
     expect(await getDirectProviderLogin(challenge.origin, challenge.requestRef, { fetchImpl })).toMatchObject({ state: 'approved' });
     await exchangeDirectProviderLogin(challenge.origin, challenge.requestRef, { fetchImpl });
     expect(calls.every((call) => call.init?.credentials === 'same-origin')).toBe(true);
+    expect(calls.every((call) => call.init?.redirect === 'error' && call.init.cache === 'no-store')).toBe(true);
     expect(JSON.parse(String(calls[2]?.init?.body))).toEqual({ requestRef: 'login_ref' });
     expect(JSON.stringify(calls)).not.toContain('sessionId');
+  });
+
+  it('forwards cancellation to provider fetch and skips pre-aborted requests', async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      controller.abort();
+      expect(init?.signal?.aborted).toBe(true);
+      throw new Error('fetch_aborted');
+    });
+    await expect(exchangeDirectProviderLogin('https://shop.example', 'ref', { fetchImpl, signal: controller.signal })).rejects.toThrow('fetch_aborted');
+    await expect(exchangeDirectProviderLogin('https://shop.example', 'ref', { fetchImpl, signal: controller.signal })).rejects.toThrow('direct_login_aborted');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects cross-origin exchange paths before sending the browser cookie', async () => {
+    const fetchImpl = vi.fn();
+    await expect(exchangeDirectProviderLogin('https://shop.example', 'ref', { fetchImpl, exchangePath: 'https://other.example/exchange' })).rejects.toThrow('direct_login_origin_mismatch');
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
