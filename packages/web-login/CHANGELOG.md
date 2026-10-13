@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.0-rc.5
+
+### Patch Changes
+
+- Updated dependencies
+  - @u-net/client@2.0.0-rc.5
+
+## 2.0.0-rc.4
+
+### Patch Changes
+
+- Pass the original overall/challenge deadline to approval as the third typed
+  `MiniappLoginApprovalContext` argument. Native adapters forward `expiresAtMs`
+  as `loginDeadlineMs`; elapsed picker/authentication/proof time cannot reset the
+  deadline. Existing two-argument callback functions remain assignable.
+
+- Add the browser-safe generic runMiniappLogin callback flow with authoritative
+  account matching, bounded abort/deadline handling, and exact host launch
+  completion payloads. Preserve initiating-WebView cookies, reject redirects, and
+  propagate AbortSignal through Direct Login HTTP helpers.
+
+  Advertise service-manifest miniapp launchReadinessVersion 1 only when the provider
+  explicitly enables miniappLaunchReadiness. This coordinated RC candidate is for
+  local hash-pinned provider integration; it is not stable-release acceptance or
+  authorization to publish or deploy.
+- @u-net/client@2.0.0-rc.4
+- Require an explicit `{ completed: true }` ready acknowledgement. Validate fixed
+  V1 readiness fields, a 64-hex native capability, a maximum 30-second expiry,
+  and a maximum 15-second post-approval initial-status deadline. Reject arbitrary
+  oversized or fractional timeout options; keep completion's exact five fields.
+
 ## 2.0.0-rc.3
 
 ### Patch Changes

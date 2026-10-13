@@ -1,6 +1,6 @@
 {
   "name": "@u-net/verification",
-  "version": "2.0.0-rc.3",
+  "version": "2.0.0-rc.5",
   "description": "High-level U-net verification helpers.",
   "type": "module",
   "types": "dist/index.d.ts",

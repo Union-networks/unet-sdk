@@ -6,6 +6,291 @@
     "description": "Public discovery, hosted verification, and exact Ledger V2 interfaces. Provider-owned login and issuance routes are described by each verified service manifest."
   },
   "paths": {
+    "/v2/verification-sessions": {
+      "post": {
+        "operationId": "createVerificationV2Session",
+        "description": "Create a ten-minute manual verification challenge. Public QR has no result polling authority. No holder registration.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVerificationV2SessionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Public challenge plus separate private result-read capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Session"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/verification-requests/{requestRef}": {
+      "get": {
+        "operationId": "getVerificationV2Challenge",
+        "parameters": [
+          {
+            "name": "requestRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable public request and approved predicate/expiry metadata; no results or capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Challenge"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/verification-requests/{requestRef}/responses": {
+      "post": {
+        "operationId": "submitVerificationV2Response",
+        "parameters": [
+          {
+            "name": "requestRef",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "description": "Submit predicate and signed expiry proofs under an immutable submission ID. No holder IDs or holder JWS. Explicit retry requires consent. Proof bodies are not persisted. The UTF-8 JSON body is limited to 4 MiB in total; individual proof limits do not override that aggregate budget.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationV2Submission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded result and optional compact EdDSA historical receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Status"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Submission accepted or reserved; state remains pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Status"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retryable dependency failure; typed status is session-bound and contains no private payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "protocolVersion",
+                        "sessionId",
+                        "expiresAt",
+                        "status",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "protocolVersion": {
+                          "const": 2
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "minLength": 20,
+                          "maxLength": 160,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+                        },
+                        "status": {
+                          "const": "unavailable"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "error",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "error": {
+                          "const": "verification_temporarily_unavailable"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/verification-sessions/{sessionId}": {
+      "get": {
+        "operationId": "getVerificationV2Status",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "verificationResultCapability": []
+          }
+        ],
+        "description": "Private status polling. Capability is required in Authorization: Bearer only. Query-string authority is prohibited.",
+        "responses": {
+          "200": {
+            "description": "Private session status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Status"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid private capability"
+          },
+          "503": {
+            "description": "Retryable dependency failure; typed status is session-bound and contains no private payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "protocolVersion",
+                        "sessionId",
+                        "expiresAt",
+                        "status",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "protocolVersion": {
+                          "const": 2
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "minLength": 20,
+                          "maxLength": 160,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+                        },
+                        "status": {
+                          "const": "unavailable"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "error",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "error": {
+                          "const": "verification_temporarily_unavailable"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/unet-verifier-jwks.json": {
+      "get": {
+        "operationId": "getVerificationV2Jwks",
+        "responses": {
+          "200": {
+            "description": "Purpose-specific active, retained, and revoked result-signing keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationV2Jwks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/services/resolve": {
       "get": {
         "operationId": "resolveService",
@@ -82,7 +367,1262 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "verificationResultCapability": { "type": "http", "scheme": "bearer", "description": "Private result-read capability, never a public request reference or query parameter." }
+    },
     "schemas": {
+      "VerificationV2WitnessSchemaEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "session",
+              "credential",
+              "claim",
+              "predicate",
+              "constant"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "transform": {
+            "type": "string",
+            "enum": [
+              "field",
+              "date_year",
+              "date_month",
+              "date_day",
+              "sha256_decimal"
+            ]
+          }
+        },
+        "required": [
+          "index",
+          "name"
+        ]
+      },
+      "VerificationV2ExpiryCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestType",
+          "schemaId",
+          "proofProfileId",
+          "circuitId",
+          "vkId",
+          "publicInputOrder",
+          "claimPath",
+          "matchesCredentialValidUntil"
+        ],
+        "properties": {
+          "issuerServiceId": {
+            "type": "string"
+          },
+          "issuerMiniProgramId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deprecated",
+              "revoked"
+            ]
+          },
+          "predicateId": {
+            "type": "string"
+          },
+          "templateType": {
+            "type": "string"
+          },
+          "profileVersion": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "consentText": {
+            "type": "string"
+          },
+          "proofVersion": {
+            "type": "string"
+          },
+          "proofEncodingFormat": {
+            "const": "bb_binary_proof_with_public_inputs_prefix"
+          },
+          "witnessSchema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2WitnessSchemaEntry"
+            }
+          },
+          "artifactRef": {
+            "type": "string"
+          },
+          "minRuntimeVersion": {
+            "type": "string"
+          },
+          "proverArtifact": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "credentialPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "validityMode": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "fixed",
+                  "issuer_capped"
+                ]
+              },
+              "defaultValidityDays": {
+                "type": "number"
+              },
+              "maximumValidityDays": {
+                "type": "number"
+              },
+              "renewalMode": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "holder_reissue",
+                  "silent_reissue"
+                ]
+              },
+              "renewalWindowDays": {
+                "type": "number"
+              },
+              "replacementMode": {
+                "type": "string",
+                "enum": [
+                  "deny",
+                  "replace_after_delivery",
+                  "parallel"
+                ]
+              }
+            },
+            "required": [
+              "validityMode",
+              "renewalMode"
+            ]
+          },
+          "issuerId": {
+            "type": "string"
+          },
+          "predicateParams": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "issuerKeyHashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requestType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "schemaId": {
+            "type": "string"
+          },
+          "proofProfileId": {
+            "const": "claim_equals_v1"
+          },
+          "circuitId": {
+            "type": "string"
+          },
+          "vkId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "publicInputOrder": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimPath": {
+            "const": "valid_until"
+          },
+          "matchesCredentialValidUntil": {
+            "const": true
+          },
+          "proofFormat": {
+            "const": "noir-barretenberg-v1"
+          },
+          "oracleHash": {
+            "type": "string",
+            "enum": [
+              "poseidon2",
+              "keccak"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "VerificationV2Check": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestType",
+          "schemaId",
+          "issuerId",
+          "proofProfileId",
+          "circuitId",
+          "vkId",
+          "predicateParams",
+          "publicInputOrder",
+          "issuerKeyHashes",
+          "expiryCheck"
+        ],
+        "properties": {
+          "issuerServiceId": {
+            "type": "string"
+          },
+          "issuerMiniProgramId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deprecated",
+              "revoked"
+            ]
+          },
+          "predicateId": {
+            "type": "string"
+          },
+          "templateType": {
+            "type": "string"
+          },
+          "profileVersion": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "consentText": {
+            "type": "string"
+          },
+          "proofVersion": {
+            "type": "string"
+          },
+          "proofEncodingFormat": {
+            "const": "bb_binary_proof_with_public_inputs_prefix"
+          },
+          "witnessSchema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2WitnessSchemaEntry"
+            }
+          },
+          "artifactRef": {
+            "type": "string"
+          },
+          "minRuntimeVersion": {
+            "type": "string"
+          },
+          "proverArtifact": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "credentialPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "validityMode": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "fixed",
+                  "issuer_capped"
+                ]
+              },
+              "defaultValidityDays": {
+                "type": "number"
+              },
+              "maximumValidityDays": {
+                "type": "number"
+              },
+              "renewalMode": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "holder_reissue",
+                  "silent_reissue"
+                ]
+              },
+              "renewalWindowDays": {
+                "type": "number"
+              },
+              "replacementMode": {
+                "type": "string",
+                "enum": [
+                  "deny",
+                  "replace_after_delivery",
+                  "parallel"
+                ]
+              }
+            },
+            "required": [
+              "validityMode",
+              "renewalMode"
+            ]
+          },
+          "requestType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "schemaId": {
+            "type": "string"
+          },
+          "issuerId": {
+            "type": "string"
+          },
+          "proofProfileId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "circuitId": {
+            "type": "string"
+          },
+          "vkId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "predicateParams": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "publicInputOrder": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issuerKeyHashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiryCheck": {
+            "$ref": "#/components/schemas/VerificationV2ExpiryCheck"
+          },
+          "proofFormat": {
+            "const": "noir-barretenberg-v1"
+          },
+          "oracleHash": {
+            "type": "string",
+            "enum": [
+              "poseidon2",
+              "keccak"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "VerificationV2Challenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "requestRef",
+          "audience",
+          "nonce",
+          "verificationEpoch",
+          "createdAt",
+          "expiresAt",
+          "requestedChecksDigest",
+          "requestedChecks",
+          "title"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 2
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "requestRef": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "audience": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{62}$"
+          },
+          "verificationEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+          },
+          "requestedChecksDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "requestedChecks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2Check"
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        }
+      },
+      "VerificationV2Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "requestRef",
+          "audience",
+          "nonce",
+          "verificationEpoch",
+          "createdAt",
+          "expiresAt",
+          "requestedChecksDigest",
+          "requestedChecks",
+          "title",
+          "resultReadCapability",
+          "qrPayload"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 2
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "requestRef": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "audience": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{62}$"
+          },
+          "verificationEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+          },
+          "requestedChecksDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "requestedChecks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2Check"
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "resultReadCapability": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Private result-read authority. Authorization header only; never QR, query, logs or chat messages."
+          },
+          "qrPayload": {
+            "type": "string",
+            "pattern": "^unet://verify\\?session_ref=[A-Za-z0-9_-]{20,160}&version=2$"
+          }
+        }
+      },
+      "CreateVerificationV2SessionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestTypes"
+        ],
+        "properties": {
+          "requestTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:/-]+$"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        }
+      },
+      "VerificationV2Proof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profileId",
+          "vkId",
+          "publicInputs",
+          "proofEncoding",
+          "proof"
+        ],
+        "properties": {
+          "profileId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "vkId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9._:/-]+$"
+          },
+          "publicInputs": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          "proofEncoding": {
+            "const": "bb_binary_proof_with_public_inputs_prefix"
+          },
+          "proof": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 262144,
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          }
+        }
+      },
+      "VerificationV2CheckResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "decision"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "decision": {
+                "const": "deny"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "decision",
+              "credential"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "decision": {
+                "const": "approve"
+              },
+              "credential": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "attestationCommitment",
+                  "validUntilEpoch",
+                  "checkProof",
+                  "expiryProof"
+                ],
+                "properties": {
+                  "attestationCommitment": {
+                    "type": "string",
+                    "pattern": "^(0x)?[a-fA-F0-9]{64}$"
+                  },
+                  "validUntilEpoch": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "checkProof": {
+                    "$ref": "#/components/schemas/VerificationV2Proof"
+                  },
+                  "expiryProof": {
+                    "$ref": "#/components/schemas/VerificationV2Proof"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "VerificationV2Submission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "submissionId",
+          "requestedChecksDigest",
+          "checkResponses"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 2
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "submissionId": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "requestedChecksDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "checkResponses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2CheckResponse"
+            },
+            "minItems": 1,
+            "maxItems": 8
+          }
+        }
+      },
+      "VerificationV2CheckResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "status",
+              "reasonCode"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "status": {
+                "const": "passed"
+              },
+              "reasonCode": {
+                "const": "verification_succeeded"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "status",
+              "reasonCode"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "status": {
+                "const": "declined"
+              },
+              "reasonCode": {
+                "const": "holder_denied"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "status",
+              "reasonCode"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "status": {
+                "const": "failed"
+              },
+              "reasonCode": {
+                "type": "string",
+                "enum": [
+                  "session_expired",
+                  "invalid_proof",
+                  "attestation_not_found",
+                  "attestation_revoked",
+                  "credential_expired",
+                  "issuer_inactive"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requestType",
+              "status",
+              "reasonCode"
+            ],
+            "properties": {
+              "requestType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9._:/-]+$"
+              },
+              "status": {
+                "const": "unavailable"
+              },
+              "reasonCode": {
+                "type": "string",
+                "enum": [
+                  "check_unavailable",
+                  "dependency_unavailable"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "VerificationV2Status": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protocolVersion",
+              "sessionId",
+              "expiresAt",
+              "status"
+            ],
+            "properties": {
+              "protocolVersion": {
+                "const": 2
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "created",
+                  "verifying",
+                  "expired"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protocolVersion",
+              "sessionId",
+              "expiresAt",
+              "status",
+              "retryable"
+            ],
+            "properties": {
+              "protocolVersion": {
+                "const": 2
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+              },
+              "status": {
+                "const": "unavailable"
+              },
+              "retryable": {
+                "const": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protocolVersion",
+              "sessionId",
+              "expiresAt",
+              "status",
+              "checkedAt",
+              "checkResults",
+              "receipt"
+            ],
+            "properties": {
+              "protocolVersion": {
+                "const": 2
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "denied",
+                  "rejected"
+                ]
+              },
+              "checkedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+              },
+              "checkResults": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestType",
+                        "status",
+                        "reasonCode"
+                      ],
+                      "properties": {
+                        "requestType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "pattern": "^[A-Za-z0-9._:/-]+$"
+                        },
+                        "status": {
+                          "const": "passed"
+                        },
+                        "reasonCode": {
+                          "const": "verification_succeeded"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestType",
+                        "status",
+                        "reasonCode"
+                      ],
+                      "properties": {
+                        "requestType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "pattern": "^[A-Za-z0-9._:/-]+$"
+                        },
+                        "status": {
+                          "const": "declined"
+                        },
+                        "reasonCode": {
+                          "const": "holder_denied"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "requestType",
+                        "status",
+                        "reasonCode"
+                      ],
+                      "properties": {
+                        "requestType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "pattern": "^[A-Za-z0-9._:/-]+$"
+                        },
+                        "status": {
+                          "const": "failed"
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "session_expired",
+                            "invalid_proof",
+                            "attestation_not_found",
+                            "attestation_revoked",
+                            "credential_expired",
+                            "issuer_inactive"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 8
+              },
+              "receipt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32768
+              }
+            }
+          }
+        ]
+      },
+      "VerificationV2ReceiptPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocolVersion",
+          "iss",
+          "aud",
+          "sessionId",
+          "requestRefHash",
+          "nonce",
+          "requestedChecksDigest",
+          "checkedAt",
+          "checkResults"
+        ],
+        "properties": {
+          "protocolVersion": {
+            "const": 2
+          },
+          "iss": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "aud": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 160,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "requestRefHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{62}$"
+          },
+          "requestedChecksDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Canonical Date.toISOString() UTC timestamp with millisecond precision."
+          },
+          "checkResults": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "requestType",
+                    "status",
+                    "reasonCode"
+                  ],
+                  "properties": {
+                    "requestType": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160,
+                      "pattern": "^[A-Za-z0-9._:/-]+$"
+                    },
+                    "status": {
+                      "const": "passed"
+                    },
+                    "reasonCode": {
+                      "const": "verification_succeeded"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "requestType",
+                    "status",
+                    "reasonCode"
+                  ],
+                  "properties": {
+                    "requestType": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160,
+                      "pattern": "^[A-Za-z0-9._:/-]+$"
+                    },
+                    "status": {
+                      "const": "declined"
+                    },
+                    "reasonCode": {
+                      "const": "holder_denied"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "requestType",
+                    "status",
+                    "reasonCode"
+                  ],
+                  "properties": {
+                    "requestType": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160,
+                      "pattern": "^[A-Za-z0-9._:/-]+$"
+                    },
+                    "status": {
+                      "const": "failed"
+                    },
+                    "reasonCode": {
+                      "type": "string",
+                      "enum": [
+                        "session_expired",
+                        "invalid_proof",
+                        "attestation_not_found",
+                        "attestation_revoked",
+                        "credential_expired",
+                        "issuer_inactive"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 8
+          }
+        }
+      },
+      "VerificationV2Jwk": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kty",
+          "crv",
+          "x",
+          "kid",
+          "alg",
+          "use",
+          "status"
+        ],
+        "properties": {
+          "kty": {
+            "const": "OKP"
+          },
+          "crv": {
+            "const": "Ed25519"
+          },
+          "x": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "kid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "alg": {
+            "const": "EdDSA"
+          },
+          "use": {
+            "const": "sig"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retained",
+              "revoked"
+            ]
+          }
+        }
+      },
+      "VerificationV2Jwks": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "keys"
+        ],
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerificationV2Jwk"
+            }
+          }
+        }
+      },
       "ServiceResolution": {
         "type": "object",
         "required": ["success", "registryRevision", "service"],

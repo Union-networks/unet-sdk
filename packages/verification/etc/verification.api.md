@@ -4,21 +4,63 @@
 
 ```ts
 
+import { canonicalVerificationV2Json } from '@u-net/client';
 import { CreateVerificationSessionInput } from '@u-net/client';
+import { createVerificationV2Session } from '@u-net/client';
+import { CreateVerificationV2SessionInput } from '@u-net/client';
+import { getVerificationV2Challenge } from '@u-net/client';
+import { getVerificationV2Jwks } from '@u-net/client';
+import { getVerificationV2Status } from '@u-net/client';
+import { GetVerificationV2StatusInput } from '@u-net/client';
 import { ListMiniProgramsOptions } from '@u-net/client';
 import { ListVerificationChecksOptions } from '@u-net/client';
 import { MiniProgramCatalogResponse } from '@u-net/client';
 import type { PollOptions } from '@u-net/client';
+import { pollVerificationV2Result } from '@u-net/client';
+import { submitVerificationV2Response } from '@u-net/client';
 import type { UnetClientOptions } from '@u-net/client';
 import { VerificationCheckCatalogResponse } from '@u-net/client';
 import { VerificationRequestedCheck } from '@u-net/client';
 import { VerificationSession } from '@u-net/client';
 import { VerificationSessionStatus } from '@u-net/client';
+import { VerificationV2Challenge } from '@u-net/client';
+import { VerificationV2Check } from '@u-net/client';
+import { VerificationV2CheckResponse } from '@u-net/client';
+import { VerificationV2CheckResult } from '@u-net/client';
+import { VerificationV2Jwk } from '@u-net/client';
+import { VerificationV2Jwks } from '@u-net/client';
+import { VerificationV2Proof } from '@u-net/client';
+import { VerificationV2Reason } from '@u-net/client';
+import { VerificationV2ReceiptExpected } from '@u-net/client';
+import { VerificationV2ReceiptOptions } from '@u-net/client';
+import { VerificationV2ReceiptPayload } from '@u-net/client';
+import { VerificationV2RequestedCheck } from '@u-net/client';
+import { verificationV2RequestedChecksDigest } from '@u-net/client';
+import { VerificationV2RequestOptions } from '@u-net/client';
+import { VerificationV2Session } from '@u-net/client';
+import { VerificationV2Status } from '@u-net/client';
+import { VerificationV2Submission } from '@u-net/client';
+import { VerificationV2WitnessSchemaEntry } from '@u-net/client';
+import { verifyVerificationV2Receipt } from '@u-net/client';
 
-// @public (undocumented)
+export { canonicalVerificationV2Json }
+
+// @public
 export const createVerificationSession: (input: CreateVerificationSessionInput, options?: UnetClientOptions) => Promise<VerificationSession>;
 
 export { CreateVerificationSessionInput }
+
+export { createVerificationV2Session }
+
+export { CreateVerificationV2SessionInput }
+
+export { getVerificationV2Challenge }
+
+export { getVerificationV2Jwks }
+
+export { getVerificationV2Status }
+
+export { GetVerificationV2StatusInput }
 
 // @public (undocumented)
 export function iterateVerificationChecks(input?: ListVerificationChecksOptions, options?: UnetClientOptions): AsyncGenerator<VerificationRequestedCheck, void, void>;
@@ -35,8 +77,12 @@ export { ListVerificationChecksOptions }
 
 export { MiniProgramCatalogResponse }
 
-// @public (undocumented)
+// @public
 export const pollVerificationResult: (sessionId: string, options?: PollOptions & UnetClientOptions) => Promise<VerificationSessionStatus>;
+
+export { pollVerificationV2Result }
+
+export { submitVerificationV2Response }
 
 export { VerificationCheckCatalogResponse }
 
@@ -45,6 +91,44 @@ export { VerificationRequestedCheck }
 export { VerificationSession }
 
 export { VerificationSessionStatus }
+
+export { VerificationV2Challenge }
+
+export { VerificationV2Check }
+
+export { VerificationV2CheckResponse }
+
+export { VerificationV2CheckResult }
+
+export { VerificationV2Jwk }
+
+export { VerificationV2Jwks }
+
+export { VerificationV2Proof }
+
+export { VerificationV2Reason }
+
+export { VerificationV2ReceiptExpected }
+
+export { VerificationV2ReceiptOptions }
+
+export { VerificationV2ReceiptPayload }
+
+export { VerificationV2RequestedCheck }
+
+export { verificationV2RequestedChecksDigest }
+
+export { VerificationV2RequestOptions }
+
+export { VerificationV2Session }
+
+export { VerificationV2Status }
+
+export { VerificationV2Submission }
+
+export { VerificationV2WitnessSchemaEntry }
+
+export { verifyVerificationV2Receipt }
 
 // (No @packageDocumentation comment for this package)
 

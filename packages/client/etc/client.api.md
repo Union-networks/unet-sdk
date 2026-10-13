@@ -4,6 +4,9 @@
 
 ```ts
 
+// @public
+export function canonicalVerificationV2Json(value: unknown): string;
+
 // @public (undocumented)
 export const createUnetClient: (options?: UnetClientOptions) => UnetClient;
 
@@ -21,8 +24,36 @@ export interface CreateVerificationSessionInput {
     verifierId: string;
 }
 
+// @public
+export const createVerificationV2Session: (input: CreateVerificationV2SessionInput, options?: UnetClientOptions & VerificationV2RequestOptions) => Promise<VerificationV2Session>;
+
+// @public
+export interface CreateVerificationV2SessionInput {
+    // (undocumented)
+    requestTypes: string[];
+    // (undocumented)
+    title?: string;
+}
+
 // @public (undocumented)
 export function generateLedgerV2HolderRevocationKey(): LedgerV2HolderRevocationKey;
+
+// @public
+export const getVerificationV2Challenge: (requestRef: string, options?: UnetClientOptions & VerificationV2RequestOptions) => Promise<VerificationV2Challenge>;
+
+// @public
+export const getVerificationV2Jwks: (options?: UnetClientOptions & VerificationV2RequestOptions) => Promise<VerificationV2Jwks>;
+
+// @public
+export const getVerificationV2Status: (input: GetVerificationV2StatusInput, options?: UnetClientOptions & VerificationV2RequestOptions) => Promise<VerificationV2Status>;
+
+// @public
+export interface GetVerificationV2StatusInput {
+    // (undocumented)
+    resultReadCapability: string;
+    // (undocumented)
+    sessionId: string;
+}
 
 // @public (undocumented)
 export interface LedgerV2Domain {
@@ -148,6 +179,9 @@ export interface PollOptions {
 // @public (undocumented)
 export function pollUntil<T>(load: () => Promise<T>, done: (value: T) => boolean, options?: PollOptions): Promise<T>;
 
+// @public
+export function pollVerificationV2Result(input: GetVerificationV2StatusInput, options?: UnetClientOptions & PollOptions): Promise<VerificationV2Status>;
+
 // @public (undocumented)
 export function resolveLedgerV2Attestation(readGatewayUrl: string, attestationHash: string, fetchImpl?: typeof globalThis.fetch): Promise<Record<string, unknown>>;
 
@@ -193,6 +227,9 @@ export function submitLedgerV2HolderRevoke(input: {
     fetch?: typeof globalThis.fetch;
 }): Promise<Record<string, unknown>>;
 
+// @public
+export const submitVerificationV2Response: (requestRef: string, submission: VerificationV2Submission, options?: UnetClientOptions & VerificationV2RequestOptions) => Promise<VerificationV2Status>;
+
 // @public (undocumented)
 export class UnetApiError extends Error {
     constructor(message: string, status: number, errorCode?: string | undefined, payload?: unknown | undefined);
@@ -211,8 +248,12 @@ export class UnetClient {
     constructor(options?: UnetClientOptions);
     // (undocumented)
     createVerificationSession(input: CreateVerificationSessionInput): Promise<VerificationSession>;
+    createVerificationV2Session(input: CreateVerificationV2SessionInput, options?: VerificationV2RequestOptions): Promise<VerificationV2Session>;
     // (undocumented)
     getVerificationSession(sessionId: string): Promise<VerificationSessionStatus>;
+    getVerificationV2Challenge(requestRef: string, options?: VerificationV2RequestOptions): Promise<VerificationV2Challenge>;
+    getVerificationV2Jwks(options?: VerificationV2RequestOptions): Promise<VerificationV2Jwks>;
+    getVerificationV2Status(input: GetVerificationV2StatusInput, options?: VerificationV2RequestOptions): Promise<VerificationV2Status>;
     // (undocumented)
     iterateVerificationChecks(options?: ListVerificationChecksOptions): AsyncGenerator<VerificationCheckCatalogResponse['checks'][number], void, void>;
     // (undocumented)
@@ -220,6 +261,7 @@ export class UnetClient {
     // (undocumented)
     listVerificationChecks(options?: ListVerificationChecksOptions): Promise<VerificationCheckCatalogResponse>;
     resolveService(input: ResolveServiceInput): Promise<ServiceResolution>;
+    submitVerificationV2Response(requestRef: string, submission: VerificationV2Submission, options?: VerificationV2RequestOptions): Promise<VerificationV2Status>;
 }
 
 // @public
@@ -361,6 +403,300 @@ export interface VerificationSessionStatus {
 export type VerificationStatus = 'created' | 'pending_scan' | 'pending_user_action' | 'denied' | 'submitted' | 'verified' | 'rejected' | 'expired' | 'unavailable';
 
 // @public
+export interface VerificationV2Challenge {
+    // (undocumented)
+    audience: string;
+    // (undocumented)
+    createdAt: string;
+    // (undocumented)
+    expiresAt: string;
+    // (undocumented)
+    nonce: string;
+    // (undocumented)
+    protocolVersion: 2;
+    // (undocumented)
+    requestedChecks: VerificationV2Check[];
+    // (undocumented)
+    requestedChecksDigest: string;
+    // (undocumented)
+    requestRef: string;
+    // (undocumented)
+    sessionId: string;
+    // (undocumented)
+    title: string;
+    // (undocumented)
+    verificationEpoch: number;
+}
+
+// @public
+export interface VerificationV2Check extends VerificationV2RequestedCheck {
+    // (undocumented)
+    circuitId: string;
+    // (undocumented)
+    expiryCheck: VerificationV2RequestedCheck & {
+        schemaId: string;
+        proofProfileId: 'claim_equals_v1';
+        circuitId: string;
+        vkId: string;
+        publicInputOrder: string[];
+        claimPath: 'valid_until';
+        matchesCredentialValidUntil: true;
+    };
+    // (undocumented)
+    issuerId: string;
+    // (undocumented)
+    issuerKeyHashes: string[];
+    // (undocumented)
+    predicateParams: Record<string, unknown>;
+    // (undocumented)
+    proofProfileId: string;
+    // (undocumented)
+    publicInputOrder: string[];
+    // (undocumented)
+    schemaId: string;
+    // (undocumented)
+    vkId: string;
+}
+
+// @public
+export interface VerificationV2CheckResponse {
+    // (undocumented)
+    credential?: {
+        attestationCommitment: string;
+        validUntilEpoch: number;
+        checkProof: VerificationV2Proof;
+        expiryProof: VerificationV2Proof;
+    };
+    // (undocumented)
+    decision: 'approve' | 'deny';
+    // (undocumented)
+    requestType: string;
+}
+
+// @public
+export interface VerificationV2CheckResult {
+    // (undocumented)
+    reasonCode: VerificationV2Reason;
+    // (undocumented)
+    requestType: string;
+    // (undocumented)
+    status: 'passed' | 'failed' | 'declined' | 'unavailable';
+}
+
+// @public
+export interface VerificationV2Jwk {
+    // (undocumented)
+    alg: 'EdDSA';
+    // (undocumented)
+    crv: 'Ed25519';
+    // (undocumented)
+    kid: string;
+    // (undocumented)
+    kty: 'OKP';
+    // (undocumented)
+    status: 'active' | 'retained' | 'revoked';
+    // (undocumented)
+    use: 'sig';
+    // (undocumented)
+    x: string;
+}
+
+// @public
+export interface VerificationV2Jwks {
+    // (undocumented)
+    keys: VerificationV2Jwk[];
+}
+
+// @public
+export interface VerificationV2Proof {
+    // (undocumented)
+    profileId: string;
+    // (undocumented)
+    proof: string;
+    // (undocumented)
+    proofEncoding: 'bb_binary_proof_with_public_inputs_prefix';
+    // (undocumented)
+    publicInputs: string[];
+    // (undocumented)
+    vkId: string;
+}
+
+// @public
+export type VerificationV2Reason = 'verification_succeeded' | 'holder_denied' | 'session_expired' | 'invalid_proof' | 'attestation_not_found' | 'attestation_revoked' | 'credential_expired' | 'issuer_inactive' | 'check_unavailable' | 'dependency_unavailable';
+
+// @public
+export interface VerificationV2ReceiptExpected {
+    // (undocumented)
+    audience: string;
+    // (undocumented)
+    expiresAt?: string;
+    // (undocumented)
+    nonce: string;
+    // (undocumented)
+    requestedChecksDigest: string;
+    // (undocumented)
+    requestRef: string;
+    // (undocumented)
+    requestTypes: string[];
+    // (undocumented)
+    sessionId: string;
+    // (undocumented)
+    verifierOrigin: string;
+}
+
+// @public
+export interface VerificationV2ReceiptOptions {
+    // (undocumented)
+    now?: number;
+}
+
+// @public
+export interface VerificationV2ReceiptPayload {
+    // (undocumented)
+    aud: string;
+    // (undocumented)
+    checkedAt: string;
+    // (undocumented)
+    checkResults: VerificationV2CheckResult[];
+    // (undocumented)
+    iss: string;
+    // (undocumented)
+    nonce: string;
+    // (undocumented)
+    protocolVersion: 2;
+    // (undocumented)
+    requestedChecksDigest: string;
+    // (undocumented)
+    requestRefHash: string;
+    // (undocumented)
+    sessionId: string;
+}
+
+// @public
+export interface VerificationV2RequestedCheck extends VerificationRequestedCheck {
+    // (undocumented)
+    artifactRef?: string;
+    // (undocumented)
+    category?: string;
+    // (undocumented)
+    consentText?: string;
+    // (undocumented)
+    credentialPolicy?: {
+        validityMode: 'none' | 'fixed' | 'issuer_capped';
+        defaultValidityDays?: number;
+        maximumValidityDays?: number;
+        renewalMode: 'none' | 'holder_reissue' | 'silent_reissue';
+        renewalWindowDays?: number;
+        replacementMode?: 'deny' | 'replace_after_delivery' | 'parallel';
+    };
+    // (undocumented)
+    description?: string;
+    // (undocumented)
+    icon?: string;
+    // (undocumented)
+    issuerId?: string;
+    // (undocumented)
+    issuerKeyHashes?: string[];
+    // (undocumented)
+    issuerMiniProgramId?: string;
+    // (undocumented)
+    issuerServiceId?: string;
+    // (undocumented)
+    minRuntimeVersion?: string;
+    // (undocumented)
+    predicateId?: string;
+    // (undocumented)
+    predicateParams?: Record<string, unknown>;
+    // (undocumented)
+    profileVersion?: string;
+    // (undocumented)
+    proofEncodingFormat?: 'bb_binary_proof_with_public_inputs_prefix';
+    // (undocumented)
+    proofProfileId?: string;
+    // (undocumented)
+    proofVersion?: string;
+    // (undocumented)
+    proverArtifact?: Record<string, unknown>;
+    // (undocumented)
+    publicInputOrder?: string[];
+    // (undocumented)
+    schemaId?: string;
+    // (undocumented)
+    status?: 'active' | 'deprecated' | 'revoked';
+    // (undocumented)
+    templateType?: string;
+    // (undocumented)
+    witnessSchema?: VerificationV2WitnessSchemaEntry[];
+}
+
+// @public
+export function verificationV2RequestedChecksDigest(checks: VerificationV2Check[]): Promise<string>;
+
+// @public
+export interface VerificationV2RequestOptions {
+    // (undocumented)
+    signal?: AbortSignal;
+}
+
+// @public
+export interface VerificationV2Session extends VerificationV2Challenge {
+    // (undocumented)
+    qrPayload: string;
+    // (undocumented)
+    resultReadCapability: string;
+}
+
+// @public
+export interface VerificationV2Status {
+    // (undocumented)
+    checkedAt?: string;
+    // (undocumented)
+    checkResults?: VerificationV2CheckResult[];
+    // (undocumented)
+    expiresAt: string;
+    // (undocumented)
+    protocolVersion: 2;
+    // (undocumented)
+    receipt?: string;
+    // (undocumented)
+    retryable?: boolean;
+    // (undocumented)
+    sessionId: string;
+    // (undocumented)
+    status: 'created' | 'verifying' | 'verified' | 'denied' | 'rejected' | 'expired' | 'unavailable';
+}
+
+// @public
+export interface VerificationV2Submission {
+    // (undocumented)
+    checkResponses: VerificationV2CheckResponse[];
+    // (undocumented)
+    protocolVersion: 2;
+    // (undocumented)
+    requestedChecksDigest: string;
+    // (undocumented)
+    sessionId: string;
+    // (undocumented)
+    submissionId: string;
+}
+
+// @public
+export interface VerificationV2WitnessSchemaEntry {
+    // (undocumented)
+    index: number;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    path?: string;
+    // (undocumented)
+    source?: 'session' | 'credential' | 'claim' | 'predicate' | 'constant';
+    // (undocumented)
+    transform?: 'field' | 'date_year' | 'date_month' | 'date_day' | 'sha256_decimal';
+    // (undocumented)
+    value?: string | number | boolean;
+}
+
+// @public
 export interface VerifiedService {
     // (undocumented)
     accountPolicy: {
@@ -389,6 +725,9 @@ export interface VerifiedService {
     // (undocumented)
     status: 'active';
 }
+
+// @public
+export function verifyVerificationV2Receipt(receipt: string, expected: VerificationV2ReceiptExpected, jwks: VerificationV2Jwks, options?: VerificationV2ReceiptOptions): Promise<VerificationV2ReceiptPayload>;
 
 // (No @packageDocumentation comment for this package)
 

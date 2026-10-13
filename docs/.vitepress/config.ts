@@ -30,6 +30,7 @@ export default defineConfig({
         { text: 'Checkout-bound verification', link: '/concepts/checkout-bound-verification' },
       ]},
       { text: 'Guides', items: [
+        { text: 'Manual verification V2', link: '/guides/manual-verification-v2' },
         { text: 'Make your web app miniapp-ready', link: '/guides/miniapp-ready' },
         { text: 'Migrate to @u-net', link: '/migration/from-union-networks' },
         { text: 'Security 2 migration (RC)', link: '/migration/security-2' },
@@ -38,6 +39,7 @@ export default defineConfig({
         { text: 'Packages', link: '/packages/client' },
         { text: 'API Reference', link: '/api/generated/README' },
         { text: 'Provider environment', link: '/provider-environment' },
+        { text: '2.0.0-rc.5 verification candidate', link: '/releases/2.0.0-rc.5' },
         { text: '2.0.0-rc.3 tester preparation', link: '/releases/2.0.0-rc.3' },
         { text: '2.0.0-rc.1 historical preparation', link: '/releases/2.0.0-rc.1' },
         { text: 'Changelog', link: '/changelog' },

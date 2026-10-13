@@ -18,6 +18,244 @@ export interface components {
     responses: never;
     // (undocumented)
     schemas: {
+        VerificationV2WitnessSchemaEntry: {
+            index: number;
+            name: string;
+            source?: "session" | "credential" | "claim" | "predicate" | "constant";
+            path?: string;
+            value?: string | number | boolean;
+            transform?: "field" | "date_year" | "date_month" | "date_day" | "sha256_decimal";
+        };
+        VerificationV2ExpiryCheck: {
+            issuerServiceId?: string;
+            issuerMiniProgramId?: string;
+            status?: "active" | "deprecated" | "revoked";
+            predicateId?: string;
+            templateType?: string;
+            profileVersion?: string;
+            description?: string;
+            category?: string;
+            icon?: string;
+            consentText?: string;
+            proofVersion?: string;
+            proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+            witnessSchema?: components["schemas"]["VerificationV2WitnessSchemaEntry"][];
+            artifactRef?: string;
+            minRuntimeVersion?: string;
+            proverArtifact?: {
+                [key: string]: unknown;
+            };
+            credentialPolicy?: {
+                validityMode: "none" | "fixed" | "issuer_capped";
+                defaultValidityDays?: number;
+                maximumValidityDays?: number;
+                renewalMode: "none" | "holder_reissue" | "silent_reissue";
+                renewalWindowDays?: number;
+                replacementMode?: "deny" | "replace_after_delivery" | "parallel";
+            };
+            issuerId?: string;
+            predicateParams?: {
+                [key: string]: unknown;
+            };
+            issuerKeyHashes?: string[];
+            requestType: string;
+            schemaId: string;
+            proofProfileId: "claim_equals_v1";
+            circuitId: string;
+            vkId: string;
+            publicInputOrder: string[];
+            claimPath: "valid_until";
+            matchesCredentialValidUntil: true;
+            proofFormat?: "noir-barretenberg-v1";
+            oracleHash?: "poseidon2" | "keccak";
+            label?: string;
+        };
+        VerificationV2Check: {
+            issuerServiceId?: string;
+            issuerMiniProgramId?: string;
+            status?: "active" | "deprecated" | "revoked";
+            predicateId?: string;
+            templateType?: string;
+            profileVersion?: string;
+            description?: string;
+            category?: string;
+            icon?: string;
+            consentText?: string;
+            proofVersion?: string;
+            proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+            witnessSchema?: components["schemas"]["VerificationV2WitnessSchemaEntry"][];
+            artifactRef?: string;
+            minRuntimeVersion?: string;
+            proverArtifact?: {
+                [key: string]: unknown;
+            };
+            credentialPolicy?: {
+                validityMode: "none" | "fixed" | "issuer_capped";
+                defaultValidityDays?: number;
+                maximumValidityDays?: number;
+                renewalMode: "none" | "holder_reissue" | "silent_reissue";
+                renewalWindowDays?: number;
+                replacementMode?: "deny" | "replace_after_delivery" | "parallel";
+            };
+            requestType: string;
+            schemaId: string;
+            issuerId: string;
+            proofProfileId: string;
+            circuitId: string;
+            vkId: string;
+            predicateParams: {
+                [key: string]: unknown;
+            };
+            publicInputOrder: string[];
+            issuerKeyHashes: string[];
+            expiryCheck: components["schemas"]["VerificationV2ExpiryCheck"];
+            proofFormat?: "noir-barretenberg-v1";
+            oracleHash?: "poseidon2" | "keccak";
+            label?: string;
+        };
+        VerificationV2Challenge: {
+            protocolVersion: 2;
+            sessionId: string;
+            requestRef: string;
+            audience: string;
+            nonce: string;
+            verificationEpoch: number;
+            createdAt: string;
+            expiresAt: string;
+            requestedChecksDigest: string;
+            requestedChecks: components["schemas"]["VerificationV2Check"][];
+            title: string;
+        };
+        VerificationV2Session: {
+            protocolVersion: 2;
+            sessionId: string;
+            requestRef: string;
+            audience: string;
+            nonce: string;
+            verificationEpoch: number;
+            createdAt: string;
+            expiresAt: string;
+            requestedChecksDigest: string;
+            requestedChecks: components["schemas"]["VerificationV2Check"][];
+            title: string;
+            resultReadCapability: string;
+            qrPayload: string;
+        };
+        CreateVerificationV2SessionInput: {
+            requestTypes: string[];
+            title?: string;
+        };
+        VerificationV2Proof: {
+            profileId: string;
+            vkId: string;
+            publicInputs: string[];
+            proofEncoding: "bb_binary_proof_with_public_inputs_prefix";
+            proof: string;
+        };
+        VerificationV2CheckResponse: {
+            requestType: string;
+            decision: "deny";
+        } | {
+            requestType: string;
+            decision: "approve";
+            credential: {
+                attestationCommitment: string;
+                validUntilEpoch: number;
+                checkProof: components["schemas"]["VerificationV2Proof"];
+                expiryProof: components["schemas"]["VerificationV2Proof"];
+            };
+        };
+        VerificationV2Submission: {
+            protocolVersion: 2;
+            sessionId: string;
+            submissionId: string;
+            requestedChecksDigest: string;
+            checkResponses: components["schemas"]["VerificationV2CheckResponse"][];
+        };
+        VerificationV2CheckResult: {
+            requestType: string;
+            status: "passed";
+            reasonCode: "verification_succeeded";
+        } | {
+            requestType: string;
+            status: "declined";
+            reasonCode: "holder_denied";
+        } | {
+            requestType: string;
+            status: "failed";
+            reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+        } | {
+            requestType: string;
+            status: "unavailable";
+            reasonCode: "check_unavailable" | "dependency_unavailable";
+        };
+        VerificationV2Status: {
+            protocolVersion: 2;
+            sessionId: string;
+            expiresAt: string;
+            status: "created" | "verifying" | "expired";
+        } | {
+            protocolVersion: 2;
+            sessionId: string;
+            expiresAt: string;
+            status: "unavailable";
+            retryable: true;
+        } | {
+            protocolVersion: 2;
+            sessionId: string;
+            expiresAt: string;
+            status: "verified" | "denied" | "rejected";
+            checkedAt: string;
+            checkResults: ({
+                requestType: string;
+                status: "passed";
+                reasonCode: "verification_succeeded";
+            } | {
+                requestType: string;
+                status: "declined";
+                reasonCode: "holder_denied";
+            } | {
+                requestType: string;
+                status: "failed";
+                reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+            })[];
+            receipt: string;
+        };
+        VerificationV2ReceiptPayload: {
+            protocolVersion: 2;
+            iss: string;
+            aud: string;
+            sessionId: string;
+            requestRefHash: string;
+            nonce: string;
+            requestedChecksDigest: string;
+            checkedAt: string;
+            checkResults: ({
+                requestType: string;
+                status: "passed";
+                reasonCode: "verification_succeeded";
+            } | {
+                requestType: string;
+                status: "declined";
+                reasonCode: "holder_denied";
+            } | {
+                requestType: string;
+                status: "failed";
+                reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+            })[];
+        };
+        VerificationV2Jwk: {
+            kty: "OKP";
+            crv: "Ed25519";
+            x: string;
+            kid: string;
+            alg: "EdDSA";
+            use: "sig";
+            status: "active" | "retained" | "revoked";
+        };
+        VerificationV2Jwks: {
+            keys: components["schemas"]["VerificationV2Jwk"][];
+        };
         ServiceResolution: {
             success: true;
             registryRevision: string;
@@ -143,6 +381,30 @@ export interface operations {
         };
     };
     // (undocumented)
+    createVerificationV2Session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVerificationV2SessionInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Session"];
+                };
+            };
+        };
+    };
+    // (undocumented)
     getVerificationSession: {
         parameters: {
             query?: never;
@@ -160,6 +422,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerificationSession"];
+                };
+            };
+        };
+    };
+    // (undocumented)
+    getVerificationV2Challenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestRef: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Challenge"];
+                };
+            };
+        };
+    };
+    // (undocumented)
+    getVerificationV2Jwks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Jwks"];
+                };
+            };
+        };
+    };
+    // (undocumented)
+    getVerificationV2Status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        protocolVersion: 2;
+                        sessionId: string;
+                        expiresAt: string;
+                        status: "unavailable";
+                        retryable: true;
+                    } | {
+                        error: "verification_temporarily_unavailable";
+                        retryable: true;
+                    };
                 };
             };
         };
@@ -348,10 +697,78 @@ export interface operations {
             };
         };
     };
+    // (undocumented)
+    submitVerificationV2Response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestRef: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationV2Submission"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        protocolVersion: 2;
+                        sessionId: string;
+                        expiresAt: string;
+                        status: "unavailable";
+                        retryable: true;
+                    } | {
+                        error: "verification_temporarily_unavailable";
+                        retryable: true;
+                    };
+                };
+            };
+        };
+    };
 }
 
 // @public
 export interface paths {
+    // (undocumented)
+    "/.well-known/unet-verifier-jwks.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVerificationV2Jwks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     // (undocumented)
     "/v1/mini-programs": {
         parameters: {
@@ -480,6 +897,74 @@ export interface paths {
             cookie?: never;
         };
         get: operations["resolveService"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    // (undocumented)
+    "/v2/verification-requests/{requestRef}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVerificationV2Challenge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    // (undocumented)
+    "/v2/verification-requests/{requestRef}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitVerificationV2Response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    // (undocumented)
+    "/v2/verification-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createVerificationV2Session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    // (undocumented)
+    "/v2/verification-sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVerificationV2Status"];
         put?: never;
         post?: never;
         delete?: never;

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0-rc.5
+
+### Patch Changes
+
+- Updated dependencies
+  - @u-net/client@2.0.0-rc.5
+
+## 2.0.0-rc.4
+
+### Patch Changes
+
+- @u-net/client@2.0.0-rc.4
+
 ## 2.0.0-rc.3
 
 ### Major Changes

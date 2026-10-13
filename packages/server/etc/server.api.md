@@ -978,6 +978,8 @@ export interface UnetServiceManifestOptions {
     // (undocumented)
     maxAccounts?: number;
     // (undocumented)
+    miniappLaunchReadiness?: boolean;
+    // (undocumented)
     officialMessaging?: boolean;
     // (undocumented)
     origin: string;
@@ -1013,6 +1015,10 @@ export interface UnetServiceManifestV2 {
             renew: string;
             revocation: string;
         };
+    };
+    // (undocumented)
+    miniapp?: {
+        launchReadinessVersion: 1;
     };
     // (undocumented)
     origin: string;

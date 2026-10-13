@@ -5,6 +5,89 @@
  */
 
 export interface paths {
+    "/v2/verification-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a ten-minute manual verification challenge. Public QR has no result polling authority. No holder registration. */
+        post: operations["createVerificationV2Session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-requests/{requestRef}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVerificationV2Challenge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-requests/{requestRef}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit predicate and signed expiry proofs under an immutable submission ID. No holder IDs or holder JWS. Explicit retry requires consent. Proof bodies are not persisted. The UTF-8 JSON body is limited to 4 MiB in total; individual proof limits do not override that aggregate budget. */
+        post: operations["submitVerificationV2Response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Private status polling. Capability is required in Authorization: Bearer only. Query-string authority is prohibited. */
+        get: operations["getVerificationV2Status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/.well-known/unet-verifier-jwks.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVerificationV2Jwks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/services/resolve": {
         parameters: {
             query?: never;
@@ -140,6 +223,343 @@ export type webhooks = Record<string, never>;
 /** @public */
 export interface components {
     schemas: {
+        VerificationV2WitnessSchemaEntry: {
+            index: number;
+            name: string;
+            /** Enum (string). */
+            source?: "session" | "credential" | "claim" | "predicate" | "constant";
+            path?: string;
+            value?: string | number | boolean;
+            /** Enum (string). */
+            transform?: "field" | "date_year" | "date_month" | "date_day" | "sha256_decimal";
+        };
+        VerificationV2ExpiryCheck: {
+            issuerServiceId?: string;
+            issuerMiniProgramId?: string;
+            /** Enum (string). */
+            status?: "active" | "deprecated" | "revoked";
+            predicateId?: string;
+            templateType?: string;
+            profileVersion?: string;
+            description?: string;
+            category?: string;
+            icon?: string;
+            consentText?: string;
+            proofVersion?: string;
+            /** Constant value. */
+            proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+            witnessSchema?: components["schemas"]["VerificationV2WitnessSchemaEntry"][];
+            artifactRef?: string;
+            minRuntimeVersion?: string;
+            proverArtifact?: {
+                [key: string]: unknown;
+            };
+            credentialPolicy?: {
+                /** Enum (string). */
+                validityMode: "none" | "fixed" | "issuer_capped";
+                defaultValidityDays?: number;
+                maximumValidityDays?: number;
+                /** Enum (string). */
+                renewalMode: "none" | "holder_reissue" | "silent_reissue";
+                renewalWindowDays?: number;
+                /** Enum (string). */
+                replacementMode?: "deny" | "replace_after_delivery" | "parallel";
+            };
+            issuerId?: string;
+            predicateParams?: {
+                [key: string]: unknown;
+            };
+            issuerKeyHashes?: string[];
+            requestType: string;
+            schemaId: string;
+            /** Constant value. */
+            proofProfileId: "claim_equals_v1";
+            circuitId: string;
+            vkId: string;
+            publicInputOrder: string[];
+            /** Constant value. */
+            claimPath: "valid_until";
+            /** Constant value. */
+            matchesCredentialValidUntil: true;
+            /** Constant value. */
+            proofFormat?: "noir-barretenberg-v1";
+            /** Enum (string). */
+            oracleHash?: "poseidon2" | "keccak";
+            label?: string;
+        };
+        VerificationV2Check: {
+            issuerServiceId?: string;
+            issuerMiniProgramId?: string;
+            /** Enum (string). */
+            status?: "active" | "deprecated" | "revoked";
+            predicateId?: string;
+            templateType?: string;
+            profileVersion?: string;
+            description?: string;
+            category?: string;
+            icon?: string;
+            consentText?: string;
+            proofVersion?: string;
+            /** Constant value. */
+            proofEncodingFormat?: "bb_binary_proof_with_public_inputs_prefix";
+            witnessSchema?: components["schemas"]["VerificationV2WitnessSchemaEntry"][];
+            artifactRef?: string;
+            minRuntimeVersion?: string;
+            proverArtifact?: {
+                [key: string]: unknown;
+            };
+            credentialPolicy?: {
+                /** Enum (string). */
+                validityMode: "none" | "fixed" | "issuer_capped";
+                defaultValidityDays?: number;
+                maximumValidityDays?: number;
+                /** Enum (string). */
+                renewalMode: "none" | "holder_reissue" | "silent_reissue";
+                renewalWindowDays?: number;
+                /** Enum (string). */
+                replacementMode?: "deny" | "replace_after_delivery" | "parallel";
+            };
+            requestType: string;
+            schemaId: string;
+            issuerId: string;
+            proofProfileId: string;
+            circuitId: string;
+            vkId: string;
+            predicateParams: {
+                [key: string]: unknown;
+            };
+            publicInputOrder: string[];
+            issuerKeyHashes: string[];
+            expiryCheck: components["schemas"]["VerificationV2ExpiryCheck"];
+            /** Constant value. */
+            proofFormat?: "noir-barretenberg-v1";
+            /** Enum (string). */
+            oracleHash?: "poseidon2" | "keccak";
+            label?: string;
+        };
+        VerificationV2Challenge: {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            requestRef: string;
+            /** Format: uri */
+            audience: string;
+            nonce: string;
+            verificationEpoch: number;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            expiresAt: string;
+            requestedChecksDigest: string;
+            requestedChecks: components["schemas"]["VerificationV2Check"][];
+            title: string;
+        };
+        VerificationV2Session: {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            requestRef: string;
+            /** Format: uri */
+            audience: string;
+            nonce: string;
+            verificationEpoch: number;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            expiresAt: string;
+            requestedChecksDigest: string;
+            requestedChecks: components["schemas"]["VerificationV2Check"][];
+            title: string;
+            /** Private result-read authority. Authorization header only; never QR, query, logs or chat messages. */
+            resultReadCapability: string;
+            qrPayload: string;
+        };
+        CreateVerificationV2SessionInput: {
+            requestTypes: string[];
+            title?: string;
+        };
+        VerificationV2Proof: {
+            profileId: string;
+            vkId: string;
+            publicInputs: string[];
+            /** Constant value. */
+            proofEncoding: "bb_binary_proof_with_public_inputs_prefix";
+            proof: string;
+        };
+        VerificationV2CheckResponse: {
+            requestType: string;
+            /** Constant value. */
+            decision: "deny";
+        } | {
+            requestType: string;
+            /** Constant value. */
+            decision: "approve";
+            credential: {
+                attestationCommitment: string;
+                validUntilEpoch: number;
+                checkProof: components["schemas"]["VerificationV2Proof"];
+                expiryProof: components["schemas"]["VerificationV2Proof"];
+            };
+        };
+        VerificationV2Submission: {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            submissionId: string;
+            requestedChecksDigest: string;
+            checkResponses: components["schemas"]["VerificationV2CheckResponse"][];
+        };
+        VerificationV2CheckResult: {
+            requestType: string;
+            /** Constant value. */
+            status: "passed";
+            /** Constant value. */
+            reasonCode: "verification_succeeded";
+        } | {
+            requestType: string;
+            /** Constant value. */
+            status: "declined";
+            /** Constant value. */
+            reasonCode: "holder_denied";
+        } | {
+            requestType: string;
+            /** Constant value. */
+            status: "failed";
+            /** Enum (string). */
+            reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+        } | {
+            requestType: string;
+            /** Constant value. */
+            status: "unavailable";
+            /** Enum (string). */
+            reasonCode: "check_unavailable" | "dependency_unavailable";
+        };
+        VerificationV2Status: {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            expiresAt: string;
+            /** Enum (string). */
+            status: "created" | "verifying" | "expired";
+        } | {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            expiresAt: string;
+            /** Constant value. */
+            status: "unavailable";
+            /** Constant value. */
+            retryable: true;
+        } | {
+            /** Constant value. */
+            protocolVersion: 2;
+            sessionId: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            expiresAt: string;
+            /** Enum (string). */
+            status: "verified" | "denied" | "rejected";
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            checkedAt: string;
+            checkResults: ({
+                requestType: string;
+                /** Constant value. */
+                status: "passed";
+                /** Constant value. */
+                reasonCode: "verification_succeeded";
+            } | {
+                requestType: string;
+                /** Constant value. */
+                status: "declined";
+                /** Constant value. */
+                reasonCode: "holder_denied";
+            } | {
+                requestType: string;
+                /** Constant value. */
+                status: "failed";
+                /** Enum (string). */
+                reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+            })[];
+            receipt: string;
+        };
+        VerificationV2ReceiptPayload: {
+            /** Constant value. */
+            protocolVersion: 2;
+            /** Format: uri */
+            iss: string;
+            /** Format: uri */
+            aud: string;
+            sessionId: string;
+            requestRefHash: string;
+            nonce: string;
+            requestedChecksDigest: string;
+            /**
+             * Format: date-time
+             * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+             */
+            checkedAt: string;
+            checkResults: ({
+                requestType: string;
+                /** Constant value. */
+                status: "passed";
+                /** Constant value. */
+                reasonCode: "verification_succeeded";
+            } | {
+                requestType: string;
+                /** Constant value. */
+                status: "declined";
+                /** Constant value. */
+                reasonCode: "holder_denied";
+            } | {
+                requestType: string;
+                /** Constant value. */
+                status: "failed";
+                /** Enum (string). */
+                reasonCode: "session_expired" | "invalid_proof" | "attestation_not_found" | "attestation_revoked" | "credential_expired" | "issuer_inactive";
+            })[];
+        };
+        VerificationV2Jwk: {
+            /** Constant value. */
+            kty: "OKP";
+            /** Constant value. */
+            crv: "Ed25519";
+            x: string;
+            kid: string;
+            /** Constant value. */
+            alg: "EdDSA";
+            /** Constant value. */
+            use: "sig";
+            /** Enum (string). */
+            status: "active" | "retained" | "revoked";
+        };
+        VerificationV2Jwks: {
+            keys: components["schemas"]["VerificationV2Jwk"][];
+        };
         ServiceResolution: {
             /** Constant value. */
             success: true;
@@ -264,6 +684,190 @@ export interface components {
 export type $defs = Record<string, never>;
 /** @public */
 export interface operations {
+    createVerificationV2Session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVerificationV2SessionInput"];
+            };
+        };
+        responses: {
+            /** Public challenge plus separate private result-read capability */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Session"];
+                };
+            };
+        };
+    };
+    getVerificationV2Challenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestRef: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** Immutable public request and approved predicate/expiry metadata; no results or capabilities */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Challenge"];
+                };
+            };
+        };
+    };
+    submitVerificationV2Response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestRef: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationV2Submission"];
+            };
+        };
+        responses: {
+            /** Recorded result and optional compact EdDSA historical receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            /** Submission accepted or reserved; state remains pending */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            /** Retryable dependency failure; typed status is session-bound and contains no private payload. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Constant value. */
+                        protocolVersion: 2;
+                        sessionId: string;
+                        /**
+                         * Format: date-time
+                         * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+                         */
+                        expiresAt: string;
+                        /** Constant value. */
+                        status: "unavailable";
+                        /** Constant value. */
+                        retryable: true;
+                    } | {
+                        /** Constant value. */
+                        error: "verification_temporarily_unavailable";
+                        /** Constant value. */
+                        retryable: true;
+                    };
+                };
+            };
+        };
+    };
+    getVerificationV2Status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** Private session status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Status"];
+                };
+            };
+            /** Missing or invalid private capability */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** Retryable dependency failure; typed status is session-bound and contains no private payload. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Constant value. */
+                        protocolVersion: 2;
+                        sessionId: string;
+                        /**
+                         * Format: date-time
+                         * Canonical Date.toISOString() UTC timestamp with millisecond precision.
+                         */
+                        expiresAt: string;
+                        /** Constant value. */
+                        status: "unavailable";
+                        /** Constant value. */
+                        retryable: true;
+                    } | {
+                        /** Constant value. */
+                        error: "verification_temporarily_unavailable";
+                        /** Constant value. */
+                        retryable: true;
+                    };
+                };
+            };
+        };
+    };
+    getVerificationV2Jwks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** Purpose-specific active, retained, and revoked result-signing keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerificationV2Jwks"];
+                };
+            };
+        };
+    };
     resolveService: {
         parameters: {
             query: {
