@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runMiniappLogin } from './index.js';
-import type { DirectProviderLoginChallenge, MiniappLoginApproval, MiniappLoginOptions } from './index.js';
+import type { DirectProviderLoginChallenge, MiniappLoginApproval, MiniappLoginApprovalContext, MiniappLoginOptions } from './index.js';
 
 const origin = 'https://shop.example';
 const launchToken = 'a'.repeat(64);
@@ -35,7 +35,7 @@ describe('runMiniappLogin', () => {
     const result = await runMiniappLogin(options);
     expect(result).toEqual({ ...account, displayName: 'Initialized' });
     const signal = options.createChallenge.mock.calls[0]![0];
-    expect(options.approve).toHaveBeenCalledWith(challenge, signal);
+    expect(options.approve).toHaveBeenCalledWith(challenge, signal, { expiresAtMs: Date.parse(challenge.expiresAtIso) });
     expect(options.exchange).toHaveBeenCalledWith(challenge, signal);
     expect(options.initialize).toHaveBeenCalledWith(account, signal);
     expect(options.complete).toHaveBeenCalledExactlyOnceWith({
@@ -44,6 +44,42 @@ describe('runMiniappLogin', () => {
     }, signal);
     expect(options.complete.mock.invocationCallOrder[0]).toBeGreaterThan(options.initialize.mock.invocationCallOrder[0]!);
     expect(signal.aborted).toBe(true);
+  });
+
+  it.each([
+    { timeoutMs: 60_000, challengeMs: 120_000, elapsedMs: 20_000, expectedMs: 60_000 },
+    { timeoutMs: 60_000, challengeMs: 45_000, elapsedMs: 20_000, expectedMs: 45_000 },
+    { timeoutMs: 40_000, challengeMs: 60_000, elapsedMs: 10_000, expectedMs: 40_000 },
+  ])('shares the original bounded deadline immediately before approval (%j)', async ({ timeoutMs, challengeMs, elapsedMs, expectedMs }) => {
+    vi.useFakeTimers();
+    const startedAt = Date.now();
+    const { options, challenge, approval } = fixture();
+    challenge.expiresAtIso = new Date(startedAt + challengeMs).toISOString();
+    options.createChallenge.mockImplementationOnce(async () => {
+      vi.setSystemTime(startedAt + elapsedMs);
+      return challenge;
+    });
+    const approve = vi.fn(async (value: DirectProviderLoginChallenge, signal: AbortSignal, context: MiniappLoginApprovalContext) => {
+      expect(value).toEqual(challenge);
+      expect(signal.aborted).toBe(false);
+      expect(context).toEqual({ expiresAtMs: startedAt + expectedMs });
+      expect(context.expiresAtMs - Date.now()).toBe(expectedMs - elapsedMs);
+      expect(Object.isFrozen(context)).toBe(true);
+      return approval;
+    });
+    await expect(runMiniappLogin({ ...options, timeoutMs, approve })).resolves.toMatchObject({ scopedUserId: approval.scopedUserId });
+    expect(approve).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call approval if the original budget expires while creating the challenge', async () => {
+    vi.useFakeTimers();
+    const { options, challenge } = fixture();
+    options.createChallenge.mockImplementationOnce(async () => {
+      vi.setSystemTime(Date.now() + 60_000);
+      return challenge;
+    });
+    await expect(runMiniappLogin(options)).rejects.toThrow('miniapp_login_aborted');
+    expect(options.approve).not.toHaveBeenCalled();
   });
 
   it.each(['exchange', 'initialize'] as const)('rejects a different authoritative %s account and completes failed without identity data', async (step) => {

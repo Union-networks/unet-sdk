@@ -77,10 +77,16 @@ const options = {
       return new Response(JSON.stringify({ success: true, challenge }));
     } });
   },
-  approve: async (value) => ({
-    requestRef: value.requestRef, approved: true, scopedUserId: account.scopedUserId,
-    launchReadiness: { version: 1, launchToken, expiresAtMs: Date.now() + 30_000 },
-  }),
+  approve: async (value, signal, context) => {
+    assert.equal(signal.aborted, false);
+    assert.deepEqual(Object.keys(context), ['expiresAtMs']);
+    assert.equal(context.expiresAtMs, Date.parse(challenge.expiresAtIso));
+    assert.equal(Object.isFrozen(context), true);
+    return {
+      requestRef: value.requestRef, approved: true, scopedUserId: account.scopedUserId,
+      launchReadiness: { version: 1, launchToken, expiresAtMs: Date.now() + 30_000 },
+    };
+  },
   exchange: async (value, signal) => {
     await exchangeDirectProviderLogin(origin, value.requestRef, { signal, fetchImpl: async (url, init) => {
       calls.push({ url: String(url), init });
@@ -109,7 +115,7 @@ assert.deepEqual(createUnetServiceManifest({ serviceId: 'shop', origin, miniappL
 writeFileSync(`artifacts/${version}-miniapp-consumer-receipt.json`, `${JSON.stringify({
   version, status: 'passed', runtime: process.version, consumer,
   limitation: 'Exact canonical tarballs extracted; external dependencies reused from installed SDK, not a fresh package-manager install or registry provenance verification.',
-  checks: ['sha256', 'file-inventory', 'rc-version-alignment', 'published-compatible-internal-ranges', 'dependency-closure', 'four-esm-imports', 'browser-cookie-exchange', 'helper-ready', 'ready-acknowledgement-required', 'readiness-64hex-token', 'readiness-expiry-cap', 'authoritative-account-mismatch', 'manifest-opt-in'],
+  checks: ['sha256', 'file-inventory', 'rc-version-alignment', 'published-compatible-internal-ranges', 'dependency-closure', 'four-esm-imports', 'browser-cookie-exchange', 'helper-ready', 'original-approval-deadline-context', 'ready-acknowledgement-required', 'readiness-64hex-token', 'readiness-expiry-cap', 'authoritative-account-mismatch', 'manifest-opt-in'],
   artifacts: manifest.artifacts,
 }, null, 2)}\n`);
 console.log('Exact miniapp candidate tarballs, dependency ranges, hashes and packed smoke passed.');

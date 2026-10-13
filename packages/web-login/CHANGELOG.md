@@ -4,6 +4,11 @@
 
 ### Patch Changes
 
+- Pass the original overall/challenge deadline to approval as the third typed
+  `MiniappLoginApprovalContext` argument. Native adapters forward `expiresAtMs`
+  as `loginDeadlineMs`; elapsed picker/authentication/proof time cannot reset the
+  deadline. Existing two-argument callback functions remain assignable.
+
 - Add the browser-safe generic runMiniappLogin callback flow with authoritative
   account matching, bounded abort/deadline handling, and exact host launch
   completion payloads. Preserve initiating-WebView cookies, reject redirects, and

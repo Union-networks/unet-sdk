@@ -3,6 +3,7 @@
 ## 2.0.0-rc.4 (local candidate, unpublished)
 
 - Added `runMiniappLogin` with callback-based host approval, browser-cookie exchange, authoritative account matching, initial-status initialization, and exact readiness completion.
+- Added the third `MiniappLoginApprovalContext` argument to approval, forwarding the original bounded deadline as native `loginDeadlineMs` without resetting the login budget. This updates the same unpublished RC4 local candidate, not a registry artifact.
 - Required the host's explicit `{ completed: true }` acknowledgement before returning a ready account; validated native 64-hex readiness capabilities, fixed V1 fields, a maximum 30-second expiry, and a maximum 15-second post-approval initial-status deadline.
 - Added abort propagation and redirect rejection to browser Direct Login HTTP helpers.
 - Added opt-in service-manifest `miniapp: { launchReadinessVersion: 1 }` through `miniappLaunchReadiness: true`.

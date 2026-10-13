@@ -36,6 +36,14 @@ export interface MiniappLaunchCompletion {
   outcome: 'success' | 'unavailable';
 }
 
+/** Original login deadline shared with host.createServiceSession, not a new approval budget.
+ * @public
+ */
+export interface MiniappLoginApprovalContext {
+  /** Unix milliseconds: the earlier of the overall login deadline and challenge expiry. Forward as loginDeadlineMs so the host fences picker, authentication, proofs and approval against the same deadline. */
+  readonly expiresAtMs: number;
+}
+
 /** Transport adapters must preserve the initiating WebView's same-origin cookie.
  * @public
  */
@@ -45,7 +53,8 @@ export interface MiniappLoginOptions<Account extends MiniappLoginAccount> {
   /** Positive integer milliseconds, at most 60 seconds (default). After approval the native initial-status budget is at most 15 seconds, also bounded by challenge/readiness expiry. */
   timeoutMs?: number;
   createChallenge: (signal: AbortSignal) => Promise<DirectProviderLoginChallenge>;
-  approve: (challenge: DirectProviderLoginChallenge, signal: AbortSignal) => Promise<MiniappLoginApproval>;
+  /** Forward context.expiresAtMs as loginDeadlineMs with requestRef/publicChallenge. The native budget must not restart after picker or biometric work. Two-argument callbacks remain assignable but must adopt the deadline handshake for native enforcement. */
+  approve: (challenge: DirectProviderLoginChallenge, signal: AbortSignal, context: MiniappLoginApprovalContext) => Promise<MiniappLoginApproval>;
   exchange: (challenge: DirectProviderLoginChallenge, signal: AbortSignal) => Promise<Account>;
   /** Return the authoritative initial-status account within the shared 15-second post-approval budget. */
   initialize: (account: Account, signal: AbortSignal) => Promise<Account>;
@@ -121,7 +130,10 @@ export async function runMiniappLogin<Account extends MiniappLoginAccount>(optio
       throw new Error('miniapp_login_challenge_invalid');
     }
     boundDeadline(Date.parse(challenge.expiresAtIso));
-    const approved = await runStep(controller.signal, () => options.approve(challenge, controller.signal), 'miniapp_login_approval_failed');
+    const approved = await runStep(controller.signal, () => {
+      checkDeadline();
+      return options.approve(challenge, controller.signal, Object.freeze({ expiresAtMs: deadline }));
+    }, 'miniapp_login_approval_failed');
     checkDeadline();
     const readiness = approved?.launchReadiness;
     if (approved?.approved !== true || approved.requestRef !== challenge.requestRef || !nonempty(approved.scopedUserId)

@@ -44,7 +44,11 @@ const login: MiniappLoginOptions<Account> = {
   signal: launchController.signal,
   timeoutMs: 60_000,
   createChallenge: (signal) => createDirectProviderLogin(window.location.origin, { signal }),
-  approve: (challenge, signal) => hostRequest('host.createServiceSession', { challenge }, signal),
+  approve: (challenge, signal, context) => hostRequest('host.createServiceSession', {
+    requestRef: challenge.requestRef,
+    publicChallenge: challenge,
+    loginDeadlineMs: context.expiresAtMs,
+  }, signal),
   exchange: (challenge, signal) => exchangeAndReadAccount(challenge.requestRef, signal),
   initialize: (account, signal) => loadInitialStatus(account, signal),
   complete: (payload, signal) => hostRequest('host.completeLaunch', payload, signal),
@@ -53,7 +57,9 @@ const account = await runMiniappLogin(login);
 // Update the current document's view; do not redirect to continue this launch.
 ```
 
-`approve(challenge, signal)` must return the host's response for that exact challenge:
+`approve(challenge, signal, context)` receives `MiniappLoginApprovalContext`, a frozen `{ expiresAtMs: number }` immediately before approval. This is the original overall/challenge deadline, not a fresh 60-second budget. Forward it as `loginDeadlineMs` with the exact `requestRef` and `publicChallenge`. The host must validate the finite safe-integer timestamp (future and at most 60 seconds away), fence picker/authentication/proofs/approval against it, and never extend it after biometrics or proof loops. Existing two-argument callbacks remain TypeScript-compatible but must adopt this handshake to work with a deadline-enforcing host.
+
+The approval callback must return the host's response for that exact challenge:
 
 ```ts
 {

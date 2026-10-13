@@ -17,3 +17,8 @@ Ready requires the actual host acknowledgement `{ completed: true }`. Validate
 exact V1 readiness fields, a 64-hex native capability and at most 30-second future
 expiry. Exchange, initialization and acknowledgement share a maximum 15-second
 post-approval deadline; overall timeout is a positive integer at most 60 seconds.
+
+The third typed approval argument carries the original overall/challenge deadline
+as `MiniappLoginApprovalContext.expiresAtMs`. Forward it as native loginDeadlineMs
+so native picker, authentication, proofs and approval share the original budget.
+Existing two-argument callback functions remain assignable.

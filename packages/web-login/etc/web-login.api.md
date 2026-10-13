@@ -153,9 +153,13 @@ export interface MiniappLoginApproval {
 }
 
 // @public
+export interface MiniappLoginApprovalContext {
+    readonly expiresAtMs: number;
+}
+
+// @public
 export interface MiniappLoginOptions<Account extends MiniappLoginAccount> {
-    // (undocumented)
-    approve: (challenge: DirectProviderLoginChallenge, signal: AbortSignal) => Promise<MiniappLoginApproval>;
+    approve: (challenge: DirectProviderLoginChallenge, signal: AbortSignal, context: MiniappLoginApprovalContext) => Promise<MiniappLoginApproval>;
     complete: (completion: MiniappLaunchCompletion, signal: AbortSignal) => Promise<unknown>;
     // (undocumented)
     createChallenge: (signal: AbortSignal) => Promise<DirectProviderLoginChallenge>;

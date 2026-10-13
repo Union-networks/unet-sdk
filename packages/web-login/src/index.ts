@@ -174,4 +174,4 @@ export const getDirectDomainAdministrationSelectionStatus = (requestRef: string,
 
 export type { ResolveServiceInput, ServiceResolution, UnetClientOptions, VerifiedService } from '@u-net/client';
 export { runMiniappLogin } from './miniappLogin.js';
-export type { MiniappLaunchCompletion, MiniappLoginAccount, MiniappLoginApproval, MiniappLoginOptions } from './miniappLogin.js';
+export type { MiniappLaunchCompletion, MiniappLoginAccount, MiniappLoginApproval, MiniappLoginApprovalContext, MiniappLoginOptions } from './miniappLogin.js';
